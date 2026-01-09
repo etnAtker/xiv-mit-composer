@@ -196,7 +196,8 @@ const DamageLane = memo(({
     height,
     top,
     visibleRange,
-    onHover
+    onHover,
+    lineHeight
 }: {
     events: DamageEvent[],
     mitEvents: MitEvent[],
@@ -204,7 +205,8 @@ const DamageLane = memo(({
     height: number,
     top: number,
     visibleRange: { start: number, end: number },
-    onHover: (data: TooltipData | null) => void
+    onHover: (data: TooltipData | null) => void,
+    lineHeight: number
 }) => {
     // 虚拟化过滤 + 聚类
     const visibleClusters = useMemo(() => {
@@ -238,7 +240,8 @@ const DamageLane = memo(({
 
                 return (
                     <g key={`c-${cIdx}`}>
-                        <line x1={cluster.startX} y1={-20} x2={cluster.startX} y2={height} stroke={color} strokeWidth={1} strokeDasharray="2 2" opacity={0.3} />
+                        {/* 虚线延伸到底部 */}
+                        <line x1={cluster.startX} y1={-20} x2={cluster.startX} y2={lineHeight} stroke={color} strokeWidth={2} strokeDasharray="3 3" opacity={0.5} />
 
                         {cluster.events.map((ev, idx) => {
                             const x = (ev.tMs / 1000) * zoom;
@@ -617,7 +620,16 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                         })}
 
                         <CastLane events={castEvents} zoom={zoom} height={CAST_H} top={CAST_Y} visibleRange={visibleRange} onHover={setTooltip} />
-                        <DamageLane events={damageEvents} mitEvents={mitEvents} zoom={zoom} height={60} top={DMG_Y} visibleRange={visibleRange} onHover={setTooltip} />
+                        <DamageLane
+                            events={damageEvents}
+                            mitEvents={mitEvents}
+                            zoom={zoom}
+                            height={60}
+                            top={DMG_Y}
+                            visibleRange={visibleRange}
+                            onHover={setTooltip}
+                            lineHeight={(MIT_Y - DMG_Y) + MIT_AREA_H}
+                        />
 
                         {/* 减伤区标题 */}
                         <text x={10} y={MIT_Y - 5} fill="#9CA3AF" fontSize={12} fontWeight="bold">减伤 (Mitigation)</text>
