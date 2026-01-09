@@ -5,11 +5,12 @@ import { format } from 'date-fns';
 import { SKILLS } from '../../data/skills';
 import type { CastEvent, DamageEvent, MitEvent } from '../../model/types';
 
-// Components
+// 组件
 import { DraggableMitigation } from './DraggableMitigation';
 
 // 估算文本宽度的辅助函数 (字符数 * 平均宽度)
 const CHAR_W = 7; // 字体大小 12 时每个字符的预估像素宽度
+
 // 截断辅助函数：限制在大约 8 个中文字符的宽度（约 16 个 ASCII 字符）
 const TRUNCATE_LEN = 12;
 
@@ -51,7 +52,7 @@ const getCastColor = (type: string) =>
 const getDamageColor = (isMitigated: boolean) =>
     isMitigated ? EVENT_COLORS.damage.mitigated : EVENT_COLORS.damage.unmitigated;
 
-// Cluster helper
+// 聚类辅助函数
 function clusterEvents<T extends { tMs: number }>(events: T[], zoom: number, gap: number = 15) {
     const clusters: { events: T[], startX: number, endX: number }[] = [];
     if (!events.length) return clusters;
@@ -83,16 +84,29 @@ function clusterEvents<T extends { tMs: number }>(events: T[], zoom: number, gap
 }
 
 /** 性能优化：独立的 Cast Lane 组件，避免父组件重渲染导致全部重绘 */
-const CastLane = memo(({ events, zoom, height, top, visibleRange, onHover }: { events: CastEvent[], zoom: number, height: number, top: number, visibleRange: { start: number, end: number }, onHover: (data: TooltipData | null) => void }) => {
+const CastLane = memo(({
+    events,
+    zoom,
+    height,
+    top,
+    visibleRange,
+    onHover
+}: {
+    events: CastEvent[],
+    zoom: number,
+    height: number,
+    top: number,
+    visibleRange: { start: number, end: number },
+    onHover: (data: TooltipData | null) => void
+}) => {
     // 虚拟化过滤 + 聚类
     const visibleClusters = useMemo(() => {
         const visible = events.filter(e => e.tMs >= visibleRange.start - 2000 && e.tMs <= visibleRange.end + 2000);
-        return clusterEvents(visible, zoom, 15); // 15px gap threshold
+        return clusterEvents(visible, zoom, 15); // 15px 间隙阈值
     }, [events, visibleRange, zoom]);
 
     return (
         <g transform={`translate(0, ${top})`}>
-            {/* <line x1={0} y1={height / 2} x2="100%" y2={height / 2} stroke="#4B5563" strokeWidth={1} /> */}
             <text x={10} y={-5} fill="#9CA3AF" fontSize={12} fontWeight="bold">读条 (Casts)</text>
 
             {visibleClusters.map((cluster, cIdx) => {
@@ -175,7 +189,23 @@ const CastLane = memo(({ events, zoom, height, top, visibleRange, onHover }: { e
 });
 
 /** 性能优化：独立的 Damage Lane 组件 */
-const DamageLane = memo(({ events, mitEvents, zoom, height, top, visibleRange, onHover }: { events: DamageEvent[], mitEvents: MitEvent[], zoom: number, height: number, top: number, visibleRange: { start: number, end: number }, onHover: (data: TooltipData | null) => void }) => {
+const DamageLane = memo(({
+    events,
+    mitEvents,
+    zoom,
+    height,
+    top,
+    visibleRange,
+    onHover
+}: {
+    events: DamageEvent[],
+    mitEvents: MitEvent[],
+    zoom: number,
+    height: number,
+    top: number,
+    visibleRange: { start: number, end: number },
+    onHover: (data: TooltipData | null) => void
+}) => {
     // 虚拟化过滤 + 聚类
     const visibleClusters = useMemo(() => {
         const visible = events.filter(e => e.tMs >= visibleRange.start - 2000 && e.tMs <= visibleRange.end + 2000);
@@ -196,9 +226,12 @@ const DamageLane = memo(({ events, mitEvents, zoom, height, top, visibleRange, o
                 const isCovered = cluster.events.some(ev => mitEvents.some(m => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs));
                 const color = getDamageColor(isCovered);
 
+                const damageNumStr = (firstEv.unmitigatedAmount / 1000).toFixed(0)
+                const damageStr = isNaN(Number(damageNumStr)) ? '???' : `${damageNumStr}k`
+
                 const labelText = count > 1
-                    ? `${(firstEv.unmitigatedAmount / 1000).toFixed(0)}k ${truncateText(firstEv.ability.name ? `(${firstEv.ability.name})` : '', TRUNCATE_LEN)} (+${count - 1})`
-                    : `${(firstEv.unmitigatedAmount / 1000).toFixed(0)}k ${truncateText(firstEv.ability.name ? `(${firstEv.ability.name})` : '', TRUNCATE_LEN + 5)}`;
+                    ? `${damageStr} ${truncateText(firstEv.ability.name ? `(${firstEv.ability.name})` : '', TRUNCATE_LEN)} (+${count - 1})`
+                    : `${damageStr} ${truncateText(firstEv.ability.name ? `(${firstEv.ability.name})` : '', TRUNCATE_LEN + 5)}`;
 
                 const hitX = cluster.startX - 8;
                 const hitW = Math.max((cluster.endX - cluster.startX) + 16, 60);
@@ -234,7 +267,6 @@ const DamageLane = memo(({ events, mitEvents, zoom, height, top, visibleRange, o
                             {labelText}
                         </text>
 
-                        {/* Combined Hit Area */}
                         <rect
                             x={hitX}
                             y={0}
@@ -316,7 +348,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
 
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
-    }, [contextMenu, selectedMitIds]);
+    }, [contextMenu, selectedMitIds, setSelectedMitIds]);
 
     // Mit Lane 的 Droppable 区域
     const { setNodeRef: setMitLaneRef } = useDroppable({
@@ -383,7 +415,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
         if (!mitEvents.length) return [];
         const zones: React.ReactElement[] = [];
 
-        // Group by skill
+        // 按技能分组
         const bySkill: Record<string, MitEvent[]> = {};
         mitEvents.forEach(m => {
             // 跳过正在拖拽的事件，因为它的旧 CD 区域不再有效
@@ -401,7 +433,6 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
             if (rowIndex === undefined) return;
 
             const rowY = rowIndex * 40; // ROW_HEIGHT
-            // const cdMs = skillDef.cooldownSec * 1000; // 未使用
 
             events.forEach(ev => {
                 const startX = (ev.tStartMs / 1000) * zoom;

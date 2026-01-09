@@ -1,16 +1,15 @@
 import type { MitEvent } from '../../model/types';
 import { SKILLS } from '../../data/skills';
 import { cn } from '../../utils';
-// import { useState } from 'react'; // Unused
 
 interface Props {
     mit: MitEvent;
-    width: number; // exact pixel width
+    width: number; // 精确像素宽度
     className?: string;
     isSelected?: boolean;
     onClick?: (mit: MitEvent, e: React.MouseEvent) => void;
     onRightClick?: (e: React.MouseEvent, mit: MitEvent) => void;
-    // We don't need drag handlers here, just visual
+    // 仅用于展示，无需拖拽处理
     isOverlay?: boolean;
 }
 

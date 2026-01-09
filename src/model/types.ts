@@ -23,10 +23,11 @@ export interface Skill {
     job: Job | 'ALL';
     icon?: string;
     color?: string;
+    actionId?: number; // FFLogs 技能 ID
 }
 
 export interface MitEvent {
-    id: string; // uuid
+    id: string; // UUID
     skillId: string;
     tStartMs: number;
     durationMs: number;
@@ -43,7 +44,7 @@ export interface FFLogsAbility {
 
 export interface DamageEvent {
     timestamp: number;
-    type: string; // 'damage-taken' 或 'calculateddamage'
+    type: string; // 类型：'damage-taken' 或 'calculateddamage'
     sourceID: number;
     targetID: number;
     ability: FFLogsAbility;
@@ -56,11 +57,17 @@ export interface DamageEvent {
 
 export interface CastEvent {
     timestamp: number;
-    type: string; // 'cast' 或 'begincast'
+    type: string; // 类型：'cast' 或 'begincast'
     sourceID: number;
     targetID: number;
     ability: FFLogsAbility;
     duration?: number;
     // 计算字段
     tMs: number;
+    // FFLogs 导出元数据
+    originalActionId?: number;
+    isBossEvent?: boolean;
+    isFriendly?: boolean;
+    originalType?: 'cast' | 'begincast';
+    abilityIcon?: string;
 }

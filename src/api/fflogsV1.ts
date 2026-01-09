@@ -1,6 +1,4 @@
-// import type { Actor, CastEvent, DamageEvent, Fight } from '../model/types'; // Unused inside this file generic wrapper
-
-const BASE_URL = 'https://www.fflogs.com/v1';
+const BASE_URL = 'https://cn.fflogs.com/v1';
 
 interface FFLogsFight {
     id: number;
@@ -12,6 +10,12 @@ interface FFLogsFight {
 interface ReportResponse {
     fights: FFLogsFight[];
     friendlies: {
+        id: number;
+        name: string;
+        type: string;
+        fights: { id: number }[];
+    }[];
+    enemies: {
         id: number;
         name: string;
         type: string;

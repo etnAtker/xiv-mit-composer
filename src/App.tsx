@@ -9,6 +9,8 @@ import { DraggableSkill } from './components/DraggableSkill';
 import { Timeline } from './components/Timeline/Timeline';
 import { SkillCard } from './components/SkillCard';
 import { MitigationBar } from './components/Timeline/MitigationBar';
+import { FFLogsExporter } from './lib/fflogs/exporter';
+import { ExportModal } from './components/ExportModal';
 
 type ActiveDragItem =
   | { type: 'new-skill'; skill: Skill }
@@ -17,15 +19,14 @@ type ActiveDragItem =
 
 export default function App() {
   const {
-    apiKey, reportCode, fightId,
+    apiKey, reportCode,
     setApiKey, setReportCode, setFightId,
     loadFightMetadata,
     fight, actors,
     selectedJob, setSelectedJob,
     selectedPlayerId, setSelectedPlayerId,
-    loadEvents,
-    addMitEvent, setMitEvents,
-    mitEvents,
+    loadEvents, addMitEvent,
+    mitEvents, castEvents,
     isLoading, isRendering, error
   } = useStore();
 
@@ -48,45 +49,43 @@ export default function App() {
     }
   }, [fight, selectedPlayerId, loadEvents]);
 
-  const handleExport = () => {
-    const data = {
-      job: selectedJob,
-      playerId: selectedPlayerId,
-      mitEvents: useStore.getState().mitEvents
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `xiv-mit-plan-${fightId}-${selectedJob}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportContent, setExportContent] = useState('');
+
+
+  const handleExportTimeline = () => {
+    const { castEvents, mitEvents } = useStore.getState();
+    // 转换 store 中的事件为导出所需格式
+    const eventsToExport = [
+      ...castEvents.map(e => ({
+        time: Number((e.tMs / 1000).toFixed(1)),
+        actionName: e.ability.name,
+        actionId: e.originalActionId || e.ability.guid,
+        type: e.originalType || e.type,
+        isFriendly: !!e.isFriendly,
+        sourceId: e.sourceID
+      })),
+      ...mitEvents.map(m => {
+        const skill = SKILLS.find(s => s.id === m.skillId);
+        return {
+          time: Number((m.tStartMs / 1000).toFixed(1)),
+          actionName: skill?.name || 'Unknown',
+          actionId: skill?.actionId || 0,
+          type: 'cast',
+          isFriendly: true,
+          sourceId: selectedPlayerId || 0
+        };
+      })
+    ].sort((a, b) => a.time - b.time);
+
+    const txt = FFLogsExporter.generateTimeline(eventsToExport);
+    setExportContent(txt);
+    setIsExportModalOpen(true);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        if (json.mitEvents && Array.isArray(json.mitEvents)) {
-          setMitEvents(json.mitEvents);
-          if (json.job) setSelectedJob(json.job);
-          if (json.playerId) setSelectedPlayerId(json.playerId); // 乐观更新
-        }
-      } catch (err) {
-        console.error(err);
-        alert("JSON 解析失败");
-      }
-    };
-    reader.readAsText(file);
-    // 重置输入
-    e.target.value = '';
-  };
 
-  // Drag Overlay State
-  const [activeItem, setActiveItem] = useState<ActiveDragItem>(null); // Store the entire data object
+  // 拖拽覆盖层状态
+  const [activeItem, setActiveItem] = useState<ActiveDragItem>(null); // 存储完整的数据对象
   const [dragDeltaMs, setDragDeltaMs] = useState(0);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -120,11 +119,7 @@ export default function App() {
         let offsetX = 0;
 
         if (initial) {
-          // 找到当前鼠标/元素位置相对于 lane 的位置
-          // active.rect.current.translated 包含了 transform 后的 rect
-          // 但是 DragOverlay 模式下，active 元素本身可能没有移动(Skill)，或者移动了(Mit)
-          // 最简单的计算方式：Drop 事件的坐标 (event.activatorEvent as any).clientX / Y ? 
-          // 或者使用 event.active.rect.current.translated (如果 Overlay 移动了，这个 rect 应该反映最终位置)
+          // 计算当前拖拽元素的偏移量
           const translated = active.rect.current?.translated;
           if (translated) {
             offsetX = translated.left - rect.left;
@@ -142,7 +137,7 @@ export default function App() {
         // But first, let's keep the single item / new skill logic intact for basic checks.
 
         let skillId: string;
-        let selfId: string | null = null; // 当前拖动事件的ID (如果是 new-skill 则为 null)
+        let selfId: string | null = null; // 当前拖动事件的ID (如果是新技能则为 null)
 
         if (type === 'new-skill') {
           skillId = (active.data.current?.skill as Skill).id;
@@ -292,16 +287,12 @@ export default function App() {
 
           {/* 工具 */}
           <div className="flex gap-3">
-            <label className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors border border-gray-700 text-gray-300 shadow-sm hover:text-white">
-              导入
-              <input type="file" accept=".json" onChange={handleImport} className="hidden" />
-            </label>
             <button
-              onClick={handleExport}
-              disabled={!fight}
-              className="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-gray-700 text-gray-300 shadow-sm hover:text-white"
+              onClick={handleExportTimeline}
+              disabled={!fight || castEvents.length === 0}
+              className="bg-green-800 hover:bg-green-700 disabled:opacity-50 px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-gray-700 text-green-100 shadow-sm hover:text-white"
             >
-              导出
+              导出 Souma 时间轴
             </button>
           </div>
 
@@ -348,9 +339,20 @@ export default function App() {
                   className="appearance-none bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-lg pl-3 pr-8 py-1.5 text-sm w-64 text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer"
                 >
                   <option value="">选择玩家...</option>
-                  {actors.map(actor => (
-                    <option key={actor.id} value={actor.id}>{actor.name} ({actor.type})</option>
-                  ))}
+                  {actors
+                    .filter(actor => {
+                      if (!selectedJob) return true;
+                      const map: Record<string, string[]> = {
+                        'PLD': ['Paladin'],
+                        'WAR': ['Warrior'],
+                        'DRK': ['DarkKnight', 'Dark Knight'],
+                        'GNB': ['Gunbreaker']
+                      };
+                      return map[selectedJob]?.includes(actor.type) || map[selectedJob]?.includes(actor.subType);
+                    })
+                    .map(actor => (
+                      <option key={actor.id} value={actor.id}>{actor.name} ({actor.type})</option>
+                    ))}
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-500 text-xs">▼</div>
               </div>
@@ -412,6 +414,12 @@ export default function App() {
           />
         )}
       </DragOverlay>
-    </DndContext>
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        content={exportContent}
+      />
+    </DndContext >
   );
 }
