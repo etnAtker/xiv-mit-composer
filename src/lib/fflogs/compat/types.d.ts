@@ -140,3 +140,26 @@ export interface FFlogsApiV1ReportEvents {
     type: FFlogsType
     duration?: number
 }
+
+export interface FFLogsFight {
+    id: number;
+    start_time: number;
+    end_time: number;
+    name: string;
+}
+
+export interface ReportResponse {
+    fights: FFLogsFight[];
+    friendlies: {
+        id: number;
+        name: string;
+        type: string;
+        fights: { id: number }[];
+    }[];
+    enemies: {
+        id: number;
+        name: string;
+        type: string;
+        fights: { id: number }[];
+    }[];
+}

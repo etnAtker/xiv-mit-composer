@@ -7,6 +7,7 @@ import type { CastEvent, DamageEvent, MitEvent } from '../../model/types';
 
 // 组件
 import { DraggableMitigation } from './DraggableMitigation';
+import { ContextMenu } from './ContextMenu';
 
 // 估算文本宽度的辅助函数 (字符数 * 平均宽度)
 const CHAR_W = 7; // 字体大小 12 时每个字符的预估像素宽度
@@ -836,69 +837,30 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
             </div>
 
             {/* Selected Mitigation Bar Context Menu */}
-            {
-                contextMenu && selectedMitIds.length > 0 && (
-                    <div
-                        className="fixed z-[9999] bg-gray-800 border border-gray-700 rounded shadow-lg py-1 min-w-[160px] max-w-xs"
-                        style={{
-                            left: contextMenu.x,
-                            top: contextMenu.y,
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        data-context-menu-id={selectedMitIds.join(',')}
-                    >
-                        <ul className="divide-y divide-gray-700">
-                            {selectedMitIds.length === 1 ? (
-                                <>
-                                    <li>
-                                        <button
-                                            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors text-gray-200 hover:text-white"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setEditingMitId(selectedMitIds[0]);
-                                                setContextMenu(null);
-                                            }}
-                                        >
-                                            编辑事件
-                                        </button>
-                                    </li>
-                                    <li>
-                                        <button
-                                            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors text-red-400 hover:text-red-300"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                // Remove the selected item
-                                                removeMitEvent(selectedMitIds[0]);
-                                                setContextMenu(null);
-                                                setSelectedMitIds([]);
-                                            }}
-                                        >
-                                            删除
-                                        </button>
-                                    </li>
-                                </>
-                            ) : (
-                                <li>
-                                    <button
-                                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors text-red-400 hover:text-red-300"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            // Remove all selected items
-                                            selectedMitIds.forEach(id => {
-                                                removeMitEvent(id);
-                                            });
-                                            setContextMenu(null);
-                                            setSelectedMitIds([]);
-                                        }}
-                                    >
-                                        删除所选项 ({selectedMitIds.length})
-                                    </button>
-                                </li>
-                            )}
-                        </ul>
-                    </div>
-                )
-            }
+            {contextMenu && selectedMitIds.length > 0 && (
+                <ContextMenu
+                    items={[
+                        ...(selectedMitIds.length === 1 ? [{
+                            label: '编辑事件',
+                            onClick: () => {
+                                setEditingMitId(selectedMitIds[0]);
+                                setContextMenu(null);
+                            }
+                        }] : []),
+                        {
+                            label: selectedMitIds.length === 1 ? '删除' : `删除所选项 (${selectedMitIds.length})`,
+                            onClick: () => {
+                                selectedMitIds.forEach(id => removeMitEvent(id));
+                                setContextMenu(null);
+                                setSelectedMitIds([]);
+                            },
+                            danger: true
+                        }
+                    ]}
+                    position={contextMenu}
+                    onClose={() => setContextMenu(null)}
+                />
+            )}
 
             {/* 工具提示 Portal/覆盖层 */}
             {

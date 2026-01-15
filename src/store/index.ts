@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Actor, CastEvent, DamageEvent, Fight, Job, MitEvent } from '../model/types';
-import { fetchEvents as fetchOldEvents, fetchReport } from '../api/fflogsV1';
+// import { fetchEvents as fetchOldEvents, fetchReport } from '../api/fflogsV1'; // DEPRECATED
 import { FFLogsClient } from '../lib/fflogs/client';
 import { FFLogsProcessor } from '../lib/fflogs/processor';
 import { SKILLS } from '../data/skills';
@@ -93,7 +93,8 @@ export const useStore = create<AppState>()(
 
                 set({ isLoading: true, error: null });
                 try {
-                    const report = await fetchReport(reportCode, apiKey);
+                    const client = new FFLogsClient(apiKey);
+                    const report = await client.fetchReport(reportCode);
 
                     let fightMeta;
                     if (fightId === 'last') {
@@ -151,8 +152,8 @@ export const useStore = create<AppState>()(
 
                 try {
                     // 1. 获取伤害事件
-                    const damagePromise = fetchOldEvents<DamageEvent>(
-                        reportCode, apiKey, fight.id, 'damage-taken', fight.start, fight.end, selectedPlayerId
+                    const damagePromise = client.fetchEvents<DamageEvent>(
+                        reportCode, fight.start, fight.end, selectedPlayerId, false, 'damage-taken'
                     );
 
                     // 2. 获取友方施法事件 (根据固定技能列表过滤)
@@ -213,7 +214,7 @@ export const useStore = create<AppState>()(
                         isBossEvent: true,
                         isFriendly: false,
                         originalType: e.type as 'cast' | 'begincast',
-                        duration: e.duration // 确保传递 duration
+                        duration: e.duration
                     })).sort((a, b) => a.tMs - b.tMs);
 
 
