@@ -81,8 +81,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, onClose, positi
         {items.map((item, index) => (
           <li key={index}>
             <button
-              className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors ${item.danger ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
-                }`}
+              className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-700 transition-colors ${
+                item.danger ? 'text-red-400 hover:text-red-300' : 'text-gray-200'
+              }`}
               onClick={(e) => {
                 e.stopPropagation();
                 item.onClick();

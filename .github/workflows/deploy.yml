@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: 'pages'
   cancel-in-progress: true
 
 jobs:
@@ -32,6 +32,9 @@ jobs:
 
       - name: Lint
         run: bun run lint
+
+      - name: Format
+        run: bun run format:check
 
   build:
     if: "!startsWith(github.event.head_commit.message, 'doc') && !startsWith(github.event.head_commit.message, '[no-ci]')"

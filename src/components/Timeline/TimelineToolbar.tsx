@@ -27,7 +27,9 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
 
   return (
     <div className="flex items-center px-4 py-2 bg-gray-900 border-b border-gray-800 gap-3 shadow-sm z-10">
-      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider mr-2">时间轴缩放</span>
+      <span className="text-xs text-gray-500 font-bold uppercase tracking-wider mr-2">
+        时间轴缩放
+      </span>
 
       <div className="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700">
         <button

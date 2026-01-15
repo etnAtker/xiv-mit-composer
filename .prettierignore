@@ -1,0 +1,11 @@
+node_modules
+dist
+build
+coverage
+.next
+.out
+.turbo
+.vite
+.eslintcache
+*.min.*
+*.lock

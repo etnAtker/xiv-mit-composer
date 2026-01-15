@@ -9,12 +9,12 @@ const VISIBLE_CLUSTER_BUFFER_MS = 2000;
 const EVENT_COLORS = {
   cast: {
     begincast: '#60A5FA',
-    default: '#A78BFA'
+    default: '#A78BFA',
   },
   damage: {
     mitigated: '#34D399',
-    unmitigated: '#F87171'
-  }
+    unmitigated: '#F87171',
+  },
 };
 
 export const getCastColor = (type: string) =>
@@ -48,7 +48,7 @@ export function clusterEvents<T extends { tMs: number }>(events: T[], zoom: numb
       clusters.push({
         events: currentCluster,
         startX,
-        endX
+        endX,
       });
       currentCluster = [ev];
       startX = x;
@@ -64,8 +64,12 @@ export function getVisibleClusters<T extends { tMs: number }>(
   events: T[],
   zoom: number,
   visibleRange: { start: number; end: number },
-  gap: number
+  gap: number,
 ) {
-  const visible = events.filter(e => e.tMs >= visibleRange.start - VISIBLE_CLUSTER_BUFFER_MS && e.tMs <= visibleRange.end + VISIBLE_CLUSTER_BUFFER_MS);
+  const visible = events.filter(
+    (e) =>
+      e.tMs >= visibleRange.start - VISIBLE_CLUSTER_BUFFER_MS &&
+      e.tMs <= visibleRange.end + VISIBLE_CLUSTER_BUFFER_MS,
+  );
   return clusterEvents(visible, zoom, gap);
 }

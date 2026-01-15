@@ -20,16 +20,9 @@ export function Timeline({
   setZoom,
   containerId = 'mit-lane-container',
   activeDragId,
-  dragDeltaMs = 0
+  dragDeltaMs = 0,
 }: TimelineProps) {
-  const {
-    fight,
-    mitEvents,
-    damageEvents,
-    castEvents,
-    setMitEvents,
-    setIsRendering
-  } = useStore();
+  const { fight, mitEvents, damageEvents, castEvents, setMitEvents, setIsRendering } = useStore();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -41,7 +34,7 @@ export function Timeline({
   const { rowMap, totalRowHeight } = useMemo(() => {
     if (!mitEvents.length) return { rowMap: {}, totalRowHeight: 60 };
 
-    const skillIds = Array.from(new Set(mitEvents.map(m => m.skillId)));
+    const skillIds = Array.from(new Set(mitEvents.map((m) => m.skillId)));
     const nextRowMap: Record<string, number> = {};
     skillIds.forEach((sid, index) => {
       nextRowMap[sid] = index;
@@ -49,7 +42,7 @@ export function Timeline({
 
     return {
       rowMap: nextRowMap,
-      totalRowHeight: Math.max(60, skillIds.length * ROW_HEIGHT)
+      totalRowHeight: Math.max(60, skillIds.length * ROW_HEIGHT),
     };
   }, [mitEvents]);
 
@@ -58,14 +51,14 @@ export function Timeline({
     const zones: React.ReactElement[] = [];
     const bySkill: Record<string, typeof mitEvents> = {};
 
-    mitEvents.forEach(m => {
+    mitEvents.forEach((m) => {
       if (m.id === activeDragId) return;
       if (!bySkill[m.skillId]) bySkill[m.skillId] = [];
       bySkill[m.skillId].push(m);
     });
 
     Object.entries(bySkill).forEach(([skillId, events]) => {
-      const skillDef = SKILLS.find(s => s.id === skillId);
+      const skillDef = SKILLS.find((s) => s.id === skillId);
       if (!skillDef || !skillDef.cooldownSec) return;
 
       const rowIndex = rowMap[skillId];
@@ -73,16 +66,32 @@ export function Timeline({
 
       const rowY = rowIndex * ROW_HEIGHT;
 
-      events.forEach(ev => {
+      events.forEach((ev) => {
         const startX = (ev.tStartMs / MS_PER_SEC) * zoom;
         const width = skillDef.cooldownSec * zoom;
 
         zones.push(
           <g key={`cd-${ev.id}`} transform={`translate(${startX}, ${rowY})`}>
             <rect x={0} y={5} width={width} height={30} fill="url(#diagonalHatch)" opacity={0.3} />
-            <line x1={0} y1={35} x2={width} y2={35} stroke="#EF4444" strokeWidth={2} opacity={0.6} />
-            <text x={5} y={30} fill="#6B7280" fontSize={9} className="select-none pointer-events-none">CD</text>
-          </g>
+            <line
+              x1={0}
+              y1={35}
+              x2={width}
+              y2={35}
+              stroke="#EF4444"
+              strokeWidth={2}
+              opacity={0.6}
+            />
+            <text
+              x={5}
+              y={30}
+              fill="#6B7280"
+              fontSize={9}
+              className="select-none pointer-events-none"
+            >
+              CD
+            </text>
+          </g>,
         );
       });
     });
@@ -99,7 +108,7 @@ export function Timeline({
 
     return {
       castGap: Math.max(50, castExtraH),
-      dmgGap: Math.max(80, dmgExtraH)
+      dmgGap: Math.max(80, dmgExtraH),
     };
   }, []);
 
@@ -120,11 +129,7 @@ export function Timeline({
 
   return (
     <div className="flex flex-col h-full bg-gray-950 relative">
-      <TimelineToolbar
-        zoom={zoom}
-        setZoom={setZoom}
-        onClear={() => setMitEvents([])}
-      />
+      <TimelineToolbar zoom={zoom} setZoom={setZoom} onClear={() => setMitEvents([])} />
       <TimelineCanvas
         containerId={containerId}
         zoom={zoom}
