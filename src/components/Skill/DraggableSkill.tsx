@@ -1,7 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
-import type { Skill } from '../model/types';
+import type { Skill } from '../../model/types';
 import { SkillCard } from './SkillCard';
-import { cn } from '../utils';
+import { cn } from '../../utils';
 
 interface Props {
     skill: Skill;

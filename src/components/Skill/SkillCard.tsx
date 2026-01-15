@@ -1,5 +1,5 @@
-import type { Skill } from '../model/types';
-import { cn } from "../utils";
+import type { Skill } from '../../model/types';
+import { cn } from "../../utils";
 
 interface Props {
     skill: Skill;
