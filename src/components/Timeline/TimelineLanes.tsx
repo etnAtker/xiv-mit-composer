@@ -17,24 +17,20 @@ const DAMAGE_DECIMAL_PLACES = 0;
 interface CastLaneProps {
   events: CastEvent[];
   zoom: number;
-  height: number;
-  top: number;
+  width: number;
+  left: number;
   visibleRange: { start: number; end: number };
   onHover: (data: TooltipData | null) => void;
 }
 
 export const CastLane = memo(
-  ({ events, zoom, height, top, visibleRange, onHover }: CastLaneProps) => {
+  ({ events, zoom, width, left, visibleRange, onHover }: CastLaneProps) => {
     const visibleClusters = useMemo(() => {
       return getVisibleClusters(events, zoom, visibleRange, 15);
     }, [events, visibleRange, zoom]);
 
     return (
-      <g transform={`translate(0, ${top})`}>
-        <text x={10} y={-5} fill="#9CA3AF" fontSize={12} fontWeight="bold">
-          读条 (Casts)
-        </text>
-
+      <g transform={`translate(${left}, 0)`}>
         {visibleClusters.map((cluster, cIdx) => {
           const firstEv = cluster.events[0];
           const count = cluster.events.length;
@@ -43,21 +39,22 @@ export const CastLane = memo(
               ? `${truncateText(firstEv.ability.name, TRUNCATE_LEN)} (+${count - 1})`
               : truncateText(firstEv.ability.name, TRUNCATE_LEN);
 
-          const hitX = cluster.startX - 5;
-          const hitW = Math.max(cluster.endX - cluster.startX + 15, 60);
+          const barWidth = Math.max(20, width - 16);
+          const hitY = cluster.startY - 8;
+          const hitH = Math.max(cluster.endY - cluster.startY + 16, 40);
 
           return (
             <g key={`c-${cIdx}`}>
               {cluster.events.map((ev, idx) => {
-                const x = (ev.tMs / MS_PER_SEC) * zoom;
+                const y = (ev.tMs / MS_PER_SEC) * zoom;
                 const color = getCastColor(ev.type);
                 return (
                   <rect
                     key={`e-${idx}`}
-                    x={x}
-                    y={0}
-                    width={Math.max(2, ((ev.duration || 0) / MS_PER_SEC) * zoom)}
-                    height={height}
+                    x={8}
+                    y={y}
+                    width={barWidth}
+                    height={Math.max(2, ((ev.duration || 0) / MS_PER_SEC) * zoom)}
                     fill={color}
                     opacity={0.6}
                   />
@@ -65,31 +62,30 @@ export const CastLane = memo(
               })}
 
               <text
-                x={cluster.startX}
-                y={height + 12}
+                x={8}
+                y={cluster.startY + 12}
                 fill={getCastColor(cluster.events[0].type)}
                 fontSize={12}
-                style={{ textAnchor: 'start' }}
-                transform={`rotate(45, ${cluster.startX}, ${height + 12})`}
+                textAnchor="start"
                 className="pointer-events-none select-none opacity-90 font-medium"
               >
                 {labelText}
               </text>
 
               <rect
-                x={hitX}
-                y={0}
-                width={hitW}
-                height={height + 50}
+                x={0}
+                y={hitY}
+                width={width}
+                height={hitH}
                 fill="transparent"
                 style={{ pointerEvents: 'all', cursor: 'help' }}
                 onMouseEnter={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
-                  const barCenterOffset = 5 + (cluster.endX - cluster.startX) / 2;
+                  const barCenterOffset = 8 + (cluster.endY - cluster.startY) / 2;
 
                   onHover({
-                    x: rect.left + barCenterOffset,
-                    y: rect.top - 5,
+                    x: rect.left + width / 2,
+                    y: rect.top + barCenterOffset,
                     items: cluster.events.map((ev) => ({
                       title: ev.ability.name,
                       subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
@@ -111,34 +107,21 @@ interface DamageLaneProps {
   events: DamageEvent[];
   mitEvents: MitEvent[];
   zoom: number;
-  height: number;
-  top: number;
+  width: number;
+  left: number;
   visibleRange: { start: number; end: number };
   onHover: (data: TooltipData | null) => void;
-  lineHeight: number;
+  lineWidth: number;
 }
 
 export const DamageLane = memo(
-  ({
-    events,
-    mitEvents,
-    zoom,
-    height,
-    top,
-    visibleRange,
-    onHover,
-    lineHeight,
-  }: DamageLaneProps) => {
+  ({ events, mitEvents, zoom, width, left, visibleRange, onHover, lineWidth }: DamageLaneProps) => {
     const visibleClusters = useMemo(() => {
       return getVisibleClusters(events, zoom, visibleRange, 18);
     }, [events, visibleRange, zoom]);
 
     return (
-      <g transform={`translate(0, ${top})`}>
-        <text x={10} y={-5} fill="#9CA3AF" fontSize={12} fontWeight="bold">
-          承伤 (Damage)
-        </text>
-
+      <g transform={`translate(${left}, 0)`}>
         {visibleClusters.map((cluster, cIdx) => {
           const firstEv = cluster.events[0];
           const count = cluster.events.length;
@@ -158,16 +141,16 @@ export const DamageLane = memo(
               ? `${damageStr} ${truncateText(firstEv.ability.name ? `(${firstEv.ability.name})` : '', TRUNCATE_LEN)} (+${count - 1})`
               : `${damageStr} ${truncateText(firstEv.ability.name ? `(${firstEv.ability.name})` : '', TRUNCATE_LEN + 5)}`;
 
-          const hitX = cluster.startX - 8;
-          const hitW = Math.max(cluster.endX - cluster.startX + 16, 60);
+          const hitY = cluster.startY - 8;
+          const hitH = Math.max(cluster.endY - cluster.startY + 16, 40);
 
           return (
             <g key={`c-${cIdx}`}>
               <line
-                x1={cluster.startX}
-                y1={-20}
-                x2={cluster.startX}
-                y2={lineHeight}
+                x1={0}
+                y1={cluster.startY}
+                x2={lineWidth}
+                y2={cluster.startY}
                 stroke={color}
                 strokeWidth={2}
                 strokeDasharray="3 3"
@@ -175,14 +158,14 @@ export const DamageLane = memo(
               />
 
               {cluster.events.map((ev, idx) => {
-                const x = (ev.tMs / MS_PER_SEC) * zoom;
+                const y = (ev.tMs / MS_PER_SEC) * zoom;
                 const covered = mitEvents.some((m) => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs);
                 const subColor = getDamageColor(covered);
                 return (
                   <circle
                     key={`e-${idx}`}
-                    cx={x}
-                    cy={height / 2}
+                    cx={width / 2}
+                    cy={y}
                     r={4}
                     fill={subColor}
                     stroke="rgba(0,0,0,0.2)"
@@ -192,12 +175,11 @@ export const DamageLane = memo(
               })}
 
               <text
-                x={cluster.startX}
-                y={height + 12}
+                x={8}
+                y={cluster.startY + 12}
                 fill={color}
                 fontSize={12}
                 textAnchor="start"
-                transform={`rotate(45, ${cluster.startX}, ${height + 12})`}
                 fontWeight="bold"
                 className="pointer-events-none select-none"
               >
@@ -205,19 +187,19 @@ export const DamageLane = memo(
               </text>
 
               <rect
-                x={hitX}
-                y={0}
-                width={hitW}
-                height={height + 50}
+                x={0}
+                y={hitY}
+                width={width}
+                height={hitH}
                 fill="transparent"
                 style={{ pointerEvents: 'all', cursor: 'help' }}
                 onMouseEnter={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
-                  const barCenterOffset = 8 + (cluster.endX - cluster.startX) / 2;
+                  const barCenterOffset = 8 + (cluster.endY - cluster.startY) / 2;
 
                   onHover({
-                    x: rect.left + barCenterOffset,
-                    y: rect.top - 10,
+                    x: rect.left + width / 2,
+                    y: rect.top + barCenterOffset,
                     items: cluster.events.map((ev) => ({
                       title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
                       subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),

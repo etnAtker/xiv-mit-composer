@@ -2,7 +2,8 @@
 
 export const CHAR_W = 7;
 export const TRUNCATE_LEN = 12;
-export const ROW_HEIGHT = 40;
+export const MIT_COLUMN_WIDTH = 120;
+export const MIT_COLUMN_PADDING = 6;
 
 const VISIBLE_CLUSTER_BUFFER_MS = 2000;
 
@@ -30,33 +31,33 @@ export function truncateText(text: string, maxLength: number) {
 }
 
 export function clusterEvents<T extends { tMs: number }>(events: T[], zoom: number, gap: number) {
-  const clusters: { events: T[]; startX: number; endX: number }[] = [];
+  const clusters: { events: T[]; startY: number; endY: number }[] = [];
   if (!events.length) return clusters;
 
   let currentCluster: T[] = [events[0]];
-  let startX = (events[0].tMs / MS_PER_SEC) * zoom;
-  let endX = startX;
+  let startY = (events[0].tMs / MS_PER_SEC) * zoom;
+  let endY = startY;
 
   for (let i = 1; i < events.length; i++) {
     const ev = events[i];
-    const x = (ev.tMs / MS_PER_SEC) * zoom;
+    const y = (ev.tMs / MS_PER_SEC) * zoom;
 
-    if (x - endX < gap) {
+    if (y - endY < gap) {
       currentCluster.push(ev);
-      endX = x;
+      endY = y;
     } else {
       clusters.push({
         events: currentCluster,
-        startX,
-        endX,
+        startY,
+        endY,
       });
       currentCluster = [ev];
-      startX = x;
-      endX = x;
+      startY = y;
+      endY = y;
     }
   }
 
-  clusters.push({ events: currentCluster, startX, endX });
+  clusters.push({ events: currentCluster, startY, endY });
   return clusters;
 }
 

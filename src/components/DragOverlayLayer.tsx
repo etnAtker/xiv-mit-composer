@@ -3,6 +3,7 @@ import type { MitEvent, Skill } from '../model/types';
 import { MitigationBar } from './Timeline/MitigationBar';
 import { SkillCard } from './Skill/SkillCard';
 import { MS_PER_SEC } from '../constants/time';
+import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './Timeline/timelineUtils';
 
 export type DragOverlayItem =
   | { type: 'new-skill'; skill: Skill }
@@ -22,7 +23,8 @@ export function DragOverlayLayer({ activeItem, zoom }: Props) {
       {activeItem?.type === 'existing-mit' && (
         <MitigationBar
           mit={activeItem.mit}
-          width={(activeItem.mit.durationMs / MS_PER_SEC) * zoom}
+          width={MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2}
+          height={(activeItem.mit.durationMs / MS_PER_SEC) * zoom}
           isOverlay
         />
       )}

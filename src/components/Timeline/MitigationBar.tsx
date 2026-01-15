@@ -5,6 +5,7 @@ import { cn } from '../../utils';
 interface Props {
   mit: MitEvent;
   width: number; // 精确像素宽度
+  height?: number | string;
   className?: string;
   isSelected?: boolean;
   onClick?: (mit: MitEvent, e: React.MouseEvent) => void;
@@ -16,6 +17,7 @@ interface Props {
 export function MitigationBar({
   mit,
   width,
+  height,
   className,
   isSelected,
   onClick,
@@ -26,14 +28,15 @@ export function MitigationBar({
 
   return (
     <div
-      style={{ width }}
+      style={{ width, height: height ?? '100%' }}
       className={cn(
-        'rounded shadow-md border border-white/20 overflow-hidden flex items-center justify-center text-xs font-bold text-white relative h-full cursor-pointer',
+        'rounded shadow-md border border-white/20 overflow-hidden flex items-center justify-center text-xs font-bold text-white relative cursor-pointer',
         skill?.color || 'bg-gray-500',
         className,
         isOverlay && 'opacity-80 ring-2 ring-white z-50 shadow-xl',
         isSelected && 'ring-2 ring-yellow-400 z-50',
       )}
+      title={skill?.name}
       onClick={(e) => onClick && onClick(mit, e)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -41,8 +44,6 @@ export function MitigationBar({
           onRightClick(e, mit);
         }
       }}
-    >
-      <span className="truncate px-1">{skill?.name}</span>
-    </div>
+    />
   );
 }

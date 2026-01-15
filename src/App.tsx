@@ -113,7 +113,7 @@ export default function App() {
 
   const handleDragMove = (event: DragEndEvent) => {
     const { delta } = event;
-    setDragDeltaMs(pixelsToMs(delta.x));
+    setDragDeltaMs(pixelsToMs(delta.y));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -130,18 +130,18 @@ export default function App() {
         const rect = laneEl.getBoundingClientRect();
         const initial = active.rect.current?.initial;
 
-        let offsetX = 0;
+        let offsetY = 0;
 
         if (initial) {
           const translated = active.rect.current?.translated;
           if (translated) {
-            offsetX = translated.left - rect.left;
+            offsetY = translated.top - rect.top;
           }
         }
 
-        if (offsetX < 0) offsetX = 0;
+        if (offsetY < 0) offsetY = 0;
 
-        const tStartMs = pixelsToMs(offsetX);
+        const tStartMs = pixelsToMs(offsetY);
 
         let skillId: string;
         let selfId: string | null = null;
@@ -190,7 +190,7 @@ export default function App() {
           const mit = active.data.current?.mit as MitEvent;
           const { selectedMitIds, mitEvents, updateMitEvent } = useStore.getState();
 
-          const deltaMs = pixelsToMs(event.delta.x);
+          const deltaMs = pixelsToMs(event.delta.y);
 
           if (selectedMitIds.includes(mit.id)) {
             let isValid = true;
@@ -255,7 +255,7 @@ export default function App() {
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     >
-      <div className="min-h-screen bg-gray-900 text-white flex flex-col font-sans">
+      <div className="h-screen overflow-hidden bg-gray-900 text-white flex flex-col font-sans">
         <AppHeader
           apiKey={apiKey}
           fflogsUrl={fflogsUrl}
@@ -280,13 +280,13 @@ export default function App() {
           />
         )}
 
-        <div className="flex-1 flex overflow-hidden max-h-full">
+        <div className="flex-1 min-h-0 flex overflow-hidden">
           <EmptyState hasFight={!!fight} hasSelection={isReady} />
 
           {isReady && selectedJob && (
             <>
               <SkillSidebar selectedJob={selectedJob} />
-              <div className="flex-1 bg-gray-950 relative overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 bg-gray-950 relative overflow-hidden flex flex-col">
                 <Timeline
                   zoom={zoom}
                   setZoom={setZoom}
