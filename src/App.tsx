@@ -38,7 +38,7 @@ export default function App() {
     castEvents,
     isLoading,
     isRendering,
-    error
+    error,
   } = useStore();
 
   const [fflogsUrl, setFflogsUrl] = useState('');
@@ -51,9 +51,9 @@ export default function App() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5
-      }
-    })
+        distance: 5,
+      },
+    }),
   );
 
   useEffect(() => {
@@ -76,25 +76,25 @@ export default function App() {
   const handleExportTimeline = () => {
     const { castEvents, mitEvents } = useStore.getState();
     const eventsToExport = [
-      ...castEvents.map(e => ({
+      ...castEvents.map((e) => ({
         time: Number((e.tMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
         actionName: e.ability.name,
         actionId: e.originalActionId || e.ability.guid,
         type: e.originalType || e.type,
         isFriendly: !!e.isFriendly,
-        sourceId: e.sourceID
+        sourceId: e.sourceID,
       })),
-      ...mitEvents.map(m => {
-        const skill = SKILLS.find(s => s.id === m.skillId);
+      ...mitEvents.map((m) => {
+        const skill = SKILLS.find((s) => s.id === m.skillId);
         return {
           time: Number((m.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
           actionName: skill?.name || 'Unknown',
           actionId: skill?.actionId || 0,
           type: 'cast',
           isFriendly: true,
-          sourceId: selectedPlayerId || 0
+          sourceId: selectedPlayerId || 0,
         };
-      })
+      }),
     ].sort((a, b) => a.time - b.time);
 
     const txt = FFLogsExporter.generateTimeline(eventsToExport);
@@ -154,12 +154,17 @@ export default function App() {
           selfId = mit.id;
         }
 
-        const checkConflict = (checkSkillId: string, checkStartMs: number, checkSelfId: string | null, customEvents?: MitEvent[]) => {
+        const checkConflict = (
+          checkSkillId: string,
+          checkStartMs: number,
+          checkSelfId: string | null,
+          customEvents?: MitEvent[],
+        ) => {
           const eventsToCheck = customEvents || mitEvents;
-          const skillDef = SKILLS.find(s => s.id === checkSkillId);
+          const skillDef = SKILLS.find((s) => s.id === checkSkillId);
           if (!skillDef) return false;
           const cdMs = skillDef.cooldownSec * MS_PER_SEC;
-          return eventsToCheck.some(m => {
+          return eventsToCheck.some((m) => {
             if (m.id === checkSelfId) return false;
             if (m.skillId !== checkSkillId) return false;
             return Math.abs(m.tStartMs - checkStartMs) < cdMs;
@@ -178,7 +183,7 @@ export default function App() {
             skillId: skill.id,
             tStartMs: tStartMs,
             durationMs: skill.durationSec * MS_PER_SEC,
-            tEndMs: tStartMs + (skill.durationSec * MS_PER_SEC)
+            tEndMs: tStartMs + skill.durationSec * MS_PER_SEC,
           };
           addMitEvent(newMit);
         } else if (type === 'existing-mit') {
@@ -190,7 +195,7 @@ export default function App() {
           if (selectedMitIds.includes(mit.id)) {
             let isValid = true;
             for (const id of selectedMitIds) {
-              const item = mitEvents.find(m => m.id === id);
+              const item = mitEvents.find((m) => m.id === id);
               if (!item) continue;
               const newStart = item.tStartMs + deltaMs;
               if (newStart < 0) {
@@ -198,7 +203,12 @@ export default function App() {
                 break;
               }
 
-              const conflict = checkConflict(item.skillId, newStart, item.id, mitEvents.filter(m => !selectedMitIds.includes(m.id)));
+              const conflict = checkConflict(
+                item.skillId,
+                newStart,
+                item.id,
+                mitEvents.filter((m) => !selectedMitIds.includes(m.id)),
+              );
               if (conflict) {
                 isValid = false;
                 break;
@@ -206,13 +216,13 @@ export default function App() {
             }
 
             if (isValid) {
-              selectedMitIds.forEach(id => {
-                const item = mitEvents.find(m => m.id === id);
+              selectedMitIds.forEach((id) => {
+                const item = mitEvents.find((m) => m.id === id);
                 if (item) {
                   const newStart = item.tStartMs + deltaMs;
                   updateMitEvent(id, {
                     tStartMs: newStart,
-                    tEndMs: newStart + item.durationMs
+                    tEndMs: newStart + item.durationMs,
                   });
                 }
               });
@@ -228,7 +238,7 @@ export default function App() {
 
             updateMitEvent(mit.id, {
               tStartMs: clampedStart,
-              tEndMs: clampedStart + mit.durationMs
+              tEndMs: clampedStart + mit.durationMs,
             });
           }
         }
@@ -239,7 +249,12 @@ export default function App() {
   const isReady = !!(fight && selectedJob && selectedPlayerId);
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
+      onDragEnd={handleDragEnd}
+    >
       <div className="min-h-screen bg-gray-900 text-white flex flex-col font-sans">
         <AppHeader
           apiKey={apiKey}

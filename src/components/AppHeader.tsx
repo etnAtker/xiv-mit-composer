@@ -21,7 +21,7 @@ export function AppHeader({
   onApiKeyChange,
   onFflogsUrlChange,
   onLoadFight,
-  onExportTimeline
+  onExportTimeline,
 }: Props) {
   return (
     <div className="p-4 bg-gray-900 border-b border-gray-800 flex flex-wrap gap-4 items-center z-20 relative shadow-md">
@@ -33,7 +33,7 @@ export function AppHeader({
         <input
           type="password"
           value={apiKey}
-          onChange={e => onApiKeyChange(e.target.value)}
+          onChange={(e) => onApiKeyChange(e.target.value)}
           className="bg-transparent border-none focus:ring-0 text-sm w-64 px-2 text-gray-200 placeholder-gray-600 outline-none"
           placeholder="API Key"
         />
@@ -41,7 +41,7 @@ export function AppHeader({
         <input
           type="text"
           value={fflogsUrl}
-          onChange={e => onFflogsUrlChange(e.target.value)}
+          onChange={(e) => onFflogsUrlChange(e.target.value)}
           className="bg-transparent border-none focus:ring-0 text-sm w-[32rem] px-2 text-gray-200 placeholder-gray-600 outline-none"
           placeholder="FFLogs URL (e.g., https://cn.fflogs.com/reports/...)"
         />
