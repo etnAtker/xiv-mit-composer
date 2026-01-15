@@ -20,7 +20,7 @@ type ActiveDragItem =
 export default function App() {
   const {
     apiKey, reportCode,
-    setApiKey, setReportCode, setFightId,
+    setApiKey, setReportCode, setFightId, setSelectedMitIds,
     loadFightMetadata,
     fight, actors,
     selectedJob, setSelectedJob,
@@ -91,7 +91,11 @@ export default function App() {
   const [dragDeltaMs, setDragDeltaMs] = useState(0);
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveItem(event.active.data.current as ActiveDragItem);
+    const activeItem = event.active.data.current as ActiveDragItem;
+    setActiveItem(activeItem);
+    if (activeItem?.type === 'new-skill') {
+      setSelectedMitIds([]);
+    }
     setDragDeltaMs(0);
   };
 
