@@ -1,4 +1,5 @@
 import type { FFlogsApiV1ReportEvents, FFlogsStance } from './compat/types';
+import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
 
 
 /**
@@ -27,7 +28,7 @@ export class FFLogsProcessor {
             if (!allowedActionIds.has(actionId)) continue;
 
             processed.push({
-                time: Number(((event.timestamp - startTime) / 1000).toFixed(1)),
+                time: Number(((event.timestamp - startTime) / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
                 type: event.type,
                 actionName: event.ability.name,
                 actionId: actionId,
@@ -59,7 +60,7 @@ export class FFLogsProcessor {
             // 保留全部可疑施法，由导出逻辑筛选
 
             processed.push({
-                time: Number(((event.timestamp - startTime) / 1000).toFixed(1)),
+                time: Number(((event.timestamp - startTime) / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
                 type: event.type,
                 actionName: event.ability.name,
                 actionId: event.ability.guid,

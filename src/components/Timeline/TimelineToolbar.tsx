@@ -1,5 +1,9 @@
 ﻿import { useEffect, useState } from 'react';
 
+import { DEFAULT_ZOOM, MAX_ZOOM, MIN_ZOOM } from '../../constants/timeline';
+
+const ZOOM_STEP = 10;
+
 interface Props {
   zoom: number;
   setZoom: (value: number) => void;
@@ -15,8 +19,8 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
 
   const commitZoom = () => {
     let val = typeof localZoom === 'string' ? parseInt(localZoom) : localZoom;
-    if (isNaN(val)) val = 50;
-    val = Math.max(10, Math.min(200, val));
+    if (isNaN(val)) val = DEFAULT_ZOOM;
+    val = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, val));
     setZoom(val);
     setLocalZoom(val);
   };
@@ -28,7 +32,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
       <div className="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700">
         <button
           className="w-8 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-gray-300 hover:text-white text-md transition-colors"
-          onClick={() => setZoom(Math.max(10, zoom - 10))}
+          onClick={() => setZoom(Math.max(MIN_ZOOM, zoom - ZOOM_STEP))}
         >
           -
         </button>
@@ -50,7 +54,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
         </div>
         <button
           className="w-8 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-gray-300 hover:text-white text-md transition-colors"
-          onClick={() => setZoom(Math.min(200, zoom + 10))}
+          onClick={() => setZoom(Math.min(MAX_ZOOM, zoom + ZOOM_STEP))}
         >
           +
         </button>
@@ -60,7 +64,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
 
       <button
         className="px-3 py-1 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white rounded text-xs transition-colors"
-        onClick={() => setZoom(50)}
+        onClick={() => setZoom(DEFAULT_ZOOM)}
       >
         重置视图
       </button>

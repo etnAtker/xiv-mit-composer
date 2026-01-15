@@ -14,6 +14,8 @@ import { FightInfoBar } from './components/FightInfoBar';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
+import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
+import { DEFAULT_ZOOM } from './constants/timeline';
 
 export default function App() {
   const {
@@ -40,7 +42,7 @@ export default function App() {
   } = useStore();
 
   const [fflogsUrl, setFflogsUrl] = useState('');
-  const [zoom, setZoom] = useState(50);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportContent, setExportContent] = useState('');
   const [activeItem, setActiveItem] = useState<DragOverlayItem | null>(null);
@@ -60,7 +62,7 @@ export default function App() {
     }
   }, [fight, selectedPlayerId, loadEvents]);
 
-  const pixelsToMs = (pixels: number) => (pixels / zoom) * 1000;
+  const pixelsToMs = (pixels: number) => (pixels / zoom) * MS_PER_SEC;
 
   const handleFflogsUrlChange = (value: string) => {
     setFflogsUrl(value);
@@ -75,7 +77,7 @@ export default function App() {
     const { castEvents, mitEvents } = useStore.getState();
     const eventsToExport = [
       ...castEvents.map(e => ({
-        time: Number((e.tMs / 1000).toFixed(1)),
+        time: Number((e.tMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
         actionName: e.ability.name,
         actionId: e.originalActionId || e.ability.guid,
         type: e.originalType || e.type,
@@ -85,7 +87,7 @@ export default function App() {
       ...mitEvents.map(m => {
         const skill = SKILLS.find(s => s.id === m.skillId);
         return {
-          time: Number((m.tStartMs / 1000).toFixed(1)),
+          time: Number((m.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
           actionName: skill?.name || 'Unknown',
           actionId: skill?.actionId || 0,
           type: 'cast',
@@ -156,7 +158,7 @@ export default function App() {
           const eventsToCheck = customEvents || mitEvents;
           const skillDef = SKILLS.find(s => s.id === checkSkillId);
           if (!skillDef) return false;
-          const cdMs = skillDef.cooldownSec * 1000;
+          const cdMs = skillDef.cooldownSec * MS_PER_SEC;
           return eventsToCheck.some(m => {
             if (m.id === checkSelfId) return false;
             if (m.skillId !== checkSkillId) return false;
@@ -175,8 +177,8 @@ export default function App() {
             id: crypto.randomUUID(),
             skillId: skill.id,
             tStartMs: tStartMs,
-            durationMs: skill.durationSec * 1000,
-            tEndMs: tStartMs + (skill.durationSec * 1000)
+            durationMs: skill.durationSec * MS_PER_SEC,
+            tEndMs: tStartMs + (skill.durationSec * MS_PER_SEC)
           };
           addMitEvent(newMit);
         } else if (type === 'existing-mit') {

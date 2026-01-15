@@ -8,6 +8,13 @@ import { DraggableMitigation } from './DraggableMitigation';
 import { CastLane, DamageLane } from './TimelineLanes';
 import type { TooltipData } from './types';
 import { ROW_HEIGHT } from './timelineUtils';
+import { MS_PER_SEC } from '../../constants/time';
+import { DAMAGE_LANE_HEIGHT, MAX_ZOOM, MIN_ZOOM } from '../../constants/timeline';
+
+const MIT_BAR_HEIGHT = 32;
+const VISIBLE_RANGE_BUFFER_MS = 5000;
+const ZOOM_WHEEL_STEP = 5;
+const RULER_STEP_SEC = 5;
 
 interface Props {
   containerId: string;
@@ -91,12 +98,11 @@ export function TimelineCanvas({
     const startSec = scrollLeft / zoom;
     const endSec = (scrollLeft + clientWidth) / zoom;
 
-    const buffer = 5000;
-    const newStart = Math.max(0, (startSec * 1000) - buffer);
-    const newEnd = (endSec * 1000) + buffer;
+    const newStart = Math.max(0, (startSec * MS_PER_SEC) - VISIBLE_RANGE_BUFFER_MS);
+    const newEnd = (endSec * MS_PER_SEC) + VISIBLE_RANGE_BUFFER_MS;
 
     setVisibleRange(prev => {
-      if (Math.abs(prev.start - newStart) < 1000 && Math.abs(prev.end - newEnd) < 1000) {
+      if (Math.abs(prev.start - newStart) < MS_PER_SEC && Math.abs(prev.end - newEnd) < MS_PER_SEC) {
         return prev;
       }
       return { start: newStart, end: newEnd };
@@ -117,8 +123,8 @@ export function TimelineCanvas({
       onWheel={(e) => {
         if (e.altKey) {
           e.preventDefault();
-          const delta = e.deltaY > 0 ? -5 : 5;
-          const newZoom = Math.max(10, Math.min(200, zoom + delta));
+          const delta = e.deltaY > 0 ? -ZOOM_WHEEL_STEP : ZOOM_WHEEL_STEP;
+          const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + delta));
           setZoom(newZoom);
         }
       }}
@@ -179,11 +185,11 @@ export function TimelineCanvas({
 
                 const newlySelectedIds: string[] = [];
                 mitEvents.forEach(mit => {
-                  const left = (mit.tStartMs / 1000) * zoom;
-                  const width = (mit.durationMs / 1000) * zoom;
+                  const left = (mit.tStartMs / MS_PER_SEC) * zoom;
+                  const width = (mit.durationMs / MS_PER_SEC) * zoom;
                   const rowIndex = rowMap[mit.skillId] ?? 0;
                   const top = mitY + (rowIndex * ROW_HEIGHT);
-                  const height = 32;
+                  const height = MIT_BAR_HEIGHT;
 
                   if (
                     left >= selectionRect.left &&
@@ -239,13 +245,13 @@ export function TimelineCanvas({
           </defs>
 
           <rect x={0} y={castY} width={totalWidth} height={castHeight} fill="rgba(167, 139, 250, 0.05)" />
-          <rect x={0} y={dmgY} width={totalWidth} height={60} fill="rgba(248, 113, 113, 0.05)" />
+          <rect x={0} y={dmgY} width={totalWidth} height={DAMAGE_LANE_HEIGHT} fill="rgba(248, 113, 113, 0.05)" />
           <rect x={0} y={mitY} width={totalWidth} height={mitAreaHeight} fill="rgba(52, 211, 153, 0.02)" />
 
-          {Array.from({ length: Math.ceil(durationSec / 5) }).map((_, i) => {
-            const sec = i * 5;
-            const ms = sec * 1000;
-            if (ms < visibleRange.start - 5000 || ms > visibleRange.end + 5000) return null;
+          {Array.from({ length: Math.ceil(durationSec / RULER_STEP_SEC) }).map((_, i) => {
+            const sec = i * RULER_STEP_SEC;
+            const ms = sec * MS_PER_SEC;
+            if (ms < visibleRange.start - VISIBLE_RANGE_BUFFER_MS || ms > visibleRange.end + VISIBLE_RANGE_BUFFER_MS) return null;
 
             const x = sec * zoom;
             return (
@@ -263,7 +269,7 @@ export function TimelineCanvas({
             events={damageEvents}
             mitEvents={mitEvents}
             zoom={zoom}
-            height={60}
+            height={DAMAGE_LANE_HEIGHT}
             top={dmgY}
             visibleRange={visibleRange}
             onHover={setTooltip}
@@ -287,8 +293,8 @@ export function TimelineCanvas({
             const isSelected = selectedMitIds.includes(mit.id);
             const visualOffsetMs = (isSelected && mit.id !== activeDragId) ? dragDeltaMs : 0;
 
-            const left = ((mit.tStartMs + visualOffsetMs) / 1000) * zoom;
-            const width = (mit.durationMs / 1000) * zoom;
+            const left = ((mit.tStartMs + visualOffsetMs) / MS_PER_SEC) * zoom;
+            const width = (mit.durationMs / MS_PER_SEC) * zoom;
             const rowIndex = rowMap[mit.skillId] ?? 0;
             const top = rowIndex * ROW_HEIGHT;
 
@@ -298,7 +304,7 @@ export function TimelineCanvas({
             return (
               <div
                 key={mit.id}
-                style={{ position: 'absolute', top, left: 0, width: '100%', height: 32, zIndex, pointerEvents: 'none' }}
+                style={{ position: 'absolute', top, left: 0, width: '100%', height: MIT_BAR_HEIGHT, zIndex, pointerEvents: 'none' }}
                 className={!isEditing ? 'hover:z-20' : ''}
               >
                 <DraggableMitigation

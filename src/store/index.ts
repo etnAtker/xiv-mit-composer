@@ -4,6 +4,7 @@ import type { Actor, CastEvent, DamageEvent, Fight, Job, MitEvent } from '../mod
 import { FFLogsClient } from '../lib/fflogs/client';
 import { FFLogsProcessor } from '../lib/fflogs/processor';
 import { SKILLS } from '../data/skills';
+import { MS_PER_SEC } from '../constants/time';
 
 interface AppState {
     // 输入状态
@@ -178,8 +179,8 @@ export const useStore = create<AppState>()(
                         const skillDef = SKILLS.find(s => s.actionId === e.actionId);
                         if (!skillDef) return null;
 
-                        const tStartMs = e.time * 1000;
-                        const durationMs = skillDef.durationSec * 1000;
+                        const tStartMs = e.time * MS_PER_SEC;
+                        const durationMs = skillDef.durationSec * MS_PER_SEC;
 
                         return {
                             id: crypto.randomUUID(),
@@ -192,8 +193,8 @@ export const useStore = create<AppState>()(
 
                     // 敌方施法 -> 读条列表
                     const finalCasts: CastEvent[] = processedEnemyCasts.map(e => ({
-                        timestamp: fight.start + (e.time * 1000),
-                        tMs: e.time * 1000,
+                        timestamp: fight.start + (e.time * MS_PER_SEC),
+                        tMs: e.time * MS_PER_SEC,
                         type: e.type,
                         sourceID: e.sourceID,
                         targetID: 0,

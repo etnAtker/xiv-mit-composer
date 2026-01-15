@@ -2,6 +2,7 @@
 import type { MitEvent, Skill } from '../model/types';
 import { MitigationBar } from './Timeline/MitigationBar';
 import { SkillCard } from './Skill/SkillCard';
+import { MS_PER_SEC } from '../constants/time';
 
 export type DragOverlayItem =
   | { type: 'new-skill'; skill: Skill }
@@ -21,7 +22,7 @@ export function DragOverlayLayer({ activeItem, zoom }: Props) {
       {activeItem?.type === 'existing-mit' && (
         <MitigationBar
           mit={activeItem.mit}
-          width={(activeItem.mit.durationMs / 1000) * zoom}
+          width={(activeItem.mit.durationMs / MS_PER_SEC) * zoom}
           isOverlay
         />
       )}

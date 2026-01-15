@@ -3,6 +3,10 @@ import { memo, useMemo } from 'react';
 import type { CastEvent, DamageEvent, MitEvent } from '../../model/types';
 import type { TooltipData } from './types';
 import { getCastColor, getDamageColor, getVisibleClusters, truncateText, TRUNCATE_LEN } from './timelineUtils';
+import { MS_PER_SEC } from '../../constants/time';
+
+const DAMAGE_AMOUNT_UNIT = 1000;
+const DAMAGE_DECIMAL_PLACES = 0;
 
 interface CastLaneProps {
   events: CastEvent[];
@@ -42,13 +46,13 @@ export const CastLane = memo(({
         return (
           <g key={`c-${cIdx}`}>
             {cluster.events.map((ev, idx) => {
-              const x = (ev.tMs / 1000) * zoom;
+              const x = (ev.tMs / MS_PER_SEC) * zoom;
               const color = getCastColor(ev.type);
               return (
                 <rect
                   key={`e-${idx}`}
                   x={x} y={0}
-                  width={Math.max(2, (ev.duration || 0) / 1000 * zoom)}
+                  width={Math.max(2, (ev.duration || 0) / MS_PER_SEC * zoom)}
                   height={height}
                   fill={color}
                   opacity={0.6}
@@ -134,7 +138,7 @@ export const DamageLane = memo(({
         const isCovered = cluster.events.some(ev => mitEvents.some(m => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs));
         const color = getDamageColor(isCovered);
 
-        const damageNumStr = (firstEv.unmitigatedAmount / 1000).toFixed(0);
+        const damageNumStr = (firstEv.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES);
         const damageStr = isNaN(Number(damageNumStr)) ? '???' : `${damageNumStr}k`;
 
         const labelText = count > 1
@@ -149,7 +153,7 @@ export const DamageLane = memo(({
             <line x1={cluster.startX} y1={-20} x2={cluster.startX} y2={lineHeight} stroke={color} strokeWidth={2} strokeDasharray="3 3" opacity={0.5} />
 
             {cluster.events.map((ev, idx) => {
-              const x = (ev.tMs / 1000) * zoom;
+              const x = (ev.tMs / MS_PER_SEC) * zoom;
               const covered = mitEvents.some(m => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs);
               const subColor = getDamageColor(covered);
               return (
@@ -191,7 +195,7 @@ export const DamageLane = memo(({
                   x: rect.left + barCenterOffset,
                   y: rect.top - 10,
                   items: cluster.events.map(ev => ({
-                    title: `${(ev.unmitigatedAmount / 1000).toFixed(0)}k ${ev.ability.name}`,
+                    title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
                     subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
                     color: getDamageColor(mitEvents.some(m => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs))
                   }))

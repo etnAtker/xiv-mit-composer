@@ -4,6 +4,8 @@ import { SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TimelineToolbar } from './TimelineToolbar';
 import { CHAR_W, ROW_HEIGHT, TRUNCATE_LEN } from './timelineUtils';
+import { MS_PER_SEC } from '../../constants/time';
+import { DAMAGE_LANE_HEIGHT } from '../../constants/timeline';
 
 interface TimelineProps {
   zoom: number;
@@ -72,7 +74,7 @@ export function Timeline({
       const rowY = rowIndex * ROW_HEIGHT;
 
       events.forEach(ev => {
-        const startX = (ev.tStartMs / 1000) * zoom;
+        const startX = (ev.tStartMs / MS_PER_SEC) * zoom;
         const width = skillDef.cooldownSec * zoom;
 
         zones.push(
@@ -103,7 +105,7 @@ export function Timeline({
 
   if (!fight) return null;
 
-  const durationSec = fight.durationMs / 1000;
+  const durationSec = fight.durationMs / MS_PER_SEC;
   const totalWidth = durationSec * zoom;
 
   const RULER_H = 30;
@@ -111,7 +113,7 @@ export function Timeline({
 
   const CAST_Y = RULER_H + 20;
   const DMG_Y = CAST_Y + CAST_H + castGap;
-  const MIT_Y = DMG_Y + 60 + dmgGap;
+  const MIT_Y = DMG_Y + DAMAGE_LANE_HEIGHT + dmgGap;
 
   const MIT_AREA_H = Math.max(100, totalRowHeight + 40);
   const TOTAL_SVG_HEIGHT = MIT_Y + MIT_AREA_H + 50;

@@ -1,6 +1,10 @@
-﻿export const CHAR_W = 7;
+﻿import { MS_PER_SEC } from '../../constants/time';
+
+export const CHAR_W = 7;
 export const TRUNCATE_LEN = 12;
 export const ROW_HEIGHT = 40;
+
+const VISIBLE_CLUSTER_BUFFER_MS = 2000;
 
 const EVENT_COLORS = {
   cast: {
@@ -30,12 +34,12 @@ export function clusterEvents<T extends { tMs: number }>(events: T[], zoom: numb
   if (!events.length) return clusters;
 
   let currentCluster: T[] = [events[0]];
-  let startX = (events[0].tMs / 1000) * zoom;
+  let startX = (events[0].tMs / MS_PER_SEC) * zoom;
   let endX = startX;
 
   for (let i = 1; i < events.length; i++) {
     const ev = events[i];
-    const x = (ev.tMs / 1000) * zoom;
+    const x = (ev.tMs / MS_PER_SEC) * zoom;
 
     if (x - endX < gap) {
       currentCluster.push(ev);
@@ -62,6 +66,6 @@ export function getVisibleClusters<T extends { tMs: number }>(
   visibleRange: { start: number; end: number },
   gap: number
 ) {
-  const visible = events.filter(e => e.tMs >= visibleRange.start - 2000 && e.tMs <= visibleRange.end + 2000);
+  const visible = events.filter(e => e.tMs >= visibleRange.start - VISIBLE_CLUSTER_BUFFER_MS && e.tMs <= visibleRange.end + VISIBLE_CLUSTER_BUFFER_MS);
   return clusterEvents(visible, zoom, gap);
 }

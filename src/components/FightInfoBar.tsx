@@ -1,5 +1,6 @@
 ﻿import type { Actor, Fight, Job } from '../model/types';
 import { cn } from '../utils';
+import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../constants/time';
 
 interface Props {
   fight: Fight;
@@ -25,7 +26,7 @@ export function FightInfoBar({
       <div className="flex items-center gap-2">
         <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">战斗</span>
         <span className="font-semibold text-white">{fight.name}</span>
-        <span className="text-xs text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">{(fight.durationMs / 1000).toFixed(1)}s</span>
+        <span className="text-xs text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">{(fight.durationMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}s</span>
       </div>
 
       <div className="w-[1px] h-6 bg-gray-800"></div>

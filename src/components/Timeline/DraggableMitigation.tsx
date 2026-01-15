@@ -2,6 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import type { MitEvent } from '../../model/types';
 import { useRef } from 'react';
 import { MitigationBar } from './MitigationBar';
+import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
 
 interface Props {
     mit: MitEvent;
@@ -41,8 +42,8 @@ export function DraggableMitigation({ mit, left, width, onUpdate, onRemove, isEd
         const val = parseFloat(rawValue);
         if (!isNaN(val)) {
             onUpdate(mit.id, {
-                tStartMs: val * 1000,
-                tEndMs: (val * 1000) + mit.durationMs
+                tStartMs: val * MS_PER_SEC,
+                tEndMs: (val * MS_PER_SEC) + mit.durationMs
             });
         }
     };
@@ -90,7 +91,7 @@ export function DraggableMitigation({ mit, left, width, onUpdate, onRemove, isEd
                                 autoFocus
                                 className="w-16 bg-gray-700 border border-gray-500 rounded text-xs px-2 py-1 text-white focus:border-blue-500 outline-none"
                                 ref={editInputRef}
-                                defaultValue={(mit.tStartMs / 1000).toFixed(1)}
+                                defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
                                 onKeyDown={e => e.key === 'Enter' && handleEditSubmit()}
                             />
                         </div>
