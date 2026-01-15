@@ -3,7 +3,7 @@ import { getFactoryRule } from './compat/timelineSpecialRules';
 interface ExportableEvent {
     time: number;
     actionName: string;
-    actionId: number; // 原始 ActionID
+    actionId: number; // 原始 Action ID
     type: string;     // 'cast' 或 'begincast'
     isFriendly: boolean;
     sourceId?: number;
@@ -12,7 +12,7 @@ interface ExportableEvent {
 export class FFLogsExporter {
     /**
      * 生成时间轴文本内容
-     * 根据 ActionID 重新应用 window 和 sync 逻辑
+     * 根据 Action ID 重新应用 window/sync 规则
      */
     static generateTimeline(events: ExportableEvent[]): string {
         const lines: string[] = [];
@@ -20,22 +20,22 @@ export class FFLogsExporter {
 
         for (const event of events) {
             if (event.isFriendly) {
-                // 玩家技能格式
+                // 玩家技能
                 lines.push(`${event.time} "<${event.actionName}>~"`);
             } else {
-                // Boss 技能逻辑
+                // Boss 技能
                 const rule = getFactoryRule(event.actionId);
 
                 const isAttack = /^(?:攻击|attack|攻撃)$/i.test(event.actionName);
 
 
-                // 忽略没有特殊规则的通用攻击
+                // 忽略没有规则的通用攻击
                 if ((isAttack || (event.type === 'cast' && !rule)) && !rule) {
                     lines.push(`# ${event.time} "${event.actionName}"`);
                     continue;
                 }
 
-                // 准备字符串部分
+                // 构造导出行
                 const hexId = event.actionId.toString(16).toUpperCase();
                 const regexType = event.type === 'begincast' ? 'StartsUsing' : 'Ability';
                 const coreLine = `${event.time} "${event.actionName}" ${regexType} { id: "${hexId}" }`;
@@ -46,7 +46,7 @@ export class FFLogsExporter {
 
                     if (battleOnce) {
                         if (battleSyncedIds.has(event.actionId)) {
-                            // 如果已在本次战斗中同步过，作为注释输出
+                            // 同一战斗仅同步一次的事件改为注释
                             lines.push(`# ${event.time} "${event.actionName}"`);
                             continue;
                         }
@@ -56,7 +56,7 @@ export class FFLogsExporter {
                     const syncStr = syncOnce ? ' once' : '';
                     lines.push(`${coreLine} window ${window[0]},${window[1]}${syncStr}`);
                 } else {
-                    // 无规则且不是通用攻击，作为注释输出
+                    // 无规则且非通用攻击时改为注释
                     lines.push(`# ${coreLine}`);
                 }
             }

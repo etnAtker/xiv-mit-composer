@@ -31,11 +31,11 @@ export interface MitEvent {
     skillId: string;
     tStartMs: number;
     durationMs: number;
-    // 辅助字段
+    // 结束时间戳，便于渲染
     tEndMs: number;
 }
 
-// API 响应结构 (简化版)
+// API 响应结构（简化版）
 export interface FFLogsAbility {
     name: string;
     guid: number;
@@ -64,7 +64,7 @@ export interface CastEvent {
     duration?: number;
     // 计算字段
     tMs: number;
-    // FFLogs 导出元数据
+    // FFLogs 导出字段
     originalActionId?: number;
     isBossEvent?: boolean;
     isFriendly?: boolean;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface ContextMenuItem {
   label: string;
@@ -13,52 +13,57 @@ interface ContextMenuProps {
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ items, onClose, position }) => {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsVisible(true);
-
     const handleClickOutside = () => {
       setIsVisible(false);
-      setTimeout(onClose, 150); // Delay closing to allow fade-out animation
+      setTimeout(onClose, 150); // 延迟关闭以触发淡出动画
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [onClose]);
 
-  // Calculate position to prevent menu from going off-screen
-  const menuRef = React.useRef<HTMLDivElement>(null);
-  const [adjustedPosition, setAdjustedPosition] = useState(position);
+  // 计算位置，避免菜单超出屏幕
+  const menuSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const [menuSize, setMenuSize] = useState<{ width: number; height: number } | null>(null);
+  const menuRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    const nextSize = { width: rect.width, height: rect.height };
+    const prevSize = menuSizeRef.current;
 
-  useEffect(() => {
-    if (menuRef.current) {
-      const menuRect = menuRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-
-      let adjustedX = position.x;
-      let adjustedY = position.y;
-
-      // Adjust X position if menu goes off right edge
-      if (position.x + menuRect.width > viewportWidth) {
-        adjustedX = viewportWidth - menuRect.width - 5;
-      }
-
-      // Adjust Y position if menu goes off bottom edge
-      if (position.y + menuRect.height > viewportHeight) {
-        adjustedY = viewportHeight - menuRect.height - 5;
-      }
-
-      // Prevent menu from going off left/top edges
-      adjustedX = Math.max(5, adjustedX);
-      adjustedY = Math.max(5, adjustedY);
-
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAdjustedPosition({ x: adjustedX, y: adjustedY });
+    if (!prevSize || prevSize.width !== nextSize.width || prevSize.height !== nextSize.height) {
+      menuSizeRef.current = nextSize;
+      setMenuSize(nextSize);
     }
-  }, [position]);
+  }, []);
+
+  const adjustedPosition = useMemo(() => {
+    if (!menuSize) return position;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let adjustedX = position.x;
+    let adjustedY = position.y;
+
+    // 右侧溢出时向左回退
+    if (position.x + menuSize.width > viewportWidth) {
+      adjustedX = viewportWidth - menuSize.width - 5;
+    }
+
+    // 底部溢出时向上回退
+    if (position.y + menuSize.height > viewportHeight) {
+      adjustedY = viewportHeight - menuSize.height - 5;
+    }
+
+    // 防止超出左上边界
+    adjustedX = Math.max(5, adjustedX);
+    adjustedY = Math.max(5, adjustedY);
+
+    return { x: adjustedX, y: adjustedY };
+  }, [menuSize, position]);
 
   if (!isVisible) return null;
 

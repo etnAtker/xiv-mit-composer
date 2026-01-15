@@ -52,10 +52,12 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportContent, setExportContent] = useState('');
 
+  const pixelsToMs = (pixels: number) => (pixels / zoom) * 1000;
+
 
   const handleExportTimeline = () => {
     const { castEvents, mitEvents } = useStore.getState();
-    // 转换 store 中的事件为导出所需格式
+    // 将 store 事件转换为导出格式
     const eventsToExport = [
       ...castEvents.map(e => ({
         time: Number((e.tMs / 1000).toFixed(1)),
@@ -85,7 +87,7 @@ export default function App() {
 
 
   // 拖拽覆盖层状态
-  const [activeItem, setActiveItem] = useState<ActiveDragItem>(null); // 存储完整的数据对象
+  const [activeItem, setActiveItem] = useState<ActiveDragItem>(null); // 保存拖拽数据
   const [dragDeltaMs, setDragDeltaMs] = useState(0);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -93,11 +95,9 @@ export default function App() {
     setDragDeltaMs(0);
   };
 
-  const handleDragMove = (event: DragEndEvent) => { // DragMoveEvent is compatible with DragEndEvent structure enough for delta/active
+  const handleDragMove = (event: DragEndEvent) => {
     const { delta } = event;
-    // Calculate deltaMs based on current zoom
-    const ms = (delta.x / zoom) * 1000;
-    setDragDeltaMs(ms);
+    setDragDeltaMs(pixelsToMs(delta.x));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -112,8 +112,7 @@ export default function App() {
 
       if (laneEl) {
         const rect = laneEl.getBoundingClientRect();
-        // 计算相对于泳道起点的偏移量 (t=0)
-        // 使用 event.delta + initial 偏移
+        // 计算相对于泳道起点的偏移量
         const initial = active.rect.current?.initial;
 
         let offsetX = 0;
@@ -126,18 +125,17 @@ export default function App() {
           }
         }
 
-        // 安全边界
+        // 保证不小于起点
         if (offsetX < 0) offsetX = 0;
 
 
-        const tStartMs = (offsetX / zoom) * 1000;
+        const tStartMs = pixelsToMs(offsetX);
 
-        // --- 技能 CD 校验逻辑 (Simplified for brevity regarding context) ---
-        // Note: For multi-item drag, we should validate ALL items.
-        // But first, let's keep the single item / new skill logic intact for basic checks.
+        // 校验技能冷却冲突
+        // 多选拖拽需要逐条校验
 
         let skillId: string;
-        let selfId: string | null = null; // 当前拖动事件的ID (如果是新技能则为 null)
+        let selfId: string | null = null; // 当前拖拽事件 ID，新技能为空
 
         if (type === 'new-skill') {
           skillId = (active.data.current?.skill as Skill).id;
@@ -147,7 +145,6 @@ export default function App() {
           selfId = mit.id;
         }
 
-        // ... existing CD check logic ...
         const checkConflict = (checkSkillId: string, checkStartMs: number, checkSelfId: string | null, customEvents?: MitEvent[]) => {
           const eventsToCheck = customEvents || mitEvents;
           const skillDef = SKILLS.find(s => s.id === checkSkillId);
@@ -164,7 +161,6 @@ export default function App() {
           console.warn("Skill is on cooldown!");
           return;
         }
-        // --- End CD Check ---
 
         if (type === 'new-skill') {
           const skill = active.data.current?.skill as Skill;
@@ -180,15 +176,12 @@ export default function App() {
           const mit = active.data.current?.mit as MitEvent;
           const { selectedMitIds, mitEvents, updateMitEvent } = useStore.getState();
 
-          // Use event.delta directly for calculation to align with visual feedback
-          // This avoids issues with getBoundingClientRect on drop for existing items
-          const deltaMs = (event.delta.x / zoom) * 1000;
+          // 用拖拽位移计算，避免落点测量误差
+          const deltaMs = pixelsToMs(event.delta.x);
 
-          // Check if the dragged item is part of the selection
+          // 判断是否拖拽选中项
           if (selectedMitIds.includes(mit.id)) {
-            // Multi-item drag
-
-            // VALIDATION PHASE
+            // 多选拖拽校验
             let isValid = true;
             for (const id of selectedMitIds) {
               const item = mitEvents.find(m => m.id === id);
@@ -198,7 +191,7 @@ export default function App() {
                 isValid = false; break;
               }
 
-              // Modified conflict check logic: exclude all selected items from conflict check
+              // 冲突校验时排除已选中的事件
               const conflict = checkConflict(item.skillId, newStart, item.id, mitEvents.filter(m => !selectedMitIds.includes(m.id)));
               if (conflict) {
                 isValid = false; break;
@@ -218,12 +211,11 @@ export default function App() {
               });
             }
           } else {
-            // Single item drag (legacy behavior for unselected item)
-            // Also use deltaMs for consistency
+            // 单项拖拽
             const newStart = mit.tStartMs + deltaMs;
             const clampedStart = Math.max(0, newStart);
 
-            // Single item collision check
+            // 单项冲突校验
             if (checkConflict(mit.skillId, clampedStart, mit.id, mitEvents)) {
               console.warn("Skill is on cooldown (single drag)!");
               return;
@@ -243,7 +235,7 @@ export default function App() {
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd}>
 
       <div className="min-h-screen bg-gray-900 text-white flex flex-col font-sans">
-        {/* 顶部栏 (Top Bar) */}
+        {/* 顶部栏 */}
         <div className="p-4 bg-gray-900 border-b border-gray-800 flex flex-wrap gap-4 items-center z-20 relative shadow-md">
           <div className="mr-4 font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
             XIV Mitigation Composer
@@ -263,7 +255,7 @@ export default function App() {
               value={fflogsUrl}
               onChange={e => {
                 setFflogsUrl(e.target.value);
-                // Automatically parse the URL when it changes
+                // 输入变化时自动解析 URL
                 const parsed = parseFFLogsUrl(e.target.value);
                 if (parsed) {
                   setReportCode(parsed.reportCode);
@@ -360,7 +352,7 @@ export default function App() {
           </div>
         )}
 
-        {/* 主内容区域 - 使用 max-h-0 + flex-1 让其撑开剩余空间 */}
+        {/* 主内容区域，使用 max-h-0 + flex-1 撑开剩余空间 */}
         <div className="flex-1 flex overflow-hidden max-h-full">
           {(!fight || !selectedJob || !selectedPlayerId) && (
             <div className="m-auto text-gray-500 text-center p-8 bg-gray-900 w-full h-full flex flex-col items-center justify-center">
@@ -371,7 +363,7 @@ export default function App() {
 
           {fight && selectedJob && selectedPlayerId && (
             <>
-              {/* 左侧: 技能 */}
+              {/* 左侧：技能 */}
               <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col z-10 shadow-lg">
                 <div className="p-4 border-b border-gray-800 bg-gray-900">
                   <h3 className="font-bold text-gray-300 text-sm uppercase tracking-wide">可用技能 ({selectedJob})</h3>
@@ -383,7 +375,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 右侧: 时间轴容器 */}
+              {/* 右侧：时间轴容器 */}
               <div className="flex-1 bg-gray-950 relative overflow-hidden flex flex-col">
                 <Timeline zoom={zoom} setZoom={setZoom} activeDragId={activeItem?.type === 'existing-mit' ? activeItem.mit.id : null} dragDeltaMs={dragDeltaMs} />
               </div>
@@ -401,7 +393,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* 拖拽覆盖层 (Drag Overlay) */}
+      {/* 拖拽覆盖层 */}
       <DragOverlay>
         {activeItem && activeItem.type === 'new-skill' && (
           <SkillCard skill={activeItem.skill} className="opacity-90 shadow-2xl scale-105" />

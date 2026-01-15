@@ -13,9 +13,7 @@ export function DraggableSkill({ skill }: Props) {
         data: { type: 'new-skill', skill }
     });
 
-    // 拖拽时的样式处理：
-    // 当元素被拖拽时，降低原元素的透明度，因为此时已显示 DragOverlay
-
+    // 拖拽时降低原卡片透明度，避免与覆盖层重叠
     return (
         <div
             ref={setNodeRef}

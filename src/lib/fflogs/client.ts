@@ -1,4 +1,4 @@
-import type { Friendlies, FFlogsApiV1ReportEvents, ReportResponse } from './compat/types';
+import type { FFlogsApiV1ReportEvents, ReportResponse } from './compat/types';
 
 // 获取 API 基础链接
 const BASE_URL = 'https://cn.fflogs.com/v1';
@@ -35,18 +35,16 @@ export class FFLogsClient {
         if (sourceId) params.append('sourceid', sourceId.toString());
 
         if (type === 'casts') {
-            // FFLogs V1 'casts' with hostility=1 is used for enemies
-            // For friendlies (isEnemy=false), hostility is 0 (default)
+            // 敌方使用 hostility=1，友方使用 hostility=0
             const hostility = isEnemy ? 1 : 0;
             params.append('hostility', hostility.toString());
         }
 
         const fetchPage = async (nextTimestamp: number) => {
-            // Overwrite start param for pagination
+            // 分页时更新起始时间
             params.set('start', nextTimestamp.toString());
 
             const url = `${BASE_URL}/report/events/${type}/${reportCode}?${params.toString()}`;
-            // console.log(`[FFLogs] Fetching: ${url.replace(this.apiKey, 'HIDDEN_KEY')}`);
 
             const response = await fetch(url);
             if (!response.ok) {
@@ -66,12 +64,4 @@ export class FFLogsClient {
         await fetchPage(startTime);
         return events;
     }
-}
-
-/**
- * 根据图标过滤友方单位
- */
-export function filterFriendliesByJob(friendlies: Friendlies[], jobIcon: string): Friendlies[] {
-    // 严格匹配职业图标
-    return friendlies.filter(p => p.icon === jobIcon);
 }

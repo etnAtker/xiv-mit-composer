@@ -1,22 +1,20 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Actor, CastEvent, DamageEvent, Fight, Job, MitEvent } from '../model/types';
-// import { fetchEvents as fetchOldEvents, fetchReport } from '../api/fflogsV1'; // DEPRECATED
 import { FFLogsClient } from '../lib/fflogs/client';
 import { FFLogsProcessor } from '../lib/fflogs/processor';
 import { SKILLS } from '../data/skills';
-import { parseFFLogsUrl } from '../utils';
 
 interface AppState {
-    // 输入
+    // 输入状态
     apiKey: string;
     reportCode: string;
-    fightId: string; // 用户输入通常是字符串，解析为数字
+    fightId: string; // 以字符串保存输入的战斗 ID
 
-    // 数据
+    // 数据状态
     fight: Fight | null;
     actors: Actor[];
-    bossIds: number[]; // 存储 Boss ID 用于获取敌方施法
+    bossIds: number[]; // 记录参与战斗的 Boss ID
     selectedJob: Job | null;
     selectedPlayerId: number | null;
     selectedMitIds: string[];
@@ -33,7 +31,6 @@ interface AppState {
     setApiKey: (key: string) => void;
     setReportCode: (code: string) => void;
     setFightId: (id: string) => void;
-    setReportAndFightFromUrl: (url: string) => void;
     setSelectedJob: (job: Job) => void;
     setSelectedPlayerId: (id: number) => void;
     setSelectedMitIds: (ids: string[]) => void;
@@ -70,15 +67,6 @@ export const useStore = create<AppState>()(
             setApiKey: (key) => set({ apiKey: key }),
             setReportCode: (code) => set({ reportCode: code }),
             setFightId: (id) => set({ fightId: id }),
-            setReportAndFightFromUrl: (url) => {
-                const parsed = parseFFLogsUrl(url);
-                if (parsed) {
-                    set({ reportCode: parsed.reportCode, fightId: parsed.fightId });
-                } else {
-                    // Optionally set an error state here if the URL is invalid
-                    console.error('Invalid FFLogs URL:', url);
-                }
-            },
             setSelectedJob: (job) => set({ selectedJob: job }),
             setSelectedPlayerId: (id) => set({ selectedPlayerId: id }),
             setSelectedMitIds: (ids) => set({ selectedMitIds: ids }),
@@ -98,10 +86,10 @@ export const useStore = create<AppState>()(
 
                     let fightMeta;
                     if (fightId === 'last') {
-                        // Find the last fight in the report
+                        // 选择报告中最后一场战斗
                         fightMeta = report.fights[report.fights.length - 1]
                     } else {
-                        // Normal case: find fight by ID
+                        // 按战斗 ID 查找战斗
                         fightMeta = report.fights.find((f) => f.id === Number(fightId));
                     }
 
@@ -118,15 +106,15 @@ export const useStore = create<AppState>()(
                     };
 
                     const actors: Actor[] = report.friendlies
-                        .filter((f) => f.type !== 'LimitBreak' && f.type !== 'Environment') // 基础过滤
+                        .filter((f) => f.type !== 'LimitBreak' && f.type !== 'Environment') // 过滤非战斗单位
                         .map((f) => ({
                             id: f.id,
                             name: f.name,
                             type: f.type,
-                            subType: f.type, // 简化
+                            subType: f.type, // 兼容旧字段
                         }));
 
-                    // 存储相关的 Boss ID
+                    // 记录当前战斗中的 Boss
                     const bossIds: number[] = [];
                     report.enemies.forEach((e) => {
                         if (e.type === 'Boss' && e.fights.some((f) => f.id === fight.id)) {
@@ -146,17 +134,17 @@ export const useStore = create<AppState>()(
                 const { apiKey, reportCode, fight, selectedPlayerId, selectedJob, bossIds } = get();
                 if (!apiKey || !reportCode || !fight || !selectedPlayerId) return;
 
-                // 设置 rendering 为 true，直到 Timeline 组件通知渲染完成
+                // 标记渲染中，等待 Timeline 通知完成
                 set({ isLoading: true, isRendering: true, error: null });
                 const client = new FFLogsClient(apiKey);
 
                 try {
-                    // 1. 获取伤害事件
+                    // 获取承伤事件
                     const damagePromise = client.fetchEvents<DamageEvent>(
                         reportCode, fight.start, fight.end, selectedPlayerId, false, 'damage-taken'
                     );
 
-                    // 2. 获取友方施法事件 (根据固定技能列表过滤)
+                    // 获取友方施法事件并按技能表过滤
                     const allowedActionIds = new Set(
                         SKILLS
                             .filter(s => s.job === selectedJob || s.job === 'ALL')
@@ -168,7 +156,7 @@ export const useStore = create<AppState>()(
                         reportCode, fight.start, fight.end, selectedPlayerId, false
                     ).then(events => FFLogsProcessor.processFriendlyEvents(events, fight.start, allowedActionIds));
 
-                    // 3. 获取敌方施法事件 (获取所有检测到的 Boss)
+                    // 获取敌方施法事件（覆盖所有检测到的 Boss）
                     const enemyCastsPromises = bossIds.map(bossId =>
                         client.fetchEvents(reportCode, fight.start, fight.end, bossId, true)
                     );
@@ -182,11 +170,11 @@ export const useStore = create<AppState>()(
                     const flatEnemyEvents = enemyCastsMatrix.flat();
                     const processedEnemyCasts = FFLogsProcessor.processEnemyEvents(flatEnemyEvents, fight.start);
 
-                    // 转换为内部格式
+                    // 转换为内部事件结构
 
-                    // A. 友方施法 -> 减伤事件 (mitEvents)
+                    // 友方施法 -> 减伤事件
                     const newMitEvents: MitEvent[] = friendlyCasts.map((e): MitEvent | null => {
-                        // 查找对应的 Skill 定义以获取 durationSec
+                        // 根据技能定义补充持续时间
                         const skillDef = SKILLS.find(s => s.actionId === e.actionId);
                         if (!skillDef) return null;
 
@@ -202,7 +190,7 @@ export const useStore = create<AppState>()(
                         };
                     }).filter((e): e is MitEvent => !!e);
 
-                    // B. 敌方施法 -> 读条列表 (castEvents)
+                    // 敌方施法 -> 读条列表
                     const finalCasts: CastEvent[] = processedEnemyCasts.map(e => ({
                         timestamp: fight.start + (e.time * 1000),
                         tMs: e.time * 1000,
@@ -218,7 +206,7 @@ export const useStore = create<AppState>()(
                     })).sort((a, b) => a.tMs - b.tMs);
 
 
-                    // --- 处理伤害事件合并逻辑: packetID为唯一标识 ---
+                    // 按 packetID 合并同一条伤害记录
                     const processTimestamp = (e: DamageEvent): DamageEvent => ({ ...e, tMs: e.timestamp - fight.start });
                     const dict = new Map<number, { calc?: DamageEvent, dmg?: DamageEvent }>();
                     const standaloneEvents: DamageEvent[] = [];
@@ -271,9 +259,9 @@ export const useStore = create<AppState>()(
                     set({
                         damageEvents: finalDamages.map(processTimestamp),
                         castEvents: finalCasts,
-                        mitEvents: newMitEvents, // 更新减伤事件
+                        mitEvents: newMitEvents,
                         isLoading: false
-                        // 注意: isRendering 仍然为 true，直到 Timeline 组件通知渲染完成
+                        // 等待 Timeline 通知渲染完成后再取消遮罩
                     });
                 } catch (err: unknown) {
                     console.error(err);

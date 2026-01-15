@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import type { MitEvent } from '../../model/types';
-import { useState, useEffect } from 'react';
+import { useRef } from 'react';
 import { MitigationBar } from './MitigationBar';
 
 interface Props {
@@ -22,9 +22,7 @@ export function DraggableMitigation({ mit, left, width, onUpdate, onRemove, isEd
         data: { type: 'existing-mit', mit }
     });
 
-    // 可拖拽元素本身是在时间轴中看到的元素。
-    // 如果使用 DragOverlay，我们需要在拖拽时隐藏此元素。
-    // 为了保持一致性，我们依赖 Overlay 进行展示。
+    // 拖拽时隐藏原条，使用覆盖层显示拖拽中的条目
 
     const style = {
         left: left,
@@ -35,19 +33,12 @@ export function DraggableMitigation({ mit, left, width, onUpdate, onRemove, isEd
         pointerEvents: 'auto' as const
     };
 
-    const [editValue, setEditValue] = useState((mit.tStartMs / 1000).toFixed(1));
-
-    // 当进入编辑模式时，同步当前时间
-    useEffect(() => {
-        if (isEditing) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setEditValue((mit.tStartMs / 1000).toFixed(1));
-        }
-    }, [isEditing, mit.tStartMs]);
+    const editInputRef = useRef<HTMLInputElement>(null);
 
     const handleEditSubmit = () => {
         onEditChange(false);
-        const val = parseFloat(editValue);
+        const rawValue = editInputRef.current?.value ?? '';
+        const val = parseFloat(rawValue);
         if (!isNaN(val)) {
             onUpdate(mit.id, {
                 tStartMs: val * 1000,
@@ -62,7 +53,7 @@ export function DraggableMitigation({ mit, left, width, onUpdate, onRemove, isEd
             style={style}
             className="group"
             onContextMenu={(e) => {
-                // If onRightClick is provided (new selection system), use that instead of the default context menu
+                // 优先使用外部右键处理
                 if (onRightClick) {
                     onRightClick(e, mit);
                 }
@@ -84,7 +75,7 @@ export function DraggableMitigation({ mit, left, width, onUpdate, onRemove, isEd
                 )}
             </div>
 
-            {/* Edit form when in edit mode */}
+            {/* 编辑态表单 */}
             {
                 !isDragging && isEditing && (
                     <div
@@ -98,8 +89,8 @@ export function DraggableMitigation({ mit, left, width, onUpdate, onRemove, isEd
                             <input
                                 autoFocus
                                 className="w-16 bg-gray-700 border border-gray-500 rounded text-xs px-2 py-1 text-white focus:border-blue-500 outline-none"
-                                value={editValue}
-                                onChange={e => setEditValue(e.target.value)}
+                                ref={editInputRef}
+                                defaultValue={(mit.tStartMs / 1000).toFixed(1)}
                                 onKeyDown={e => e.key === 'Enter' && handleEditSubmit()}
                             />
                         </div>

@@ -4,15 +4,13 @@ import { useDroppable } from '@dnd-kit/core';
 import { format } from 'date-fns';
 import { SKILLS } from '../../data/skills';
 import type { CastEvent, DamageEvent, MitEvent } from '../../model/types';
-
-// 组件
 import { DraggableMitigation } from './DraggableMitigation';
 import { ContextMenu } from './ContextMenu';
 
-// 估算文本宽度的辅助函数 (字符数 * 平均宽度)
-const CHAR_W = 7; // 字体大小 12 时每个字符的预估像素宽度
+// 估算文本宽度：字符数 × 平均宽度
+const CHAR_W = 7; // 字号约 12 时的单字符像素宽度
 
-// 截断辅助函数：限制在大约 8 个中文字符的宽度（约 16 个 ASCII 字符）
+// 标签文本最大长度（约 8 个汉字）
 const TRUNCATE_LEN = 12;
 
 function truncateText(text: string, maxLength: number) {
@@ -34,7 +32,7 @@ interface TooltipData {
     items: TooltipItem[];
 }
 
-// 根据事件类型获取颜色的辅助函数
+// 根据事件类型选择颜色
 const EVENT_COLORS = {
     cast: {
         begincast: '#60A5FA', // 蓝色
@@ -53,7 +51,7 @@ const getCastColor = (type: string) =>
 const getDamageColor = (isMitigated: boolean) =>
     isMitigated ? EVENT_COLORS.damage.mitigated : EVENT_COLORS.damage.unmitigated;
 
-// 聚类辅助函数
+// 按像素间距聚类事件
 function clusterEvents<T extends { tMs: number }>(events: T[], zoom: number, gap: number = 15) {
     const clusters: { events: T[], startX: number, endX: number }[] = [];
     if (!events.length) return clusters;
@@ -73,7 +71,7 @@ function clusterEvents<T extends { tMs: number }>(events: T[], zoom: number, gap
             clusters.push({
                 events: currentCluster,
                 startX,
-                endX // 最后一个项目的位置（目前聚类时忽略持续时间）
+                endX // 记录最后一个事件的像素位置
             });
             currentCluster = [ev];
             startX = x;
@@ -84,7 +82,17 @@ function clusterEvents<T extends { tMs: number }>(events: T[], zoom: number, gap
     return clusters;
 }
 
-/** 性能优化：独立的 Cast Lane 组件，避免父组件重渲染导致全部重绘 */
+const getVisibleClusters = <T extends { tMs: number }>(
+    events: T[],
+    zoom: number,
+    visibleRange: { start: number, end: number },
+    gap: number
+) => {
+    const visible = events.filter(e => e.tMs >= visibleRange.start - 2000 && e.tMs <= visibleRange.end + 2000);
+    return clusterEvents(visible, zoom, gap);
+};
+
+/** 性能优化：独立的施法泳道组件，避免父组件重渲染导致整体重绘 */
 const CastLane = memo(({
     events,
     zoom,
@@ -100,10 +108,9 @@ const CastLane = memo(({
     visibleRange: { start: number, end: number },
     onHover: (data: TooltipData | null) => void
 }) => {
-    // 虚拟化过滤 + 聚类
+    // 按可视范围聚类
     const visibleClusters = useMemo(() => {
-        const visible = events.filter(e => e.tMs >= visibleRange.start - 2000 && e.tMs <= visibleRange.end + 2000);
-        return clusterEvents(visible, zoom, 15); // 15px 间隙阈值
+        return getVisibleClusters(events, zoom, visibleRange, 15);
     }, [events, visibleRange, zoom]);
 
     return (
@@ -117,16 +124,13 @@ const CastLane = memo(({
                     ? `${truncateText(firstEv.ability.name, TRUNCATE_LEN)} (+${count - 1})`
                     : truncateText(firstEv.ability.name, TRUNCATE_LEN);
 
-                // 计算点击区域：覆盖聚类的特定矩形
-                // 从 startX 到 endX + 最后一项周围的一些宽度 + 文本的额外宽度
+                // 扩大点击区域，覆盖倾斜标签
                 const hitX = cluster.startX - 5;
-                // hitW 需要覆盖条形图和倾斜文本的大致长度 
-                // 文本长度约 80-100px。
                 const hitW = Math.max((cluster.endX - cluster.startX) + 15, 60);
 
                 return (
                     <g key={`c-${cIdx}`}>
-                        {/* 渲染聚类中所有事件的图形 */}
+                        {/* 绘制聚类内的所有事件 */}
                         {cluster.events.map((ev, idx) => {
                             const x = (ev.tMs / 1000) * zoom;
                             const color = getCastColor(ev.type);
@@ -136,7 +140,7 @@ const CastLane = memo(({
                                     x={x} y={0}
                                     width={Math.max(2, (ev.duration || 0) / 1000 * zoom)}
                                     height={height}
-                                    fill={color} // 读条开始显示不同颜色
+                                    fill={color} // 用颜色区分读条类型
                                     opacity={0.6}
                                 />
                             );
@@ -160,14 +164,12 @@ const CastLane = memo(({
                             x={hitX}
                             y={0}
                             width={hitW}
-                            height={height + 50} // 向下延伸以覆盖标签
+                            height={height + 50} // 向下延伸覆盖标签
                             fill="transparent"
                             style={{ pointerEvents: 'all', cursor: 'help' }}
                             onMouseEnter={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                // 将工具提示锚定到条形图中心，而不是点击区域
-                                // hitX 是 startX - 5。所以 startX 是 rect.left + 5。
-                                // 条形图中心 = startX + (endX - startX)/2
+                                // 将提示锚定到条形图中心
                                 const barCenterOffset = 5 + (cluster.endX - cluster.startX) / 2;
 
                                 onHover({
@@ -189,7 +191,7 @@ const CastLane = memo(({
     );
 });
 
-/** 性能优化：独立的 Damage Lane 组件 */
+/** 性能优化：独立的承伤泳道组件 */
 const DamageLane = memo(({
     events,
     mitEvents,
@@ -209,23 +211,20 @@ const DamageLane = memo(({
     onHover: (data: TooltipData | null) => void,
     lineHeight: number
 }) => {
-    // 虚拟化过滤 + 聚类
+    // 按可视范围聚类
     const visibleClusters = useMemo(() => {
-        const visible = events.filter(e => e.tMs >= visibleRange.start - 2000 && e.tMs <= visibleRange.end + 2000);
-        return clusterEvents(visible, zoom, 18); // 伤害间隔稍微大一点
+        return getVisibleClusters(events, zoom, visibleRange, 18);
     }, [events, visibleRange, zoom]);
 
     return (
         <g transform={`translate(0, ${top})`}>
-            {/* <line x1={0} y1={height / 2} x2="100%" y2={height / 2} stroke="#4B5563" strokeWidth={1} /> */}
             <text x={10} y={-5} fill="#9CA3AF" fontSize={12} fontWeight="bold">承伤 (Damage)</text>
 
             {visibleClusters.map((cluster, cIdx) => {
                 const firstEv = cluster.events[0];
                 const count = cluster.events.length;
 
-                // 颜色逻辑：如果有任何未覆盖 -> 红色。全部覆盖 -> 绿色？
-                // 保持安全策略：如果有任何伤害（红色），则显示红色。
+                // 只要存在未覆盖事件就标红
                 const isCovered = cluster.events.some(ev => mitEvents.some(m => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs));
                 const color = getDamageColor(isCovered);
 
@@ -241,7 +240,7 @@ const DamageLane = memo(({
 
                 return (
                     <g key={`c-${cIdx}`}>
-                        {/* 虚线延伸到底部 */}
+                        {/* 竖向引导线 */}
                         <line x1={cluster.startX} y1={-20} x2={cluster.startX} y2={lineHeight} stroke={color} strokeWidth={2} strokeDasharray="3 3" opacity={0.5} />
 
                         {cluster.events.map((ev, idx) => {
@@ -280,7 +279,7 @@ const DamageLane = memo(({
                             style={{ pointerEvents: 'all', cursor: 'help' }}
                             onMouseEnter={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
-                                // 锚定到条形图中心。hitX 是 startX - 8。
+                                // 将提示锚定到条形图中心
                                 const barCenterOffset = 8 + (cluster.endX - cluster.startX) / 2;
 
                                 onHover({
@@ -315,7 +314,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
     const [editingMitId, setEditingMitId] = useState<string | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
-    // Box selection state
+    // 框选状态
     const [boxSelection, setBoxSelection] = useState<{
         isActive: boolean;
         startX: number;
@@ -330,19 +329,18 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
         endY: 0
     });
 
-    // 渲染完成后通知 store 取消遮罩
+    // 渲染完成后取消遮罩
     useEffect(() => {
-        // 使用 setTimeout 让主线程有空隙完成渲染
+        // 延迟一帧，确保渲染完成
         const timer = setTimeout(() => {
             setIsRendering(false);
         }, 300);
         return () => clearTimeout(timer);
     }, [mitEvents, damageEvents, castEvents, setIsRendering]);
 
-    // Close context menu when clicking outside
+    // 点击空白处时关闭菜单并清空选择
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            // Check if the click is outside the context menu
             const contextMenuElement = document.querySelector(`[data-context-menu-id="${selectedMitIds.join(',')}"]`);
             if (contextMenuElement && !contextMenuElement.contains(e.target as Node)) {
                 setContextMenu(null);
@@ -354,7 +352,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
         return () => document.removeEventListener('click', handleClickOutside);
     }, [contextMenu, selectedMitIds, setSelectedMitIds]);
 
-    // Mit Lane 的 Droppable 区域
+    // 减伤泳道的可放置区域
     const { setNodeRef: setMitLaneRef } = useDroppable({
         id: 'mit-lane',
         data: { type: 'lane' }
@@ -362,8 +360,8 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // 虚拟化状态
-    const [visibleRange, setVisibleRange] = useState({ start: 0, end: 10000 }); // 初始先显示前10秒
+    // 可视范围状态
+    const [visibleRange, setVisibleRange] = useState({ start: 0, end: 10000 }); // 初始显示前 10 秒
 
     // 滚动处理
     const handleScroll = useCallback(() => {
@@ -373,14 +371,12 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
         const startSec = scrollLeft / zoom;
         const endSec = (scrollLeft + clientWidth) / zoom;
 
-        // 转换为毫秒，并增加一些缓冲区 (左右各 ? 秒)
-        // 只有当滚动超过一定阈值时才更新 state，避免频繁 render
-        // 这里简化：每次都算，React 会处理 diff。如果性能慢，可以加 buffer 判断
-        const buffer = 5000; // 5秒缓冲区
+        // 转换为毫秒并增加缓冲区
+        const buffer = 5000; // 5 秒缓冲区
         const newStart = Math.max(0, (startSec * 1000) - buffer);
         const newEnd = (endSec * 1000) + buffer;
 
-        // 简单的去重更新：只有变动超过 1s 才更新
+        // 变化小于 1 秒时不更新
         setVisibleRange(prev => {
             if (Math.abs(prev.start - newStart) < 1000 && Math.abs(prev.end - newEnd) < 1000) {
                 return prev;
@@ -389,19 +385,19 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
         });
     }, [zoom]);
 
-    // 初始化/Zoom变化时更新视窗
+    // 初始化/缩放变化时更新视窗
     useEffect(() => {
         handleScroll();
     }, [zoom, handleScroll]);
 
-    // 预计算行的逻辑
+    // 预计算技能分行
     const { rowMap, totalRowHeight } = useMemo(() => {
         if (!mitEvents.length) return { rowMap: {}, totalRowHeight: 60 };
 
-        // 1. 找出所有用到的 skillId
+        // 统计当前用到的技能 ID
         const skillIds = Array.from(new Set(mitEvents.map(m => m.skillId)));
 
-        // 2. 为每个 skillId 分配一行
+        // 为每个技能分配一行
         const ROW_HEIGHT = 40;
         const rowMap: Record<string, number> = {};
         skillIds.forEach((sid, index) => {
@@ -412,7 +408,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
             rowMap,
             totalRowHeight: Math.max(60, skillIds.length * ROW_HEIGHT)
         };
-    }, [mitEvents]); // 依赖 mitEvents，每次变化都会重新计算布局
+    }, [mitEvents]); // mitEvents 变化时重新计算布局
 
     // 计算 CD 区域
     const cdZones = useMemo(() => {
@@ -422,7 +418,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
         // 按技能分组
         const bySkill: Record<string, MitEvent[]> = {};
         mitEvents.forEach(m => {
-            // 跳过正在拖拽的事件，因为它的旧 CD 区域不再有效
+            // 跳过正在拖拽的事件，避免显示旧 CD
             if (m.id === activeDragId) return;
 
             if (!bySkill[m.skillId]) bySkill[m.skillId] = [];
@@ -440,14 +436,14 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
 
             events.forEach(ev => {
                 const startX = (ev.tStartMs / 1000) * zoom;
-                const width = skillDef.cooldownSec * zoom; // 区域长度 = CD 持续时间
+                const width = skillDef.cooldownSec * zoom; // CD 区域长度
 
                 // 绘制 CD 区域
                 zones.push(
                     <g key={`cd-${ev.id}`} transform={`translate(${startX}, ${rowY})`}>
-                        {/* CD区域背景，半透明 */}
+                        {/* CD 区域背景 */}
                         <rect x={0} y={5} width={width} height={30} fill="url(#diagonalHatch)" opacity={0.3} />
-                        {/* 底部细红线表示这是一段 CD */}
+                        {/* 底部细线用于标识 CD */}
                         <line x1={0} y1={35} x2={width} y2={35} stroke="#EF4444" strokeWidth={2} opacity={0.6} />
                         <text x={5} y={30} fill="#6B7280" fontSize={9} className="select-none pointer-events-none">CD</text>
                     </g>
@@ -458,16 +454,13 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
         return zones;
     }, [mitEvents, zoom, rowMap, activeDragId]);
 
-    // 动态布局计算 - 简化版，因为我们现在有了截断
+    // 动态布局计算
     const { castGap, dmgGap } = useMemo(() => {
-        // 由于我们截断文本，我们可以使用有界的每行最大高度
-
-        // 读条泳道: TRUNCATE_LEN (12) + "..." (3) = 15 chars
+        // 读条泳道：TRUNCATE_LEN + "..."
         const castMaxLenPx = (TRUNCATE_LEN + 3) * CHAR_W + 20;
         const castExtraH = castMaxLenPx * 0.707; // ~88px
 
-        // 承伤泳道: 伤害数值 (~5 chars) + TRUNCATE_LEN+5 (17) + "..." (3) = ~25 chars
-        // 我们显著增加间隙以保持安全
+        // 承伤泳道：伤害数值 + 技能名 + "..."
         const dmgMaxLenPx = (5 + TRUNCATE_LEN + 5 + 3) * CHAR_W + 20;
         const dmgExtraH = dmgMaxLenPx * 0.707; // ~130px
 
@@ -476,12 +469,12 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
             dmgGap: Math.max(80, dmgExtraH)
         };
 
-    }, []); // 不需要依赖，因为它现在是相对固定的
+    }, []); // 固定参数，无需依赖
 
-    // --- 工具提示状态 ---
+    // 工具提示状态
     const [tooltip, setTooltip] = useState<TooltipData | null>(null);
 
-    // --- 输入框的本地缩放状态 ---
+    // 输入框的本地缩放状态
     const [localZoom, setLocalZoom] = useState<string | number>(zoom);
 
     useEffect(() => {
@@ -503,11 +496,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
 
     // 泳道高度配置
     const RULER_H = 30;
-    const CAST_H = 60; // 泳道内容区域的基础高度
-    // 现在间隙需要容纳从上方泳道落下的倾斜文本
-
-    // castGap 是 CastLane 下方的空间
-    // dmgGap 是 DamageLane 下方的空间
+    const CAST_H = 60; // 施法泳道内容高度
 
     const CAST_Y = RULER_H + 20;
     const DMG_Y = CAST_Y + CAST_H + castGap;
@@ -594,14 +583,13 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                 <div
                     style={{ width: totalWidth, height: TOTAL_SVG_HEIGHT, position: 'relative' }}
                     onMouseDown={(e) => {
-                        // Only start box selection if clicking on the empty area, not on interactive elements
-                        // Note: Draggable items stop propagation usually, but we check target just in case
+                        // 只在空白区域开始框选
                         if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'svg' || (e.target as HTMLElement).id === containerId) {
-                            e.preventDefault(); // Stop text selection
+                            e.preventDefault(); // 防止选中文本
                             setContextMenu(null);
                             setEditingMitId(null);
 
-                            // Start box selection
+                            // 记录框选起点
                             const containerEl = e.currentTarget;
                             const rect = containerEl.getBoundingClientRect();
                             const startX = e.clientX - rect.left;
@@ -615,7 +603,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                                 endY: startY
                             });
 
-                            // Global Mouse Move Handler
+                            // 鼠标移动时更新框选
                             const handleWindowMouseMove = (wEvent: MouseEvent) => {
                                 const currentRect = containerEl.getBoundingClientRect();
                                 setBoxSelection(prev => ({
@@ -625,7 +613,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                                 }));
                             };
 
-                            // Global Mouse Up Handler
+                            // 鼠标抬起后结算选中项
                             const handleWindowMouseUp = (wEvent: MouseEvent) => {
                                 window.removeEventListener('mousemove', handleWindowMouseMove);
                                 window.removeEventListener('mouseup', handleWindowMouseUp);
@@ -655,7 +643,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                                         const left = (mit.tStartMs / 1000) * zoom;
                                         const width = (mit.durationMs / 1000) * zoom;
                                         const rowIndex = rowMap[mit.skillId] ?? 0;
-                                        // Calculate global top relative to the main container
+                                        // 以容器为基准计算 y 坐标
                                         const top = MIT_Y + (rowIndex * 40);
                                         const height = 32;
 
@@ -693,7 +681,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                         }
                     }}
                 >
-                    {/* Box selection overlay */}
+                    {/* 框选遮罩 */}
                     {boxSelection.isActive && (
                         <div
                             className="absolute border-2 border-dashed border-blue-400 bg-blue-400/10 z-50 pointer-events-none"
@@ -748,14 +736,14 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                         {/* 减伤区标题 */}
                         <text x={10} y={MIT_Y - 5} fill="#9CA3AF" fontSize={12} fontWeight="bold">减伤 (Mitigation)</text>
 
-                        {/* CD 区域层 - 在减伤泳道 Y 位置渲染 */}
+                        {/* CD 区域层（减伤泳道位置） */}
                         <g transform={`translate(0, ${MIT_Y})`}>
                             {cdZones}
                         </g>
 
                     </svg>
 
-                    {/* 可拖拽元素 HTML 覆盖层 (减伤) */}
+                    {/* 减伤条覆盖层 */}
                     <div
                         id={containerId}
                         ref={setMitLaneRef}
@@ -766,14 +754,13 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                     >
                         {mitEvents.map(mit => {
                             const isSelected = selectedMitIds.includes(mit.id);
-                            // If this item is selected but NOT the one being actively dragged, apply the drag delta visually
+                            // 选中且非当前拖拽项时，应用视觉偏移
                             const visualOffsetMs = (isSelected && mit.id !== activeDragId) ? dragDeltaMs : 0;
 
                             const left = ((mit.tStartMs + visualOffsetMs) / 1000) * zoom;
                             const width = (mit.durationMs / 1000) * zoom;
 
-                            // 计算 top:
-                            // 每一个 skillId 一行
+                            // 每个技能一行
                             const rowIndex = rowMap[mit.skillId] ?? 0;
                             const top = rowIndex * 40; // ROW_HEIGHT = 40
 
@@ -796,19 +783,17 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                                         onEditChange={(val) => setEditingMitId(val ? mit.id : null)}
                                         isSelected={selectedMitIds.includes(mit.id)}
                                         onSelect={(mit, e) => {
-                                            // Handle multi-selection with Ctrl/Cmd key
+                                            // Ctrl/Cmd 进行多选
                                             if (e.ctrlKey || e.metaKey) {
-                                                // Toggle selection
-                                                // Toggle selection
                                                 if (selectedMitIds.includes(mit.id)) {
                                                     setSelectedMitIds(selectedMitIds.filter(id => id !== mit.id));
                                                 } else {
                                                     setSelectedMitIds([...selectedMitIds, mit.id]);
                                                 }
                                             } else {
-                                                // Single selection
+                                                // 单选
                                                 setSelectedMitIds([mit.id]);
-                                                // Close any editing state when selecting a different item
+                                                // 切换选中项时退出编辑态
                                                 if (editingMitId && editingMitId !== mit.id) {
                                                     setEditingMitId(null);
                                                 }
@@ -817,11 +802,11 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                                         }}
                                         onRightClick={(e, mit) => {
                                             e.stopPropagation();
-                                            // If this item is not in the selection, select it
+                                            // 右键前先保证当前项已选中
                                             if (!selectedMitIds.includes(mit.id)) {
                                                 setSelectedMitIds([mit.id]);
                                             }
-                                            // Close any editing state when opening context menu
+                                            // 打开右键菜单时退出编辑态
                                             if (editingMitId) {
                                                 setEditingMitId(null);
                                             }
@@ -836,7 +821,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                 </div>
             </div>
 
-            {/* Selected Mitigation Bar Context Menu */}
+            {/* 选中条目的右键菜单 */}
             {contextMenu && selectedMitIds.length > 0 && (
                 <ContextMenu
                     items={[
@@ -862,7 +847,7 @@ export function Timeline({ zoom, setZoom, containerId = 'mit-lane-container', ac
                 />
             )}
 
-            {/* 工具提示 Portal/覆盖层 */}
+            {/* 工具提示覆盖层 */}
             {
                 tooltip && (
                     <div

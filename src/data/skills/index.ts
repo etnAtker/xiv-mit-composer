@@ -1,6 +1,5 @@
 import type { Skill } from '../../model/types';
 
-//TODO: 颜色重新弄下
 export const SKILLS: Skill[] = [
     // 骑士 (PLD)
     { id: 'pld-rampart', name: '铁壁', cooldownSec: 90, durationSec: 20, job: 'PLD', color: 'bg-blue-500', actionId: 7531 },

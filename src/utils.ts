@@ -6,16 +6,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Parses an FFLogs URL to extract report code and fight ID
- * @param url The FFLogs URL to parse
- * @returns An object containing reportCode and fightId, or null if invalid
+ * 解析 FFLogs URL，提取 reportCode 和 fightId
  */
 export function parseFFLogsUrl(url: string): { reportCode: string; fightId: string } | null {
   try {
-    // Clean up the URL by removing leading/trailing whitespace
+    // 去掉首尾空白
     const cleanUrl = url.trim();
 
-    // Check if it's a valid FFLogs URL
+    // 校验并匹配 FFLogs URL
     const fflogsRegex = /.*fflogs\.com\/reports\/([a-zA-Z0-9]+)(?:\?.*fight=([^&\s]+))?/;
     const match = cleanUrl.match(fflogsRegex);
 
