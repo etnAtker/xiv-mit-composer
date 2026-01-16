@@ -2,8 +2,9 @@
 
 export const CHAR_W = 7;
 export const TRUNCATE_LEN = 12;
-export const MIT_COLUMN_WIDTH = 120;
-export const MIT_COLUMN_PADDING = 6;
+export const MIT_COLUMN_WIDTH = 100;
+export const MIT_COLUMN_PADDING = 20;
+export const CD_LEFT_PADDING = 2;
 
 const VISIBLE_CLUSTER_BUFFER_MS = 2000;
 

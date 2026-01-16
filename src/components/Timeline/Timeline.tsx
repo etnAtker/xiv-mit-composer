@@ -3,7 +3,7 @@ import { useStore } from '../../store';
 import { SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TimelineToolbar } from './TimelineToolbar';
-import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
+import { CD_LEFT_PADDING, MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
 import { MS_PER_SEC } from '../../constants/time';
 import { CAST_LANE_WIDTH, DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 
@@ -71,6 +71,7 @@ export function Timeline({
 
       const columnX = columnIndex * MIT_COLUMN_WIDTH + MIT_COLUMN_PADDING;
       const zoneWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
+      const cdBoxY = zoneWidth + CD_LEFT_PADDING;
 
       events.forEach((ev) => {
         const startY = (ev.tStartMs / MS_PER_SEC) * zoom;
@@ -81,15 +82,15 @@ export function Timeline({
             <rect
               x={0}
               y={0}
-              width={zoneWidth}
+              width={cdBoxY}
               height={height}
               fill="url(#diagonalHatch)"
-              opacity={0.3}
+              opacity={0.6}
             />
             <line
-              x1={0}
-              y1={height}
-              x2={zoneWidth}
+              x1={cdBoxY}
+              y1={0}
+              x2={cdBoxY}
               y2={height}
               stroke="#EF4444"
               strokeWidth={2}
