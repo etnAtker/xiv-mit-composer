@@ -1,3 +1,5 @@
+// 修改自 https://github.com/Souma-Sumire/ff14-overlay-vue/blob/main/src/components/timeline/FflogsImport.vue
+
 import { getFactoryRule } from './compat/timelineSpecialRules';
 
 interface ExportableEvent {

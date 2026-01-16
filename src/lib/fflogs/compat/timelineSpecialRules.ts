@@ -1,3 +1,5 @@
+// 来自 https://github.com/Souma-Sumire/ff14-overlay-vue/blob/main/src/services/timelineSpecialRules.ts
+
 import type { FFlogsStance, FFlogsType } from './types';
 
 // 技能 ID 与时间窗规则映射
