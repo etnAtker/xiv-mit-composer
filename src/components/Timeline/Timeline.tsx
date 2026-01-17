@@ -36,7 +36,11 @@ export function Timeline({
       return { columnMap: {}, skillColumns: [], mitAreaWidth: MIT_COLUMN_WIDTH };
     }
 
-    const skillIds = Array.from(new Set(mitEvents.map((m) => m.skillId)));
+    const skillIds = Array.from(new Set(mitEvents.map((m) => m.skillId))).sort((a, b) => {
+      const indexA = SKILLS.findIndex((s) => s.id === a);
+      const indexB = SKILLS.findIndex((s) => s.id === b);
+      return indexA - indexB;
+    });
     const nextColumnMap: Record<string, number> = {};
     const columns = skillIds.map((sid, index) => {
       nextColumnMap[sid] = index;
