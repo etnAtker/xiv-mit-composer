@@ -1,16 +1,28 @@
 import type { Skill } from '../../model/types';
 
 export const SKILLS: Skill[] = [
-  // 骑士 (PLD)
+  // 职能通用
   {
-    id: 'pld-rampart',
+    id: 'role-rampart',
     name: '铁壁',
     cooldownSec: 90,
     durationSec: 20,
-    job: 'PLD',
-    color: 'bg-blue-500',
+    job: 'ALL',
+    color: 'bg-slate-500',
     actionId: 7531,
   },
+  {
+    id: 'role-reprisal',
+    name: '雪仇',
+    cooldownSec: 60,
+    durationSec: 15,
+    job: 'ALL',
+    color: 'bg-slate-600',
+    actionId: 7535,
+  },
+
+  // 骑士 (PLD)
+
   {
     id: 'pld-bulwark',
     name: '壁垒',
@@ -65,26 +77,9 @@ export const SKILLS: Skill[] = [
     color: 'bg-blue-900',
     actionId: 3540,
   },
-  {
-    id: 'pld-reprisal',
-    name: '雪仇',
-    cooldownSec: 60,
-    durationSec: 15,
-    job: 'PLD',
-    color: 'bg-blue-500',
-    actionId: 7535,
-  },
 
   // 战士 (WAR)
-  {
-    id: 'war-rampart',
-    name: '铁壁',
-    cooldownSec: 90,
-    durationSec: 20,
-    job: 'WAR',
-    color: 'bg-red-500',
-    actionId: 7531,
-  },
+
   {
     id: 'war-thrill',
     name: '战栗',
@@ -130,26 +125,9 @@ export const SKILLS: Skill[] = [
     color: 'bg-red-800',
     actionId: 7388,
   },
-  {
-    id: 'war-reprisal',
-    name: '雪仇',
-    cooldownSec: 60,
-    durationSec: 15,
-    job: 'WAR',
-    color: 'bg-red-500',
-    actionId: 7535,
-  },
 
   // 暗黑骑士 (DRK)
-  {
-    id: 'drk-rampart',
-    name: '铁壁',
-    cooldownSec: 90,
-    durationSec: 20,
-    job: 'DRK',
-    color: 'bg-purple-500',
-    actionId: 7531,
-  },
+
   {
     id: 'drk-dark-mind',
     name: '弃明投暗',
@@ -204,26 +182,9 @@ export const SKILLS: Skill[] = [
     color: 'bg-purple-800',
     actionId: 16471,
   },
-  {
-    id: 'drk-reprisal',
-    name: '雪仇',
-    cooldownSec: 60,
-    durationSec: 15,
-    job: 'DRK',
-    color: 'bg-purple-500',
-    actionId: 7535,
-  },
 
   // 绝枪战士 (GNB)
-  {
-    id: 'gnb-rampart',
-    name: '铁壁',
-    cooldownSec: 90,
-    durationSec: 20,
-    job: 'GNB',
-    color: 'bg-orange-500',
-    actionId: 7531,
-  },
+
   {
     id: 'gnb-camouflage',
     name: '伪装',
@@ -268,14 +229,5 @@ export const SKILLS: Skill[] = [
     job: 'GNB',
     color: 'bg-orange-800',
     actionId: 16160,
-  },
-  {
-    id: 'gnb-reprisal',
-    name: '雪仇',
-    cooldownSec: 60,
-    durationSec: 15,
-    job: 'GNB',
-    color: 'bg-orange-500',
-    actionId: 7535,
   },
 ];
