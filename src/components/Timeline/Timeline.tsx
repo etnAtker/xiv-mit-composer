@@ -4,6 +4,7 @@ import { SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TimelineToolbar } from './TimelineToolbar';
 import { CD_LEFT_PADDING, MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
+import { simulateSkillStacks } from '../../utils/cooldowns';
 import { MS_PER_SEC } from '../../constants/time';
 import { CAST_LANE_WIDTH, DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 
@@ -77,12 +78,15 @@ export function Timeline({
       const zoneWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
       const cdBoxY = zoneWidth + CD_LEFT_PADDING;
 
-      events.forEach((ev) => {
-        const startY = (ev.tStartMs / MS_PER_SEC) * zoom;
-        const height = skillDef.cooldownSec * zoom;
+      const { shadowZones } = simulateSkillStacks(skillDef, events);
+
+      shadowZones.forEach((zone) => {
+        const startY = (zone.start / MS_PER_SEC) * zoom;
+        const durationSec = (zone.end - zone.start) / MS_PER_SEC;
+        const height = durationSec * zoom;
 
         zones.push(
-          <g key={`cd-${ev.id}`} transform={`translate(${columnX}, ${startY})`}>
+          <g key={`cd-${skillId}-${zone.start}`} transform={`translate(${columnX}, ${startY})`}>
             <rect
               x={0}
               y={0}

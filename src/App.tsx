@@ -6,6 +6,7 @@ import { useStore } from './store';
 import { SKILLS } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { parseFFLogsUrl } from './utils';
+import { simulateSkillStacks } from './utils/cooldowns';
 import { AppHeader } from './components/AppHeader';
 import { DragOverlayLayer, type DragOverlayItem } from './components/DragOverlayLayer';
 import { EmptyState } from './components/EmptyState';
@@ -174,12 +175,15 @@ export default function App() {
           const eventsToCheck = customEvents || mitEvents;
           const skillDef = SKILLS.find((s) => s.id === checkSkillId);
           if (!skillDef) return false;
-          const cdMs = skillDef.cooldownSec * MS_PER_SEC;
-          return eventsToCheck.some((m) => {
-            if (m.id === checkSelfId) return false;
-            if (m.skillId !== checkSkillId) return false;
-            return Math.abs(m.tStartMs - checkStartMs) < cdMs;
-          });
+
+          const relevantEvents = eventsToCheck
+            .filter((m) => m.skillId === checkSkillId && m.id !== checkSelfId)
+            .map((m) => ({ id: m.id, tStartMs: m.tStartMs }));
+
+          relevantEvents.push({ id: 'temp-check', tStartMs: checkStartMs });
+
+          const result = simulateSkillStacks(skillDef, relevantEvents);
+          return !result.isValid;
         };
 
         if (checkConflict(skillId, tStartMs, selfId)) {

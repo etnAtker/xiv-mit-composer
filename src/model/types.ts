@@ -24,6 +24,7 @@ export interface Skill {
   icon?: string;
   color?: string;
   actionId?: number; // FFLogs 技能 ID
+  stack?: number; // 技能层数,默认为1
 }
 
 export interface MitEvent {

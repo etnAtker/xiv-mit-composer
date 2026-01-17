@@ -145,6 +145,7 @@ export const SKILLS: Skill[] = [
     job: 'DRK',
     color: 'bg-purple-700',
     actionId: 25754,
+    stack: 2,
   },
   {
     id: 'drk-shadow-wall',
