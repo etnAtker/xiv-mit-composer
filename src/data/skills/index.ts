@@ -90,13 +90,13 @@ export const SKILLS: Skill[] = [
     actionId: 40,
   },
   {
-    id: 'war-vengeance',
-    name: '复仇',
+    id: 'war-damnation',
+    name: '戮罪',
     cooldownSec: 120,
     durationSec: 15,
     job: 'WAR',
     color: 'bg-red-600',
-    actionId: 44,
+    actionId: 36923,
   },
   {
     id: 'war-bloodwhetting',
@@ -106,6 +106,15 @@ export const SKILLS: Skill[] = [
     job: 'WAR',
     color: 'bg-red-400',
     actionId: 25751,
+  },
+  {
+    id: 'war-nascent-flash',
+    name: '原初的勇猛',
+    cooldownSec: 25,
+    durationSec: 8,
+    job: 'WAR',
+    color: 'bg-red-400',
+    actionId: 16464,
   },
   {
     id: 'war-holmgang',
