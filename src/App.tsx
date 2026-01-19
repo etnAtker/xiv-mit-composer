@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import type { MitEvent, Skill } from './model/types';
@@ -134,129 +134,135 @@ export default function App() {
     const { active, over } = event;
     if (!over) return;
 
-    if (over.id === 'mit-lane') {
-      const type = active.data.current?.type;
-      const laneEl = document.getElementById('mit-lane-container');
+    if (over.id !== 'mit-lane') {
+      return;
+    }
 
-      if (laneEl) {
-        const rect = laneEl.getBoundingClientRect();
-        const initial = active.rect.current?.initial;
+    const type = active.data.current?.type;
+    const laneEl = document.getElementById('mit-lane-container');
 
-        let offsetY = 0;
+    if (!laneEl) {
+      return;
+    }
 
-        if (initial) {
-          const translated = active.rect.current?.translated;
-          if (translated) {
-            offsetY = translated.top - rect.top;
+    const rect = laneEl.getBoundingClientRect();
+    const initial = active.rect.current?.initial;
+
+    let offsetY = 0;
+
+    if (initial) {
+      const translated = active.rect.current?.translated;
+      if (translated) {
+        offsetY = translated.top - rect.top;
+      }
+    }
+
+    if (offsetY < 0) offsetY = 0;
+
+    const tStartMs = pixelsToMs(offsetY);
+
+    let skillId: string;
+    let selfId: string | null = null;
+
+    if (type === 'new-skill') {
+      skillId = (active.data.current?.skill as Skill).id;
+    } else {
+      const mit = active.data.current?.mit as MitEvent;
+      skillId = mit.skillId;
+      selfId = mit.id;
+    }
+
+    const checkConflict = (
+      checkSkillId: string,
+      checkStartMs: number,
+      checkSelfId: string | null,
+      customEvents?: MitEvent[],
+    ) => {
+      const eventsToCheck = customEvents || mitEvents;
+      const skillDef = SKILLS.find((s) => s.id === checkSkillId);
+      if (!skillDef) return false;
+
+      const relevantEvents = eventsToCheck
+        .filter((m) => m.skillId === checkSkillId && m.id !== checkSelfId)
+        .map((m) => ({ id: m.id, tStartMs: m.tStartMs }));
+
+      relevantEvents.push({ id: 'temp-check', tStartMs: checkStartMs });
+
+      const result = simulateSkillStacks(skillDef, relevantEvents);
+      return !result.isValid;
+    };
+
+    if (checkConflict(skillId, tStartMs, selfId)) {
+      console.warn('Skill is on cooldown!');
+      return;
+    }
+
+    if (type === 'new-skill') {
+      const skill = active.data.current?.skill as Skill;
+      const newMit: MitEvent = {
+        eventType: 'mit',
+        id: crypto.randomUUID(),
+        skillId: skill.id,
+        tStartMs: tStartMs,
+        durationMs: skill.durationSec * MS_PER_SEC,
+        tEndMs: tStartMs + skill.durationSec * MS_PER_SEC,
+        stackAfterUse: 0,
+      };
+      addMitEvent(newMit);
+    } else if (type === 'existing-mit') {
+      const mit = active.data.current?.mit as MitEvent;
+      const { selectedMitIds, mitEvents, updateMitEvent } = useStore.getState();
+
+      const deltaMs = pixelsToMs(event.delta.y);
+
+      if (selectedMitIds.includes(mit.id)) {
+        let isValid = true;
+        for (const id of selectedMitIds) {
+          const item = mitEvents.find((m) => m.id === id);
+          if (!item) continue;
+          const newStart = item.tStartMs + deltaMs;
+          if (newStart < 0) {
+            isValid = false;
+            break;
+          }
+
+          const conflict = checkConflict(
+            item.skillId,
+            newStart,
+            item.id,
+            mitEvents.filter((m) => !selectedMitIds.includes(m.id)),
+          );
+          if (conflict) {
+            isValid = false;
+            break;
           }
         }
 
-        if (offsetY < 0) offsetY = 0;
-
-        const tStartMs = pixelsToMs(offsetY);
-
-        let skillId: string;
-        let selfId: string | null = null;
-
-        if (type === 'new-skill') {
-          skillId = (active.data.current?.skill as Skill).id;
-        } else {
-          const mit = active.data.current?.mit as MitEvent;
-          skillId = mit.skillId;
-          selfId = mit.id;
+        if (isValid) {
+          selectedMitIds.forEach((id) => {
+            const item = mitEvents.find((m) => m.id === id);
+            if (item) {
+              const newStart = item.tStartMs + deltaMs;
+              updateMitEvent(id, {
+                tStartMs: newStart,
+                tEndMs: newStart + item.durationMs,
+              });
+            }
+          });
         }
+      } else {
+        const newStart = mit.tStartMs + deltaMs;
+        const clampedStart = Math.max(0, newStart);
 
-        const checkConflict = (
-          checkSkillId: string,
-          checkStartMs: number,
-          checkSelfId: string | null,
-          customEvents?: MitEvent[],
-        ) => {
-          const eventsToCheck = customEvents || mitEvents;
-          const skillDef = SKILLS.find((s) => s.id === checkSkillId);
-          if (!skillDef) return false;
-
-          const relevantEvents = eventsToCheck
-            .filter((m) => m.skillId === checkSkillId && m.id !== checkSelfId)
-            .map((m) => ({ id: m.id, tStartMs: m.tStartMs }));
-
-          relevantEvents.push({ id: 'temp-check', tStartMs: checkStartMs });
-
-          const result = simulateSkillStacks(skillDef, relevantEvents);
-          return !result.isValid;
-        };
-
-        if (checkConflict(skillId, tStartMs, selfId)) {
-          console.warn('Skill is on cooldown!');
+        if (checkConflict(mit.skillId, clampedStart, mit.id, mitEvents)) {
+          console.warn('Skill is on cooldown (single drag)!');
           return;
         }
 
-        if (type === 'new-skill') {
-          const skill = active.data.current?.skill as Skill;
-          const newMit: MitEvent = {
-            id: crypto.randomUUID(),
-            skillId: skill.id,
-            tStartMs: tStartMs,
-            durationMs: skill.durationSec * MS_PER_SEC,
-            tEndMs: tStartMs + skill.durationSec * MS_PER_SEC,
-          };
-          addMitEvent(newMit);
-        } else if (type === 'existing-mit') {
-          const mit = active.data.current?.mit as MitEvent;
-          const { selectedMitIds, mitEvents, updateMitEvent } = useStore.getState();
-
-          const deltaMs = pixelsToMs(event.delta.y);
-
-          if (selectedMitIds.includes(mit.id)) {
-            let isValid = true;
-            for (const id of selectedMitIds) {
-              const item = mitEvents.find((m) => m.id === id);
-              if (!item) continue;
-              const newStart = item.tStartMs + deltaMs;
-              if (newStart < 0) {
-                isValid = false;
-                break;
-              }
-
-              const conflict = checkConflict(
-                item.skillId,
-                newStart,
-                item.id,
-                mitEvents.filter((m) => !selectedMitIds.includes(m.id)),
-              );
-              if (conflict) {
-                isValid = false;
-                break;
-              }
-            }
-
-            if (isValid) {
-              selectedMitIds.forEach((id) => {
-                const item = mitEvents.find((m) => m.id === id);
-                if (item) {
-                  const newStart = item.tStartMs + deltaMs;
-                  updateMitEvent(id, {
-                    tStartMs: newStart,
-                    tEndMs: newStart + item.durationMs,
-                  });
-                }
-              });
-            }
-          } else {
-            const newStart = mit.tStartMs + deltaMs;
-            const clampedStart = Math.max(0, newStart);
-
-            if (checkConflict(mit.skillId, clampedStart, mit.id, mitEvents)) {
-              console.warn('Skill is on cooldown (single drag)!');
-              return;
-            }
-
-            updateMitEvent(mit.id, {
-              tStartMs: clampedStart,
-              tEndMs: clampedStart + mit.durationMs,
-            });
-          }
-        }
+        updateMitEvent(mit.id, {
+          tStartMs: clampedStart,
+          tEndMs: clampedStart + mit.durationMs,
+        });
       }
     }
   };

@@ -194,10 +194,12 @@ export const useStore = create<AppState>()(
 
               return {
                 id: crypto.randomUUID(),
+                eventType: 'mit',
                 skillId: skillDef.id,
                 tStartMs: tStartMs,
                 durationMs: durationMs,
                 tEndMs: tStartMs + durationMs,
+                stackAfterUse: 0,
               };
             })
             .filter((e): e is MitEvent => !!e);

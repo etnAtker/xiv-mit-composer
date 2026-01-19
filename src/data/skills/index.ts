@@ -44,11 +44,24 @@ export const SKILLS: Skill[] = [
   {
     id: 'pld-h-sheltron',
     name: '圣盾阵',
-    cooldownSec: 5,
+    cooldownSec: 25,
     durationSec: 8,
     job: 'PLD',
     color: 'bg-blue-400',
     actionId: 25746,
+    stack: 2,
+    cooldownGroup: 'pld-sheltron',
+  },
+  {
+    id: 'pld-intervention',
+    name: '干预',
+    cooldownSec: 25,
+    durationSec: 8,
+    job: 'PLD',
+    color: 'bg-blue-400',
+    actionId: 7382,
+    stack: 2,
+    cooldownGroup: 'pld-sheltron',
   },
   {
     id: 'pld-hallowed-ground',
@@ -260,3 +273,13 @@ export const SKILLS: Skill[] = [
     actionId: 16160,
   },
 ];
+
+export const SKILL_MAP = new Map(SKILLS.map((skill) => [skill.id, skill]));
+
+export const SKILL_GROUP_MAP = new Map<string, Skill[]>();
+for (const skill of SKILLS) {
+  const group = skill.cooldownGroup ?? skill.id;
+  const groupSkills = SKILL_GROUP_MAP.get(group) || [];
+  groupSkills.push(skill);
+  SKILL_GROUP_MAP.set(group, groupSkills);
+}
