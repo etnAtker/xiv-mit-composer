@@ -90,6 +90,15 @@ export const SKILLS: Skill[] = [
     actionId: 40,
   },
   {
+    id: 'war-equilibrium',
+    name: '泰然自若',
+    cooldownSec: 60,
+    durationSec: 15,
+    job: 'WAR',
+    color: 'bg-red-200',
+    actionId: 3552,
+  },
+  {
     id: 'war-damnation',
     name: '戮罪',
     cooldownSec: 120,
@@ -195,6 +204,16 @@ export const SKILLS: Skill[] = [
 
   // 绝枪战士 (GNB)
 
+  {
+    id: 'gnb-aurora',
+    name: '极光',
+    cooldownSec: 60,
+    durationSec: 18,
+    job: 'GNB',
+    color: 'bg-orange-200',
+    actionId: 16151,
+    stack: 2,
+  },
   {
     id: 'gnb-camouflage',
     name: '伪装',
