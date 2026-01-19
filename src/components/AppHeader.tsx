@@ -1,4 +1,6 @@
-﻿interface Props {
+﻿import githubIcon from '../../assets/github.svg';
+
+interface Props {
   apiKey: string;
   fflogsUrl: string;
   isLoading: boolean;
@@ -65,6 +67,19 @@ export function AppHeader({
         >
           导出 Souma 时间轴
         </button>
+        <a
+          href="https://github.com/etnAtker/xiv-mit-composer"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg transition-colors border border-gray-700 text-gray-300 hover:text-white shadow-sm flex items-center justify-center group"
+          title="View on GitHub"
+        >
+          <img
+            src={githubIcon}
+            alt="GitHub"
+            className="w-5 h-5 invert opacity-75 group-hover:opacity-100"
+          />
+        </a>
       </div>
 
       {error && (
