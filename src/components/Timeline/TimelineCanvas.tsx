@@ -317,13 +317,22 @@ export function TimelineCanvas({
           >
             <defs>
               <pattern
-                id="diagonalHatch"
+                id="diagonalHatchCooldown"
                 width="10"
                 height="10"
                 patternTransform="rotate(45 0 0)"
                 patternUnits="userSpaceOnUse"
               >
                 <line x1="0" y1="0" x2="0" y2="10" style={{ stroke: '#EF4444', strokeWidth: 1 }} />
+              </pattern>
+              <pattern
+                id="diagonalHatchUnusable"
+                width="10"
+                height="10"
+                patternTransform="rotate(45 0 0)"
+                patternUnits="userSpaceOnUse"
+              >
+                <line x1="0" y1="0" x2="0" y2="10" style={{ stroke: '#F59E0B', strokeWidth: 1 }} />
               </pattern>
             </defs>
 

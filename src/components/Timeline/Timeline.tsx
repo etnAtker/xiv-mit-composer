@@ -4,9 +4,10 @@ import { SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TimelineToolbar } from './TimelineToolbar';
 import { CD_LEFT_PADDING, MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
-import { simulateSkillStacks } from '../../utils/cooldowns';
 import { MS_PER_SEC } from '../../constants/time';
 import { CAST_LANE_WIDTH, DAMAGE_LANE_WIDTH } from '../../constants/timeline';
+import { adjustEvents } from '../../utils/playerCast';
+import type { CooldownEvent } from '../../model/types';
 
 interface TimelineProps {
   zoom: number;
@@ -59,57 +60,45 @@ export function Timeline({
   const cdZones = useMemo(() => {
     if (!mitEvents.length) return [];
     const zones: React.ReactElement[] = [];
-    const bySkill: Record<string, typeof mitEvents> = {};
+    const eventsToCheck = mitEvents.filter((m) => m.id !== activeDragId);
+    const adjusted = adjustEvents([], eventsToCheck);
+    if (!adjusted) return [];
 
-    mitEvents.forEach((m) => {
-      if (m.id === activeDragId) return;
-      if (!bySkill[m.skillId]) bySkill[m.skillId] = [];
-      bySkill[m.skillId].push(m);
-    });
+    const cooldownEvents = adjusted.filter((e): e is CooldownEvent => e.eventType === 'cooldown');
 
-    Object.entries(bySkill).forEach(([skillId, events]) => {
-      const skillDef = SKILLS.find((s) => s.id === skillId);
-      if (!skillDef || !skillDef.cooldownSec) return;
-
-      const columnIndex = columnMap[skillId];
+    cooldownEvents.forEach((cdEvent) => {
+      const columnIndex = columnMap[cdEvent.skillId];
       if (columnIndex === undefined) return;
 
       const columnX = columnIndex * MIT_COLUMN_WIDTH + MIT_COLUMN_PADDING;
       const zoneWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
       const cdBoxY = zoneWidth + CD_LEFT_PADDING;
 
-      const { shadowZones } = simulateSkillStacks(skillDef, events);
+      const startY = (cdEvent.tStartMs / MS_PER_SEC) * zoom;
+      const durationSec = cdEvent.durationMs / MS_PER_SEC;
+      const height = durationSec * zoom;
+      const isUnusable = cdEvent.cdType === 'unusable';
+      const fillColor = isUnusable ? 'url(#diagonalHatchUnusable)' : 'url(#diagonalHatchCooldown)';
+      const strokeColor = isUnusable ? '#F59E0B' : '#EF4444';
+      const opacity = 0.8;
 
-      shadowZones.forEach((zone) => {
-        const startY = (zone.start / MS_PER_SEC) * zoom;
-        const durationSec = (zone.end - zone.start) / MS_PER_SEC;
-        const height = durationSec * zoom;
-
-        zones.push(
-          <g key={`cd-${skillId}-${zone.start}`} transform={`translate(${columnX}, ${startY})`}>
-            <rect
-              x={0}
-              y={0}
-              width={cdBoxY}
-              height={height}
-              fill="url(#diagonalHatch)"
-              opacity={0.6}
-            />
-            <line
-              x1={cdBoxY}
-              y1={0}
-              x2={cdBoxY}
-              y2={height}
-              stroke="#EF4444"
-              strokeWidth={2}
-              opacity={0.6}
-            />
-            <text x={4} y={12} fill="#6B7280" fontSize={9} className="select-none">
-              CD
-            </text>
-          </g>,
-        );
-      });
+      zones.push(
+        <g
+          key={`cd-${cdEvent.skillId}-${cdEvent.tStartMs}-${cdEvent.cdType}`}
+          transform={`translate(${columnX}, ${startY})`}
+        >
+          <rect x={0} y={0} width={cdBoxY} height={height} fill={fillColor} opacity={opacity} />
+          <line
+            x1={cdBoxY}
+            y1={0}
+            x2={cdBoxY}
+            y2={height}
+            stroke={strokeColor}
+            strokeWidth={2}
+            opacity={opacity}
+          />
+        </g>,
+      );
     });
 
     return zones;

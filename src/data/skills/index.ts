@@ -1,4 +1,4 @@
-import type { Skill } from '../../model/types';
+import type { CooldownGroup, Skill } from '../../model/types';
 
 export const SKILLS: Skill[] = [
   // 职能通用
@@ -44,24 +44,22 @@ export const SKILLS: Skill[] = [
   {
     id: 'pld-h-sheltron',
     name: '圣盾阵',
-    cooldownSec: 25,
+    cooldownSec: 4,
     durationSec: 8,
     job: 'PLD',
     color: 'bg-blue-400',
     actionId: 25746,
-    stack: 2,
-    cooldownGroup: 'pld-sheltron',
+    cooldownGroup: 'pld-grp-sheltron',
   },
   {
     id: 'pld-intervention',
     name: '干预',
-    cooldownSec: 25,
+    cooldownSec: 10,
     durationSec: 8,
     job: 'PLD',
     color: 'bg-blue-400',
     actionId: 7382,
-    stack: 2,
-    cooldownGroup: 'pld-sheltron',
+    cooldownGroup: 'pld-grp-sheltron',
   },
   {
     id: 'pld-hallowed-ground',
@@ -176,7 +174,7 @@ export const SKILLS: Skill[] = [
     job: 'DRK',
     color: 'bg-purple-700',
     actionId: 25754,
-    stack: 2,
+    cooldownGroup: 'drk-grp-oblation',
   },
   {
     id: 'drk-shadow-wall',
@@ -225,7 +223,7 @@ export const SKILLS: Skill[] = [
     job: 'GNB',
     color: 'bg-orange-200',
     actionId: 16151,
-    stack: 2,
+    cooldownGroup: 'gnb-grp-aurora',
   },
   {
     id: 'gnb-camouflage',
@@ -274,12 +272,34 @@ export const SKILLS: Skill[] = [
   },
 ];
 
+export const COOLDOWN_GROUP: CooldownGroup[] = [
+  {
+    id: 'pld-grp-sheltron',
+    cooldownSec: 25,
+    stack: 2,
+  },
+  {
+    id: 'drk-grp-oblation',
+    cooldownSec: 60,
+    stack: 2,
+  },
+  {
+    id: 'gnb-grp-aurora',
+    cooldownSec: 60,
+    stack: 2,
+  },
+];
+
 export const SKILL_MAP = new Map(SKILLS.map((skill) => [skill.id, skill]));
 
-export const SKILL_GROUP_MAP = new Map<string, Skill[]>();
+export const COOLDOWN_GROUP_MAP = new Map(COOLDOWN_GROUP.map((group) => [group.id, group]));
+
+export const COOLDOWN_GROUP_SKILLS_MAP = new Map<string, Skill[]>();
 for (const skill of SKILLS) {
-  const group = skill.cooldownGroup ?? skill.id;
-  const groupSkills = SKILL_GROUP_MAP.get(group) || [];
+  const group = skill.cooldownGroup;
+  if (!group || !COOLDOWN_GROUP_MAP.has(group)) continue;
+
+  const groupSkills = COOLDOWN_GROUP_SKILLS_MAP.get(group) || [];
   groupSkills.push(skill);
-  SKILL_GROUP_MAP.set(group, groupSkills);
+  COOLDOWN_GROUP_SKILLS_MAP.set(group, groupSkills);
 }

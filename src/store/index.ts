@@ -199,7 +199,6 @@ export const useStore = create<AppState>()(
                 tStartMs: tStartMs,
                 durationMs: durationMs,
                 tEndMs: tStartMs + durationMs,
-                stackAfterUse: 0,
               };
             })
             .filter((e): e is MitEvent => !!e);
