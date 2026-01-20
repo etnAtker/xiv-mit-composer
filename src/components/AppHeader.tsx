@@ -81,6 +81,8 @@ export function AppHeader({
           <img
             src={githubIcon}
             alt="GitHub"
+            width={20}
+            height={20}
             className="w-5 h-5 invert opacity-75 group-hover:opacity-100"
           />
         </a>
