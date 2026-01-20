@@ -36,6 +36,7 @@ export function AppHeader({
           type="password"
           value={apiKey}
           onChange={(e) => onApiKeyChange(e.target.value)}
+          aria-label="FFLogs API Key"
           className="bg-transparent border-none focus:ring-0 text-sm w-64 px-2 text-gray-200 placeholder-gray-600 outline-none"
           placeholder="API Key"
         />
@@ -44,6 +45,7 @@ export function AppHeader({
           type="text"
           value={fflogsUrl}
           onChange={(e) => onFflogsUrlChange(e.target.value)}
+          aria-label="FFLogs 报告 URL"
           className="bg-transparent border-none focus:ring-0 text-sm w-[32rem] px-2 text-gray-200 placeholder-gray-600 outline-none"
           placeholder="FFLogs URL (e.g., https://cn.fflogs.com/reports/...)"
         />

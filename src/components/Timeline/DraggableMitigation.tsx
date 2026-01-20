@@ -98,6 +98,7 @@ export function DraggableMitigation({
               className="w-16 bg-gray-700 border border-gray-500 rounded text-xs px-2 py-1 text-white focus:border-blue-500 outline-none"
               ref={editInputRef}
               defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
+              aria-label="开始时间（秒）"
               onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
             />
           </div>
@@ -110,7 +111,7 @@ export function DraggableMitigation({
               }}
               className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-red-900/30 transition-colors"
             >
-              <span>🗑️</span> 删除
+              <span aria-hidden="true">🗑️</span> 删除
             </button>
 
             <button

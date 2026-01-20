@@ -50,6 +50,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
                 e.currentTarget.blur();
               }
             }}
+            aria-label="时间轴缩放"
             className="w-12 h-6 bg-transparent text-center text-xs text-gray-300 font-mono focus:outline-none focus:bg-gray-700 rounded transition-colors appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <span className="text-xs text-gray-500 font-mono ml-1 select-none">px/s</span>

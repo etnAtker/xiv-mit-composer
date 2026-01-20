@@ -26,10 +26,21 @@ export function ExportModal({ isOpen, onClose, content, enableTTS, onTtsChange }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col h-[70vh] animate-in zoom-in-95 duration-200">
+      <div
+        className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col h-[70vh] animate-in zoom-in-95 duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-modal-title"
+      >
         <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900/50 rounded-t-xl">
-          <h3 className="font-bold text-gray-200 text-lg">导出 Souma 时间轴</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <h3 className="font-bold text-gray-200 text-lg" id="export-modal-title">
+            导出 Souma 时间轴
+          </h3>
+          <button
+            onClick={onClose}
+            aria-label="关闭"
+            className="text-gray-400 hover:text-white transition-colors"
+          >
             ✕
           </button>
         </div>
@@ -53,6 +64,7 @@ export function ExportModal({ isOpen, onClose, content, enableTTS, onTtsChange }
             className="w-full flex-1 bg-gray-950 border border-gray-700 rounded-lg p-3 font-mono text-xs text-green-400 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 custom-scrollbar"
             value={content}
             readOnly
+            aria-label="导出内容"
             onClick={(e) => e.currentTarget.select()}
           />
         </div>

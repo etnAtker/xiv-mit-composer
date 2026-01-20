@@ -61,6 +61,7 @@ export function FightInfoBar({
           <select
             value={selectedPlayerId ?? ''}
             onChange={(e) => onSelectPlayer(Number(e.target.value))}
+            aria-label="选择玩家"
             className="appearance-none bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-lg pl-3 pr-8 py-1.5 text-sm w-64 text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors cursor-pointer"
           >
             <option value="">选择玩家...</option>
@@ -84,7 +85,10 @@ export function FightInfoBar({
                 </option>
               ))}
           </select>
-          <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-500 text-xs">
+          <div
+            className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-500 text-xs"
+            aria-hidden="true"
+          >
             ▼
           </div>
         </div>
