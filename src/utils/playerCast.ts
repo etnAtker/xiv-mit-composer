@@ -271,7 +271,7 @@ function buildCooldownEventsForSkill(skillId: string, counts: StackCountChange[]
     if (currStacks > 0 && newStacks === 0) {
       startNewCooldown(countMeta.isGroup, countMeta.tMs);
 
-      const meta = countMeta.isGroup || !cooldownGroup ? skill : cooldownGroup;
+      const meta = countMeta.isGroup && cooldownGroup ? cooldownGroup : skill;
       const tStartMs = countMeta.tMs - meta.cooldownSec * MS_PER_SEC;
       updateUnusable(countMeta.isGroup, tStartMs, countMeta.tMs);
     }
