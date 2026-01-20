@@ -10,21 +10,6 @@ export function adjustEvents(
   return sanitizeEvents(allEvents);
 }
 
-interface StackEvent {
-  resourceId: string;
-  isGroup: boolean;
-  type: 'consume' | 'recover';
-  tMs: number;
-}
-
-interface StackCountChange {
-  skillId: string;
-  resourceId: string;
-  isGroup: boolean;
-  tMs: number;
-  stacks: number;
-}
-
 const GROUP_PREFIX = 'grp:';
 
 // 约定：
@@ -36,7 +21,7 @@ function sanitizeEvents(events: PlayerEvent[]): PlayerEvent[] | void {
   const stackEvents = buildStackEvents(mitEvents);
   stackEvents.sort((a, b) => a.tMs - b.tMs);
 
-  const skillStacksCounts = buildStackChanges(stackEvents);
+  const skillStacksCounts = buildBoundaries(stackEvents);
   if (!skillStacksCounts) return;
 
   const newEvents = buildCooldownEvents(skillStacksCounts);
@@ -48,6 +33,14 @@ function getSortedMitEvents(events: PlayerEvent[]): MitEvent[] {
   return events
     .filter((e): e is MitEvent => e.eventType === 'mit')
     .sort((a, b) => a.tStartMs - b.tStartMs);
+}
+
+interface StackEvent {
+  resourceId: string;
+  isGroup: boolean;
+  type: 'consume' | 'recover';
+  cooldownMs: number;
+  tMs: number;
 }
 
 function buildStackEvents(mitEvents: MitEvent[]): StackEvent[] {
@@ -99,61 +92,96 @@ function pushStackEvents(
       resourceId: payload.resourceId,
       isGroup: payload.isGroup,
       type: 'consume',
+      cooldownMs: payload.cooldownMs,
       tMs: payload.tStartMs,
     },
     {
       resourceId: payload.resourceId,
       isGroup: payload.isGroup,
       type: 'recover',
+      cooldownMs: payload.cooldownMs,
       tMs: payload.tStartMs + payload.cooldownMs,
     },
   );
 }
 
-function buildStackChanges(stackEvents: StackEvent[]): Map<string, StackCountChange[]> | void {
+interface CooldownEventBoundary {
+  skillId: string;
+  resourceId: string;
+  tMs: number;
+  boundaryType: 'unusedStart' | 'unusedEnd' | 'cooldownStart' | 'cooldownEnd';
+}
+
+function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBoundary[]> | void {
   const stacksBuffer = new Map<string, number>();
-  const skillStacksCounts = new Map<string, StackCountChange[]>();
+  const boundaries = new Map<string, CooldownEventBoundary[]>();
 
   for (const stackEvent of stackEvents) {
     const initialStack = getInitialStack(stackEvent);
     let stack = stacksBuffer.get(stackEvent.resourceId) ?? initialStack;
 
-    stack += stackEvent.type === 'consume' ? -1 : 1;
-    if (stack < 0) {
-      return;
-    }
+    const stackDelta = stackEvent.type === 'consume' ? -1 : 1;
+    stack += stackDelta;
+
+    if (stack < 0) return;
+
+    const buildBoundary = (skillId: string): CooldownEventBoundary[] => {
+      if (stack === 0) {
+        return [
+          {
+            skillId,
+            resourceId: stackEvent.resourceId,
+            tMs: stackEvent.tMs - stackEvent.cooldownMs,
+            boundaryType: 'unusedStart',
+          },
+          {
+            skillId,
+            resourceId: stackEvent.resourceId,
+            tMs: stackEvent.tMs,
+            boundaryType: 'unusedEnd',
+          },
+          {
+            skillId,
+            resourceId: stackEvent.resourceId,
+            tMs: stackEvent.tMs,
+            boundaryType: 'cooldownStart',
+          },
+        ];
+      }
+
+      if (stack === 1 && stackDelta === 1) {
+        return [
+          {
+            skillId,
+            resourceId: stackEvent.resourceId,
+            tMs: stackEvent.tMs,
+            boundaryType: 'cooldownEnd',
+          },
+        ];
+      }
+
+      return [];
+    };
 
     if (!stackEvent.isGroup) {
-      const count = skillStacksCounts.get(stackEvent.resourceId) || [];
-      count.push({
-        skillId: stackEvent.resourceId,
-        resourceId: stackEvent.resourceId,
-        isGroup: false,
-        tMs: stackEvent.tMs,
-        stacks: stack,
-      });
-      skillStacksCounts.set(stackEvent.resourceId, count);
+      const boundary = boundaries.get(stackEvent.resourceId) || [];
+      boundary.push(...buildBoundary(stackEvent.resourceId));
+      boundaries.set(stackEvent.resourceId, boundary);
     } else {
       const skills = COOLDOWN_GROUP_SKILLS_MAP.get(stripGroupPrefix(stackEvent.resourceId));
       if (!skills) continue;
 
       for (const skill of skills) {
-        const count = skillStacksCounts.get(skill.id) ?? [];
-        count.push({
-          skillId: skill.id,
-          resourceId: stackEvent.resourceId,
-          isGroup: true,
-          tMs: stackEvent.tMs,
-          stacks: stack,
-        });
-        skillStacksCounts.set(skill.id, count);
+        const boundary = boundaries.get(skill.id) ?? [];
+        boundary.push(...buildBoundary(skill.id));
+        boundaries.set(skill.id, boundary);
       }
     }
 
     stacksBuffer.set(stackEvent.resourceId, stack);
   }
 
-  return skillStacksCounts;
+  return boundaries;
 }
 
 function getInitialStack(stackEvent: StackEvent): number {
@@ -163,254 +191,98 @@ function getInitialStack(stackEvent: StackEvent): number {
   return cooldownGroupMeta?.stack ?? 1;
 }
 
-function buildCooldownEvents(skillStacksCounts: Map<string, StackCountChange[]>): PlayerEvent[] {
+function buildCooldownEvents(boundaries: Map<string, CooldownEventBoundary[]>): PlayerEvent[] {
   const newEvents: PlayerEvent[] = [];
 
-  for (const [skillId, counts] of skillStacksCounts) {
-    newEvents.push(...buildCooldownEventsForSkill(skillId, counts));
+  for (const [skillId, bs] of boundaries) {
+    newEvents.push(...buildCooldownEventsSingle(skillId, bs));
   }
 
   return newEvents;
 }
 
-type LastCooldown = {
-  self: CooldownEvent | undefined;
-  group: CooldownEvent | undefined;
-};
-
-function buildCooldownEventsForSkill(skillId: string, counts: StackCountChange[]): CooldownEvent[] {
+function buildCooldownEventsSingle(
+  skillId: string,
+  boundaries: CooldownEventBoundary[],
+): CooldownEvent[] {
   const skill = SKILL_MAP.get(skillId);
   if (!skill) {
     console.error(`致命错误：技能 ${skillId} 不存在`);
     return [];
   }
 
-  const cooldownGroup = COOLDOWN_GROUP_MAP.get(skill?.cooldownGroup || '');
   const events: CooldownEvent[] = [];
 
-  counts.sort((a, b) => a.tMs - b.tMs);
+  boundaries.sort((a, b) => a.tMs - b.tMs);
 
-  const stacks = {
-    self: 1,
-    group: cooldownGroup?.stack ?? 1,
-  };
+  let lastCooldown: CooldownEvent | undefined;
+  let unusableOpenCount = 0;
+  let cooldownOpenCount = 0;
 
-  const lastCooldowns: LastCooldown = {
-    self: undefined,
-    group: undefined,
-  };
-
-  const lastUnusables: LastCooldown = {
-    self: undefined,
-    group: undefined,
-  };
-
-  const closeLastCooldown = (isGroup: boolean, tMs: number) => {
-    const lastCooldown = isGroup ? lastCooldowns.group : lastCooldowns.self;
+  const closeLastCooldown = (tMs: number) => {
     if (lastCooldown === undefined) {
-      console.error(`致命错误：没有找到未闭合的cooldown`);
+      console.error(`错误：没有找到未闭合的cooldown`);
       return;
     }
     lastCooldown.tEndMs = tMs;
     lastCooldown.durationMs = lastCooldown.tEndMs - lastCooldown.tStartMs;
     events.push(lastCooldown);
-    lastCooldowns[isGroup ? 'group' : 'self'] = undefined;
+    lastCooldown = undefined;
   };
 
-  const startNewCooldown = (isGroup: boolean, tMs: number) => {
-    lastCooldowns[isGroup ? 'group' : 'self'] = {
+  const startNewCooldown = (type: CooldownEvent['cdType'], tMs: number) => {
+    if (lastCooldown) {
+      console.error(`错误：有未闭合的cooldown`);
+      return;
+    }
+    lastCooldown = {
       eventType: 'cooldown',
-      cdType: 'cooldown',
+      cdType: type,
       skillId,
-      skillGroupId: skill?.cooldownGroup,
       tStartMs: tMs,
       durationMs: 0,
       tEndMs: 0,
     };
   };
 
-  const updateUnusable = (isGroup: boolean, tStartMs: number, tEndMs: number) => {
-    let lastUnusable = isGroup ? lastUnusables.group : lastUnusables.self;
+  for (const count of boundaries) {
+    switch (count.boundaryType) {
+      case 'unusedStart':
+        if (unusableOpenCount === 0 && cooldownOpenCount === 0) {
+          startNewCooldown('unusable', count.tMs);
+        }
+        unusableOpenCount++;
+        break;
+      case 'unusedEnd':
+        unusableOpenCount--;
+        if (unusableOpenCount === 0 && cooldownOpenCount === 0) {
+          closeLastCooldown(count.tMs);
+        }
+        break;
+      case 'cooldownStart':
+        if (cooldownOpenCount === 0 && unusableOpenCount !== 0) {
+          closeLastCooldown(count.tMs);
+        }
 
-    lastUnusable ??= {
-      eventType: 'cooldown',
-      cdType: 'unusable',
-      skillId,
-      skillGroupId: skill?.cooldownGroup,
-      tStartMs,
-      durationMs: tEndMs - tStartMs,
-      tEndMs,
-    };
+        if (cooldownOpenCount === 0) {
+          startNewCooldown('cooldown', count.tMs);
+        }
+        cooldownOpenCount++;
+        break;
+      case 'cooldownEnd':
+        cooldownOpenCount--;
+        if (cooldownOpenCount === 0) {
+          closeLastCooldown(count.tMs);
+        }
 
-    if (lastUnusable.tEndMs >= tStartMs) {
-      lastUnusable.tEndMs = tEndMs;
-      lastUnusable.durationMs = lastUnusable.tEndMs - lastUnusable.tStartMs;
-    } else {
-      events.push(lastUnusable);
-      lastUnusable = {
-        eventType: 'cooldown',
-        cdType: 'unusable',
-        skillId,
-        skillGroupId: skill?.cooldownGroup,
-        tStartMs,
-        durationMs: tEndMs - tStartMs,
-        tEndMs,
-      };
+        if (unusableOpenCount !== 0) {
+          startNewCooldown('unusable', count.tMs);
+        }
+        break;
     }
-
-    lastUnusables[isGroup ? 'group' : 'self'] = lastUnusable;
-  };
-
-  for (const countMeta of counts) {
-    const currStacks = stacks[countMeta.isGroup ? 'group' : 'self'];
-    const newStacks = countMeta.stacks;
-
-    if ((currStacks > 0 && newStacks > 0) || (currStacks === 0 && newStacks === 0)) continue;
-
-    // 下降沿
-    if (currStacks > 0 && newStacks === 0) {
-      startNewCooldown(countMeta.isGroup, countMeta.tMs);
-
-      const meta = countMeta.isGroup && cooldownGroup ? cooldownGroup : skill;
-      const tStartMs = countMeta.tMs - meta.cooldownSec * MS_PER_SEC;
-      updateUnusable(countMeta.isGroup, tStartMs, countMeta.tMs);
-    }
-
-    // 上升沿
-    if (currStacks === 0 && newStacks > 0) {
-      closeLastCooldown(countMeta.isGroup, countMeta.tMs);
-    }
-
-    stacks[countMeta.isGroup ? 'group' : 'self'] = newStacks;
   }
 
-  if (lastUnusables.self) events.push(lastUnusables.self);
-  if (lastUnusables.group) events.push(lastUnusables.group);
-  if (lastCooldowns.self) events.push(lastCooldowns.self);
-  if (lastCooldowns.group) events.push(lastCooldowns.group);
-
-  processCooldownsCover(events);
   return events;
-}
-
-function processCooldownsCover(events: PlayerEvent[]) {
-  const cooldownEventsAll = mergeCooldownEventsByType(events.filter(isCooldownEvent));
-  const cooldownEvents = cooldownEventsAll.filter((e) => e.cdType === 'cooldown');
-  const unusableEvents = cooldownEventsAll.filter((e) => e.cdType === 'unusable');
-  const otherEvents = events.filter((e) => !isCooldownEvent(e));
-
-  if (!cooldownEvents.length || !unusableEvents.length) {
-    events.length = 0;
-    events.push(...otherEvents, ...cooldownEventsAll);
-    events.sort((a, b) => a.tStartMs - b.tStartMs);
-    return;
-  }
-
-  cooldownEvents.sort((a, b) => a.tStartMs - b.tStartMs);
-  const mergedCovers: { start: number; end: number }[] = [];
-
-  for (const cd of cooldownEvents) {
-    const start = cd.tStartMs;
-    const end = cd.tEndMs;
-    if (mergedCovers.length === 0) {
-      mergedCovers.push({ start, end });
-      continue;
-    }
-
-    const last = mergedCovers[mergedCovers.length - 1];
-    if (start <= last.end) {
-      last.end = Math.max(last.end, end);
-    } else {
-      mergedCovers.push({ start, end });
-    }
-  }
-
-  const processedUnusable: CooldownEvent[] = [];
-
-  for (const unusable of unusableEvents) {
-    let segments = [{ start: unusable.tStartMs, end: unusable.tEndMs }];
-
-    for (const cover of mergedCovers) {
-      if (segments.length === 0) break;
-      const nextSegments: { start: number; end: number }[] = [];
-
-      for (const seg of segments) {
-        if (cover.end <= seg.start || cover.start >= seg.end) {
-          nextSegments.push(seg);
-          continue;
-        }
-
-        if (cover.start <= seg.start && cover.end >= seg.end) {
-          continue;
-        }
-
-        if (cover.start <= seg.start && cover.end < seg.end) {
-          nextSegments.push({ start: cover.end, end: seg.end });
-          continue;
-        }
-
-        if (cover.start > seg.start && cover.end >= seg.end) {
-          nextSegments.push({ start: seg.start, end: cover.start });
-          continue;
-        }
-
-        nextSegments.push({ start: seg.start, end: cover.start });
-        nextSegments.push({ start: cover.end, end: seg.end });
-      }
-
-      segments = nextSegments;
-    }
-
-    for (const seg of segments) {
-      if (seg.end <= seg.start) continue;
-      processedUnusable.push({
-        ...unusable,
-        tStartMs: seg.start,
-        tEndMs: seg.end,
-        durationMs: seg.end - seg.start,
-      });
-    }
-  }
-
-  const mergedUnusable = mergeCooldownEventsByType(processedUnusable);
-  events.length = 0;
-  events.push(...otherEvents, ...cooldownEvents, ...mergedUnusable);
-  events.sort((a, b) => a.tStartMs - b.tStartMs);
-}
-
-function isCooldownEvent(event: PlayerEvent): event is CooldownEvent {
-  return event.eventType === 'cooldown';
-}
-
-function mergeCooldownEventsByType(events: CooldownEvent[]): CooldownEvent[] {
-  const byType = new Map<CooldownEvent['cdType'], CooldownEvent[]>();
-
-  for (const event of events) {
-    const list = byType.get(event.cdType) ?? [];
-    list.push({ ...event });
-    byType.set(event.cdType, list);
-  }
-
-  const merged: CooldownEvent[] = [];
-
-  for (const [, list] of byType) {
-    list.sort((a, b) => a.tStartMs - b.tStartMs);
-
-    for (const current of list) {
-      const last = merged[merged.length - 1];
-      if (!last || last.cdType !== current.cdType || current.tStartMs > last.tEndMs) {
-        merged.push({ ...current });
-        continue;
-      }
-
-      if (current.tEndMs > last.tEndMs) {
-        last.tEndMs = current.tEndMs;
-        last.durationMs = last.tEndMs - last.tStartMs;
-      }
-    }
-  }
-
-  return merged;
 }
 
 function toGroupResourceId(groupId: string): string {
