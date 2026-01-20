@@ -33,6 +33,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
 
       <div className="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700">
         <button
+          type="button"
           className="w-8 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-gray-300 hover:text-white text-md transition-colors"
           onClick={() => setZoom(Math.max(MIN_ZOOM, zoom - ZOOM_STEP))}
         >
@@ -56,6 +57,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
           <span className="text-xs text-gray-500 font-mono ml-1 select-none">px/s</span>
         </div>
         <button
+          type="button"
           className="w-8 h-6 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded text-gray-300 hover:text-white text-md transition-colors"
           onClick={() => setZoom(Math.min(MAX_ZOOM, zoom + ZOOM_STEP))}
         >
@@ -66,6 +68,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
       <div className="w-[1px] h-4 bg-gray-800 mx-2"></div>
 
       <button
+        type="button"
         className="px-3 py-1 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white rounded text-xs transition-colors"
         onClick={() => setZoom(DEFAULT_ZOOM)}
       >
@@ -73,6 +76,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
       </button>
 
       <button
+        type="button"
         className="px-3 py-1 bg-gray-800 border border-gray-700 hover:bg-red-900/50 text-red-400 hover:text-red-300 rounded text-xs transition-colors"
         onClick={() => {
           if (confirm('确定要清空所有已排的技能吗？此操作无法撤销。')) {

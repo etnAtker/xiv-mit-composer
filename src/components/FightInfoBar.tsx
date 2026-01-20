@@ -39,6 +39,7 @@ export function FightInfoBar({
           {JOBS.map((job) => (
             <button
               key={job}
+              type="button"
               onClick={() => onSelectJob(job)}
               className={cn(
                 'px-3 py-1 rounded-md text-xs font-bold transition-all',

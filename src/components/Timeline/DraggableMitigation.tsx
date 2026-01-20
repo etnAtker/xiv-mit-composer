@@ -105,6 +105,7 @@ export function DraggableMitigation({
 
           <div className="flex justify-between items-center mt-1 border-t border-gray-700 pt-2">
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onRemove(mit.id);
@@ -115,6 +116,7 @@ export function DraggableMitigation({
             </button>
 
             <button
+              type="button"
               onClick={handleEditSubmit}
               className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1 rounded transition-colors"
             >
