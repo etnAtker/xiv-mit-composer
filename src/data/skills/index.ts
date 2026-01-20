@@ -126,6 +126,7 @@ export const SKILLS: Skill[] = [
     job: 'WAR',
     color: 'bg-red-400',
     actionId: 25751,
+    cooldownGroup: 'war-grp-bloodwhetting',
   },
   {
     id: 'war-nascent-flash',
@@ -135,6 +136,7 @@ export const SKILLS: Skill[] = [
     job: 'WAR',
     color: 'bg-red-400',
     actionId: 16464,
+    cooldownGroup: 'war-grp-bloodwhetting',
   },
   {
     id: 'war-holmgang',
@@ -287,6 +289,11 @@ export const COOLDOWN_GROUP: CooldownGroup[] = [
     id: 'gnb-grp-aurora',
     cooldownSec: 60,
     stack: 2,
+  },
+  {
+    id: 'war-grp-bloodwhetting',
+    cooldownSec: 25,
+    stack: 1,
   },
 ];
 
