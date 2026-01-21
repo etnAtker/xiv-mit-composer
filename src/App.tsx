@@ -5,7 +5,6 @@ import { type MitEvent, type Skill } from './model/types';
 import { useStore } from './store';
 import { SKILLS } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
-import { parseFFLogsUrl } from './utils';
 import { AppHeader } from './components/AppHeader';
 import { DragOverlayLayer, type DragOverlayItem } from './components/DragOverlayLayer';
 import { EmptyState } from './components/EmptyState';
@@ -20,10 +19,9 @@ import { DEFAULT_ZOOM } from './constants/timeline';
 export default function App() {
   const {
     apiKey,
-    reportCode,
+    fflogsUrl,
     setApiKey,
-    setReportCode,
-    setFightId,
+    setFflogsUrl,
     setSelectedMitIds,
     loadFightMetadata,
     fight,
@@ -43,7 +41,6 @@ export default function App() {
     error,
   } = useStore();
 
-  const [fflogsUrl, setFflogsUrl] = useState('');
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportContent, setExportContent] = useState('');
@@ -66,15 +63,6 @@ export default function App() {
   }, [fight, selectedPlayerId, loadEvents]);
 
   const pixelsToMs = (pixels: number) => (pixels / zoom) * MS_PER_SEC;
-
-  const handleFflogsUrlChange = (value: string) => {
-    setFflogsUrl(value);
-    const parsed = parseFFLogsUrl(value);
-    if (parsed) {
-      setReportCode(parsed.reportCode);
-      setFightId(parsed.fightId);
-    }
-  };
 
   const getEventsToExport = () => {
     const { castEvents, mitEvents } = useStore.getState();
@@ -224,11 +212,10 @@ export default function App() {
           apiKey={apiKey}
           fflogsUrl={fflogsUrl}
           isLoading={isLoading}
-          canLoad={!!apiKey && !!reportCode}
           canExport={!!fight && castEvents.length > 0}
           error={error}
           onApiKeyChange={setApiKey}
-          onFflogsUrlChange={handleFflogsUrlChange}
+          onFflogsUrlChange={setFflogsUrl}
           onLoadFight={loadFightMetadata}
           onExportTimeline={handleExportTimeline}
         />

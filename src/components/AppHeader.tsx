@@ -2,7 +2,6 @@
   apiKey: string;
   fflogsUrl: string;
   isLoading: boolean;
-  canLoad: boolean;
   canExport: boolean;
   error: string | null;
   onApiKeyChange: (value: string) => void;
@@ -15,7 +14,6 @@ export function AppHeader({
   apiKey,
   fflogsUrl,
   isLoading,
-  canLoad,
   canExport,
   error,
   onApiKeyChange,
@@ -49,7 +47,7 @@ export function AppHeader({
 
       <button
         onClick={onLoadFight}
-        disabled={isLoading || !canLoad}
+        disabled={isLoading}
         className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:bg-gray-800 px-5 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg active:scale-95 flex items-center gap-2 text-white"
       >
         {isLoading ? <span className="animate-spin">?</span> : '加载战斗'}
