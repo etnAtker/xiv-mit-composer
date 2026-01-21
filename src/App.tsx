@@ -32,7 +32,6 @@ export default function App() {
     setSelectedPlayerId,
     loadEvents,
     mitEvents,
-    selectedMitIds,
     addMitEvent,
     setMitEvents,
     castEvents,
@@ -174,6 +173,7 @@ export default function App() {
       const deltaMs = pixelsToMs(event.delta.y);
       let eventsToMove: MitEvent[] = [];
 
+      const selectedMitIds = useStore.getState().selectedMitIds;
       if (selectedMitIds.includes(mit.id)) {
         eventsToMove = mitEvents.filter((m) => selectedMitIds.includes(m.id));
       } else {
