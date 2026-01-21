@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import type { MitEvent, Skill } from './model/types';
+import { type MitEvent, type Skill } from './model/types';
 import { useStore } from './store';
 import { SKILLS } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { parseFFLogsUrl } from './utils';
-import { adjustEvents } from './utils/playerCast';
 import { AppHeader } from './components/AppHeader';
 import { DragOverlayLayer, type DragOverlayItem } from './components/DragOverlayLayer';
 import { EmptyState } from './components/EmptyState';
@@ -34,8 +33,10 @@ export default function App() {
     selectedPlayerId,
     setSelectedPlayerId,
     loadEvents,
-    addMitEvent,
     mitEvents,
+    selectedMitIds,
+    addMitEvent,
+    setMitEvents,
     castEvents,
     isLoading,
     isRendering,
@@ -160,60 +161,6 @@ export default function App() {
     };
   };
 
-  const checkConflictWithAdjust = (eventsToAdjust: MitEvent[], baseEvents: MitEvent[]) => {
-    const excludeIds = new Set(eventsToAdjust.map((e) => e.id));
-    const filteredBase = baseEvents.filter((e) => !excludeIds.has(e.id));
-    return adjustEvents(eventsToAdjust, filteredBase) === undefined;
-  };
-
-  const applyMovedEvents = (movedEvents: MitEvent[]) => {
-    const { updateMitEvent } = useStore.getState();
-    movedEvents.forEach((item) => {
-      updateMitEvent(item.id, {
-        tStartMs: item.tStartMs,
-        tEndMs: item.tEndMs,
-      });
-    });
-  };
-
-  const handleExistingMitMove = (event: DragEndEvent, mit: MitEvent) => {
-    const { selectedMitIds, mitEvents } = useStore.getState();
-    const deltaMs = pixelsToMs(event.delta.y);
-
-    if (selectedMitIds.includes(mit.id)) {
-      const movedEvents: MitEvent[] = [];
-      for (const id of selectedMitIds) {
-        const item = mitEvents.find((m) => m.id === id);
-        if (!item) continue;
-        const newStart = item.tStartMs + deltaMs;
-        if (newStart < 0) return;
-        movedEvents.push({
-          ...item,
-          tStartMs: newStart,
-          tEndMs: newStart + item.durationMs,
-        });
-      }
-
-      const baseEvents = mitEvents.filter((m) => !selectedMitIds.includes(m.id));
-      if (checkConflictWithAdjust(movedEvents, baseEvents)) return;
-      applyMovedEvents(movedEvents);
-      return;
-    }
-
-    const clampedStart = Math.max(0, mit.tStartMs + deltaMs);
-    const updatedMit: MitEvent = {
-      ...mit,
-      tStartMs: clampedStart,
-      tEndMs: clampedStart + mit.durationMs,
-    };
-
-    if (checkConflictWithAdjust([updatedMit], mitEvents)) {
-      return;
-    }
-
-    applyMovedEvents([updatedMit]);
-  };
-
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveItem(null);
     setDragDeltaMs(0);
@@ -232,13 +179,34 @@ export default function App() {
       const skill = active.data.current?.skill as Skill;
       const newMit = buildMitEventFromSkill(skill.id, tStartMs);
       if (!newMit) return;
-      if (checkConflictWithAdjust([newMit], mitEvents)) {
-        return;
-      }
+
       addMitEvent(newMit);
     } else if (type === 'existing-mit') {
       const mit = active.data.current?.mit as MitEvent;
-      handleExistingMitMove(event, mit);
+      const deltaMs = pixelsToMs(event.delta.y);
+      let eventsToMove: MitEvent[] = [];
+
+      if (selectedMitIds.includes(mit.id)) {
+        eventsToMove = mitEvents.filter((m) => selectedMitIds.includes(m.id));
+      } else {
+        eventsToMove = [mit];
+      }
+
+      const movedEvents = eventsToMove
+        .map((m) => {
+          const newStart = m.tStartMs + deltaMs;
+          if (newStart < 0) return;
+
+          return {
+            ...m,
+            tStartMs: newStart,
+            tEndMs: newStart + m.durationMs,
+          };
+        })
+        .filter((m) => m !== undefined);
+
+      const movedIds = movedEvents.map((m) => m.id);
+      setMitEvents([...movedEvents, ...mitEvents.filter((m) => !movedIds.includes(m.id))]);
     }
   };
 

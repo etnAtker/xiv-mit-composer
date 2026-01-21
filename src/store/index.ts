@@ -1,10 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Actor, CastEvent, DamageEvent, Fight, Job, MitEvent } from '../model/types';
+import {
+  type Actor,
+  type CastEvent,
+  type CooldownEvent,
+  type DamageEvent,
+  type Fight,
+  type Job,
+  type MitEvent,
+} from '../model/types';
 import { FFLogsClient } from '../lib/fflogs/client';
 import { FFLogsProcessor } from '../lib/fflogs/processor';
 import { SKILLS } from '../data/skills';
 import { MS_PER_SEC } from '../constants/time';
+import { tryBuildCooldowns } from '../utils/playerCast';
 
 interface AppState {
   // 输入状态
@@ -23,6 +32,7 @@ interface AppState {
   damageEvents: DamageEvent[];
   castEvents: CastEvent[];
   mitEvents: MitEvent[];
+  cooldownEvents: CooldownEvent[];
 
   // UI 状态
   isLoading: boolean;
@@ -61,6 +71,7 @@ export const useStore = create<AppState>()(
       damageEvents: [],
       castEvents: [],
       mitEvents: [],
+      cooldownEvents: [],
       isLoading: false,
       isRendering: false,
       error: null,
@@ -278,6 +289,7 @@ export const useStore = create<AppState>()(
             (a, b) => a.timestamp - b.timestamp,
           );
 
+          newMitEvents.sort((a, b) => a.tStartMs - b.tStartMs);
           set({
             damageEvents: finalDamages.map(processTimestamp),
             castEvents: finalCasts,
@@ -292,14 +304,52 @@ export const useStore = create<AppState>()(
         }
       },
 
-      addMitEvent: (event) => set((state) => ({ mitEvents: [...state.mitEvents, event] })),
-      updateMitEvent: (id, updates) =>
-        set((state) => ({
-          mitEvents: state.mitEvents.map((e) => (e.id === id ? { ...e, ...updates } : e)),
-        })),
-      removeMitEvent: (id) =>
-        set((state) => ({ mitEvents: state.mitEvents.filter((e) => e.id !== id) })),
-      setMitEvents: (events) => set({ mitEvents: events }),
+      addMitEvent: (event: MitEvent) => {
+        set((state) => {
+          const newMits = [...state.mitEvents, event];
+          const cooldownEvents = tryBuildCooldowns(newMits);
+          if (!cooldownEvents) return {};
+
+          newMits.sort((a, b) => a.tStartMs - b.tStartMs);
+          return {
+            mitEvents: newMits,
+            cooldownEvents,
+          };
+        });
+      },
+
+      updateMitEvent: (id: string, updates: Partial<MitEvent>) => {
+        set((state) => {
+          const newMits = state.mitEvents.map((e) => (e.id === id ? { ...e, ...updates } : e));
+          const cooldownEvents = tryBuildCooldowns(newMits);
+          if (!cooldownEvents) return {};
+
+          newMits.sort((a, b) => a.tStartMs - b.tStartMs);
+          return {
+            mitEvents: newMits,
+            cooldownEvents,
+          };
+        });
+      },
+
+      removeMitEvent: (id: string) =>
+        set((state) => {
+          const newMits = state.mitEvents.filter((e) => e.id !== id);
+          const cooldownEvents = tryBuildCooldowns(newMits);
+          if (!cooldownEvents) return {};
+
+          return {
+            mitEvents: newMits,
+            cooldownEvents,
+          };
+        }),
+
+      setMitEvents: (events) => {
+        events.sort((a, b) => a.tStartMs - b.tStartMs);
+        const cooldownEvents = tryBuildCooldowns(events);
+        if (!cooldownEvents) return;
+        set({ mitEvents: events, cooldownEvents });
+      },
     }),
     {
       name: 'xiv-mit-composer-storage',

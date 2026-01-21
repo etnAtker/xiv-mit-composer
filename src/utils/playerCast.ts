@@ -1,24 +1,11 @@
 import { MS_PER_SEC } from '../constants/time';
 import { COOLDOWN_GROUP_MAP, COOLDOWN_GROUP_SKILLS_MAP, SKILL_MAP } from '../data/skills';
-import type { CooldownEvent, MitEvent, PlayerEvent } from '../model/types';
-
-export function adjustEvents(
-  eventsToAdjust: MitEvent[],
-  events: PlayerEvent[],
-): PlayerEvent[] | void {
-  const allEvents = [...eventsToAdjust, ...events];
-  return sanitizeEvents(allEvents);
-}
+import type { CooldownEvent, MitEvent } from '../model/types';
 
 const GROUP_PREFIX = 'grp:';
 
-// 约定：
-// - actual 表示真实可用层数（consume/recover 影响）
-// - estimate 表示考虑未来占用后的可用层数（reserve/release 影响）
-// - reserve/release 用于表达“未来要用 -> 当前不可用（unusable）”
-function sanitizeEvents(events: PlayerEvent[]): PlayerEvent[] | void {
-  const mitEvents = getSortedMitEvents(events);
-  const stackEvents = buildStackEvents(mitEvents);
+export function tryBuildCooldowns(events: MitEvent[]): CooldownEvent[] | void {
+  const stackEvents = buildStackEvents(events);
   stackEvents.sort((a, b) => a.tMs - b.tMs);
 
   const skillStacksCounts = buildBoundaries(stackEvents);
@@ -27,12 +14,6 @@ function sanitizeEvents(events: PlayerEvent[]): PlayerEvent[] | void {
   const newEvents = buildCooldownEvents(skillStacksCounts);
   newEvents.sort((a, b) => a.tStartMs - b.tStartMs);
   return newEvents;
-}
-
-function getSortedMitEvents(events: PlayerEvent[]): MitEvent[] {
-  return events
-    .filter((e): e is MitEvent => e.eventType === 'mit')
-    .sort((a, b) => a.tStartMs - b.tStartMs);
 }
 
 interface StackEvent {
@@ -191,14 +172,14 @@ function getInitialStack(stackEvent: StackEvent): number {
   return cooldownGroupMeta?.stack ?? 1;
 }
 
-function buildCooldownEvents(boundaries: Map<string, CooldownEventBoundary[]>): PlayerEvent[] {
-  const newEvents: PlayerEvent[] = [];
+function buildCooldownEvents(boundaries: Map<string, CooldownEventBoundary[]>): CooldownEvent[] {
+  const cooldowns: CooldownEvent[] = [];
 
   for (const [skillId, bs] of boundaries) {
-    newEvents.push(...buildCooldownEventsSingle(skillId, bs));
+    cooldowns.push(...buildCooldownEventsSingle(skillId, bs));
   }
 
-  return newEvents;
+  return cooldowns;
 }
 
 function buildCooldownEventsSingle(
@@ -211,7 +192,7 @@ function buildCooldownEventsSingle(
     return [];
   }
 
-  const events: CooldownEvent[] = [];
+  const cooldowns: CooldownEvent[] = [];
 
   boundaries.sort((a, b) => a.tMs - b.tMs);
 
@@ -226,7 +207,7 @@ function buildCooldownEventsSingle(
     }
     lastCooldown.tEndMs = tMs;
     lastCooldown.durationMs = lastCooldown.tEndMs - lastCooldown.tStartMs;
-    events.push(lastCooldown);
+    cooldowns.push(lastCooldown);
     lastCooldown = undefined;
   };
 
@@ -245,44 +226,44 @@ function buildCooldownEventsSingle(
     };
   };
 
-  for (const count of boundaries) {
-    switch (count.boundaryType) {
+  for (const boundary of boundaries) {
+    switch (boundary.boundaryType) {
       case 'unusedStart':
         if (unusableOpenCount === 0 && cooldownOpenCount === 0) {
-          startNewCooldown('unusable', count.tMs);
+          startNewCooldown('unusable', boundary.tMs);
         }
         unusableOpenCount++;
         break;
       case 'unusedEnd':
         unusableOpenCount--;
         if (unusableOpenCount === 0 && cooldownOpenCount === 0) {
-          closeLastCooldown(count.tMs);
+          closeLastCooldown(boundary.tMs);
         }
         break;
       case 'cooldownStart':
         if (cooldownOpenCount === 0 && unusableOpenCount !== 0) {
-          closeLastCooldown(count.tMs);
+          closeLastCooldown(boundary.tMs);
         }
 
         if (cooldownOpenCount === 0) {
-          startNewCooldown('cooldown', count.tMs);
+          startNewCooldown('cooldown', boundary.tMs);
         }
         cooldownOpenCount++;
         break;
       case 'cooldownEnd':
         cooldownOpenCount--;
         if (cooldownOpenCount === 0) {
-          closeLastCooldown(count.tMs);
+          closeLastCooldown(boundary.tMs);
         }
 
         if (unusableOpenCount !== 0) {
-          startNewCooldown('unusable', count.tMs);
+          startNewCooldown('unusable', boundary.tMs);
         }
         break;
     }
   }
 
-  return events;
+  return cooldowns;
 }
 
 function toGroupResourceId(groupId: string): string {

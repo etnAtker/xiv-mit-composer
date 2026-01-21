@@ -6,8 +6,6 @@ import { TimelineToolbar } from './TimelineToolbar';
 import { CD_LEFT_PADDING, MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
 import { MS_PER_SEC } from '../../constants/time';
 import { CAST_LANE_WIDTH, DAMAGE_LANE_WIDTH } from '../../constants/timeline';
-import { adjustEvents } from '../../utils/playerCast';
-import type { CooldownEvent } from '../../model/types';
 
 interface TimelineProps {
   zoom: number;
@@ -24,7 +22,15 @@ export function Timeline({
   activeDragId,
   dragDeltaMs = 0,
 }: TimelineProps) {
-  const { fight, mitEvents, damageEvents, castEvents, setMitEvents, setIsRendering } = useStore();
+  const {
+    fight,
+    mitEvents,
+    cooldownEvents,
+    damageEvents,
+    castEvents,
+    setMitEvents,
+    setIsRendering,
+  } = useStore();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -58,13 +64,8 @@ export function Timeline({
   }, [mitEvents]);
 
   const cdZones = useMemo(() => {
-    if (!mitEvents.length) return [];
+    if (!cooldownEvents.length) return [];
     const zones: React.ReactElement[] = [];
-    const eventsToCheck = mitEvents.filter((m) => m.id !== activeDragId);
-    const adjusted = adjustEvents([], eventsToCheck);
-    if (!adjusted) return [];
-
-    const cooldownEvents = adjusted.filter((e): e is CooldownEvent => e.eventType === 'cooldown');
 
     cooldownEvents.forEach((cdEvent) => {
       const columnIndex = columnMap[cdEvent.skillId];
@@ -102,7 +103,7 @@ export function Timeline({
     });
 
     return zones;
-  }, [mitEvents, zoom, columnMap, activeDragId]);
+  }, [cooldownEvents, zoom, columnMap]);
 
   if (!fight) return null;
 

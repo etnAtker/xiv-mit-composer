@@ -56,6 +56,14 @@ export interface CooldownEvent {
   tEndMs: number;
 }
 
+export function isMitEvent(event: PlayerEvent): event is MitEvent {
+  return event.eventType === 'mit';
+}
+
+export function isCooldownEvent(event: PlayerEvent): event is CooldownEvent {
+  return event.eventType === 'cooldown';
+}
+
 // API 响应结构（简化版）
 export interface FFLogsAbility {
   name: string;
