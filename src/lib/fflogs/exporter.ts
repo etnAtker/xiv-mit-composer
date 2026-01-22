@@ -6,6 +6,7 @@ interface ExportableEvent {
   time: number;
   actionName: string;
   actionId: number; // 原始 Action ID
+  tts: string;
   type: string; // 'cast' 或 'begincast'
   isFriendly: boolean;
   sourceId?: number;
@@ -26,7 +27,7 @@ export class FFLogsExporter {
       if (event.isFriendly) {
         // 玩家技能
         if (enableTTS) {
-          lines.push(`${event.time} "<${event.actionName}>~" tts "${event.actionName}"`);
+          lines.push(`${event.time} "<${event.actionName}>~" tts "${event.tts}"`);
         } else {
           lines.push(`${event.time} "<${event.actionName}>~"`);
         }

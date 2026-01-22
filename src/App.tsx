@@ -69,6 +69,7 @@ export default function App() {
       ...castEvents.map((e) => ({
         time: Number((e.tMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
         actionName: e.ability.name,
+        tts: 'N/A',
         actionId: e.originalActionId || e.ability.guid,
         type: e.originalType || e.type,
         isFriendly: !!e.isFriendly,
@@ -79,6 +80,7 @@ export default function App() {
         return {
           time: Number((m.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
           actionName: skill?.name || 'Unknown',
+          tts: skill?.tts ?? skill?.name ?? 'Unknown',
           actionId: skill?.actionId || 0,
           type: 'cast',
           isFriendly: true,

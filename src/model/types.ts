@@ -23,6 +23,7 @@ export interface Skill {
   job: Job | 'ALL';
   color: string;
   actionId: number; // FFLogs 技能 ID
+  tts?: string;
   icon?: string;
   cooldownGroup?: string; // 共享CD组 ID，在自己进入cd的同时会消耗冷却组的一层cd
 }
