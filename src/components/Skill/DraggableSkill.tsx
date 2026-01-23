@@ -23,7 +23,7 @@ export function DraggableSkill({ skill, jobOverride }: Props) {
       {...attributes}
       className={cn('touch-none', isDragging ? 'opacity-30' : '')}
     >
-      <SkillCard skill={skill} />
+      <SkillCard skill={skill} job={jobOverride} />
     </div>
   );
 }

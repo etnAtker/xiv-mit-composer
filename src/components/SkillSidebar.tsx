@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import { SKILLS } from '../data/skills';
 import type { Job } from '../model/types';
 import { DraggableSkill } from './Skill/DraggableSkill';
+import { XivIcon } from './XivIcon';
+import { JOB_ICON_LOCAL_SRC } from '../data/icons';
+import { fetchJobIconUrl } from '../lib/xivapi/icons';
 
 interface Props {
   selectedJob: Job;
@@ -47,6 +50,13 @@ export function SkillSidebar({ selectedJob, selectedJobs }: Props) {
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-muted">
                   <span>{group.skills.length}</span>
+                  <XivIcon
+                    localSrc={JOB_ICON_LOCAL_SRC[group.job]}
+                    remoteSrc={() => fetchJobIconUrl(group.job)}
+                    alt={`${group.job} icon`}
+                    className="h-4 w-4 object-contain"
+                    fallback={group.job}
+                  />
                   <span className={isOpen ? 'rotate-90' : ''}>{'>'}</span>
                 </div>
               </button>
