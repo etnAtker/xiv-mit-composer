@@ -171,7 +171,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'drk-oblation',
     name: '献奉',
-    cooldownSec: 60,
+    cooldownSec: 0.5,
     durationSec: 10,
     job: 'DRK',
     color: 'bg-purple-700',
