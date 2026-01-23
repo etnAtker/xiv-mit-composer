@@ -1,20 +1,29 @@
-﻿import { format } from 'date-fns';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { format } from 'date-fns';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import type { CastEvent, DamageEvent, MitEvent } from '../../model/types';
+import type { CastEvent, DamageEvent, Job, MitEvent } from '../../model/types';
 import { useStore } from '../../store';
 import { ContextMenu } from './ContextMenu';
 import { DraggableMitigation } from './DraggableMitigation';
-import { CastLane, DamageLane } from './TimelineLanes';
+import { DamageLane } from './TimelineLanes';
 import type { TooltipData } from './types';
-import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
+import {
+  buildSkillZIndexMap,
+  EFFECT_BAR_COLOR,
+  MIT_COLUMN_PADDING,
+  MIT_COLUMN_WIDTH,
+} from './timelineUtils';
 import { MS_PER_SEC } from '../../constants/time';
 import { MAX_ZOOM, MIN_ZOOM } from '../../constants/timeline';
+import { SKILLS } from '../../data/skills';
+import { XivIcon } from '../XivIcon';
+import { JOB_ICON_LOCAL_SRC, getSkillIconLocalSrc } from '../../data/icons';
+import { fetchActionIconUrl, fetchJobIconUrl } from '../../lib/xivapi/icons';
 
 const VISIBLE_RANGE_BUFFER_MS = 5000;
 const ZOOM_WHEEL_STEP = 5;
 const RULER_STEP_SEC = 5;
-const HEADER_HEIGHT = 36;
+const HEADER_HEIGHT = 64;
 
 interface Props {
   containerId: string;
@@ -30,14 +39,22 @@ interface Props {
   dmgX: number;
   mitX: number;
   mitAreaWidth: number;
-  skillColumns: { id: string; name: string }[];
+  skillColumns: {
+    id: string;
+    columnId: string;
+    name: string;
+    color?: string;
+    icon?: string;
+    actionId?: number;
+    job?: string;
+  }[];
   castEvents: CastEvent[];
   damageEvents: DamageEvent[];
   mitEvents: MitEvent[];
-  cdZones: React.ReactElement[];
   columnMap: Record<string, number>;
   activeDragId?: string | null;
   dragDeltaMs?: number;
+  selectedJobs?: Job[];
 }
 
 export function TimelineCanvas({
@@ -58,10 +75,10 @@ export function TimelineCanvas({
   castEvents,
   damageEvents,
   mitEvents,
-  cdZones,
   columnMap,
   activeDragId,
   dragDeltaMs = 0,
+  selectedJobs,
 }: Props) {
   const { updateMitEvent, removeMitEvent, selectedMitIds, setSelectedMitIds } = useStore();
   const [editingMitId, setEditingMitId] = useState<string | null>(null);
@@ -75,21 +92,6 @@ export function TimelineCanvas({
     endX: 0,
     endY: 0,
   });
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const contextMenuElement = document.querySelector(
-        `[data-context-menu-id="${selectedMitIds.join(',')}"]`,
-      );
-      if (contextMenuElement && !contextMenuElement.contains(e.target as Node)) {
-        setContextMenu(null);
-        setSelectedMitIds([]);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [selectedMitIds, setSelectedMitIds]);
 
   const { setNodeRef: setMitLaneRef } = useDroppable({
     id: 'mit-lane',
@@ -126,6 +128,32 @@ export function TimelineCanvas({
     handleScroll();
   }, [zoom, handleScroll]);
 
+  useEffect(() => {
+    if (selectedMitIds.length === 0) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (
+        target &&
+        (target.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT')
+      ) {
+        return;
+      }
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+
+      event.preventDefault();
+      selectedMitIds.forEach((id) => removeMitEvent(id));
+      setSelectedMitIds([]);
+      setContextMenu(null);
+      setEditingMitId(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedMitIds, removeMitEvent, setSelectedMitIds, setContextMenu, setEditingMitId]);
+
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -158,45 +186,194 @@ export function TimelineCanvas({
   }, [zoom, setZoom]);
 
   const lineWidth = Math.max(0, totalWidth - dmgX);
+  const encounterWidth = castWidth + dmgWidth;
   const headerSkillColumns =
-    skillColumns.length > 0 ? skillColumns : [{ id: 'mit-placeholder', name: '减伤' }];
-  const headerColumns = [
-    { key: 'ruler', label: '时间', width: rulerWidth, isSkill: false },
-    { key: 'cast', label: '读条', width: castWidth, isSkill: false },
-    { key: 'damage', label: '承伤', width: dmgWidth, isSkill: false },
-    ...headerSkillColumns.map((skill) => ({
-      key: `skill-${skill.id}`,
-      label: skill.name,
-      width: MIT_COLUMN_WIDTH,
-      isSkill: true,
-    })),
-  ];
+    skillColumns.length > 0
+      ? skillColumns
+      : [
+          {
+            id: 'mit-placeholder',
+            columnId: 'mit-placeholder',
+            name: '减伤',
+            color: 'bg-surface-4',
+            job: 'ALL',
+          },
+        ];
+
+  const jobOrder = selectedJobs && selectedJobs.length > 0 ? selectedJobs : [];
+  const jobGroups = jobOrder.map((job) => headerSkillColumns.filter((skill) => skill.job === job));
+  const utilitySkills = headerSkillColumns.filter((skill) => skill.job === 'ALL');
+  const jobToneMap: Record<string, string> = {
+    PLD: 'bg-blue-500/5',
+    WAR: 'bg-red-500/5',
+    DRK: 'bg-purple-500/5',
+    GNB: 'bg-emerald-500/5',
+  };
+  const jobHeaderToneMap: Record<string, string> = {
+    PLD: 'bg-blue-900/20 text-blue-300',
+    WAR: 'bg-red-900/20 text-red-300',
+    DRK: 'bg-purple-900/20 text-purple-300',
+    GNB: 'bg-emerald-900/20 text-emerald-300',
+  };
+  const getJobTone = (job: Job) => jobToneMap[job] || 'bg-[#1f6feb]/5';
+  const getJobHeaderTone = (job: Job) => jobHeaderToneMap[job] || 'bg-[#1f6feb]/15 text-muted';
+
+  const getMitColumnKey = (mit: MitEvent) => {
+    const ownerJob = mit.ownerJob ?? selectedJobs?.[0];
+    if (ownerJob) {
+      const jobKey = `${mit.skillId}:${ownerJob}`;
+      if (Object.prototype.hasOwnProperty.call(columnMap, jobKey)) {
+        return jobKey;
+      }
+    }
+    return mit.skillId;
+  };
+
+  const getVisualOffsetMs = useCallback(
+    (mit: MitEvent) => {
+      if (!activeDragId || dragDeltaMs === 0) return 0;
+      const shouldMoveGroup = selectedMitIds.includes(activeDragId as string);
+      const shouldMove =
+        (shouldMoveGroup && selectedMitIds.includes(mit.id)) ||
+        (!shouldMoveGroup && mit.id === activeDragId);
+      return shouldMove ? dragDeltaMs : 0;
+    },
+    [activeDragId, dragDeltaMs, selectedMitIds],
+  );
+
+  const getEffectiveStartMs = useCallback(
+    (mit: MitEvent) => mit.tStartMs + getVisualOffsetMs(mit),
+    [getVisualOffsetMs],
+  );
+
+  const reprisalSkill = SKILLS.find((skill) => skill.id === 'role-reprisal');
+  const reprisalZIndexMap = useMemo(
+    () => buildSkillZIndexMap(mitEvents, 'role-reprisal', getEffectiveStartMs),
+    [mitEvents, getEffectiveStartMs],
+  );
+  const reprisalGhosts =
+    selectedJobs && selectedJobs.length > 1
+      ? mitEvents.flatMap((mit) => {
+          if (mit.skillId !== 'role-reprisal') return [];
+          if (!mit.ownerJob) return [];
+          return selectedJobs
+            .filter((job) => job !== mit.ownerJob)
+            .map((job) => ({
+              mit,
+              targetJob: job,
+            }));
+        })
+      : [];
+
+  const visibleCasts = castEvents.filter(
+    (e) =>
+      e.tMs >= visibleRange.start - VISIBLE_RANGE_BUFFER_MS &&
+      e.tMs <= visibleRange.end + VISIBLE_RANGE_BUFFER_MS,
+  );
 
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-auto relative select-none custom-scrollbar bg-gray-950"
+      className="relative flex-1 overflow-auto select-none custom-scrollbar bg-app text-app"
       onScroll={handleScroll}
     >
       <div style={{ width: totalWidth, height: totalHeight + HEADER_HEIGHT, position: 'relative' }}>
         <div
-          className="sticky top-0 z-30 flex bg-gray-950/95 backdrop-blur border-b border-gray-800"
+          className="sticky top-0 z-30 flex border-b border-app bg-surface-3 shadow-xl"
           style={{ width: totalWidth, height: HEADER_HEIGHT }}
         >
-          {headerColumns.map((col) => (
-            <div
-              key={col.key}
-              className={`flex items-center justify-center px-2 border-r border-gray-800 ${
-                col.isSkill
-                  ? 'text-xs text-gray-200 font-semibold'
-                  : 'text-[11px] text-gray-400 font-semibold uppercase tracking-wider'
-              }`}
-              style={{ width: col.width }}
-              title={col.label}
-            >
-              <span className="truncate">{col.label}</span>
-            </div>
-          ))}
+          <div
+            className="flex h-full items-center justify-center border-r border-app text-[10px] font-mono uppercase text-muted"
+            style={{ width: rulerWidth }}
+          >
+            Time
+          </div>
+          <div
+            className="flex h-full items-center gap-2 border-r border-app px-4"
+            style={{ width: encounterWidth }}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted">
+              Encounter Timeline
+            </span>
+          </div>
+          <div className="flex h-full flex-1">
+            {jobGroups.map((group, index) => {
+              const job = jobOrder[index];
+              if (!job || group.length === 0) return null;
+              return (
+                <div
+                  key={`job-${job}`}
+                  className={`flex flex-col border-r border-app ${getJobTone(job)}`}
+                  style={{ width: group.length * MIT_COLUMN_WIDTH }}
+                >
+                  <div
+                    className={`flex h-6 py-3 items-center justify-center border-b border-app text-[14px] font-bold uppercase tracking-tight ${getJobHeaderTone(job)}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <XivIcon
+                        localSrc={JOB_ICON_LOCAL_SRC[job]}
+                        remoteSrc={() => fetchJobIconUrl(job)}
+                        alt={`${job} icon`}
+                        className="h-5 w-5 object-contain"
+                        fallback={job}
+                      />
+                      <span>{job}</span>
+                    </div>
+                  </div>
+                  <div className="flex">
+                    {group.map((skill) => (
+                      <div
+                        key={`head-${skill.columnId}`}
+                        className="flex h-10 w-10 items-center justify-center"
+                        title={skill.name}
+                      >
+                        <XivIcon
+                          localSrc={getSkillIconLocalSrc(skill.actionId)}
+                          remoteSrc={
+                            skill.actionId ? () => fetchActionIconUrl(skill.actionId) : undefined
+                          }
+                          alt={skill.name}
+                          className="h-full w-full object-cover"
+                          fallback={skill.icon ?? skill.name.slice(0, 1)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {utilitySkills.length > 0 && (
+              <div
+                className="flex flex-1 flex-col border-r border-app bg-surface-2"
+                style={{ width: utilitySkills.length * MIT_COLUMN_WIDTH }}
+              >
+                <div className="flex h-6 items-center px-4 border-b border-app bg-surface-3">
+                  <span className="text-[12px] font-medium uppercase text-muted">
+                    Party Utility
+                  </span>
+                </div>
+                <div className="flex">
+                  {utilitySkills.map((skill) => (
+                    <div
+                      key={`head-${skill.columnId}`}
+                      className="flex h-10 w-10 items-center justify-center"
+                      title={skill.name}
+                    >
+                      <XivIcon
+                        localSrc={getSkillIconLocalSrc(skill.actionId)}
+                        remoteSrc={
+                          skill.actionId ? () => fetchActionIconUrl(skill.actionId) : undefined
+                        }
+                        alt={skill.name}
+                        className="h-full w-full object-cover"
+                        fallback={skill.icon ?? skill.name.slice(0, 1)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div
@@ -251,11 +428,17 @@ export function TimelineCanvas({
                 const newlySelectedIds: string[] = [];
                 const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
                 mitEvents.forEach((mit) => {
-                  const columnIndex = columnMap[mit.skillId] ?? 0;
+                  const columnKey = getMitColumnKey(mit);
+                  const columnIndex = columnMap[columnKey];
+                  if (columnIndex === undefined) return;
                   const left = mitX + columnIndex * MIT_COLUMN_WIDTH + MIT_COLUMN_PADDING;
                   const top = (mit.tStartMs / MS_PER_SEC) * zoom;
                   const width = barWidth;
-                  const height = (mit.durationMs / MS_PER_SEC) * zoom;
+                  const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
+                  const skillDef = SKILLS.find((s) => s.id === mit.skillId);
+                  const cooldownMs = (skillDef?.cooldownSec ?? 0) * MS_PER_SEC;
+                  const cooldownHeight = (cooldownMs / MS_PER_SEC) * zoom;
+                  const height = 40 + effectHeight + cooldownHeight;
 
                   if (
                     left >= selectionRect.left &&
@@ -290,7 +473,7 @@ export function TimelineCanvas({
         >
           {boxSelection.isActive && (
             <div
-              className="absolute border-2 border-dashed border-blue-400 bg-blue-400/10 z-50 pointer-events-none"
+              className="absolute z-50 border-2 border-dashed border-[#1f6feb] bg-[#1f6feb]/10 pointer-events-none"
               style={{
                 left: Math.min(boxSelection.startX, boxSelection.endX),
                 top: Math.min(boxSelection.startY, boxSelection.endY),
@@ -300,10 +483,67 @@ export function TimelineCanvas({
             />
           )}
 
+          <div className="absolute inset-0 z-0 flex pointer-events-none">
+            <div
+              className="h-full border-r border-app bg-surface-2"
+              style={{
+                width: rulerWidth,
+                backgroundSize: '100% 60px',
+                backgroundImage:
+                  'linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)',
+              }}
+            />
+            <div
+              className="h-full border-r border-app bg-surface"
+              style={{
+                width: encounterWidth,
+                backgroundSize: '100% 60px',
+                backgroundImage:
+                  'linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)',
+              }}
+            />
+            <div className="flex h-full" style={{ width: mitAreaWidth }}>
+              {headerSkillColumns.map((skill) => (
+                <div
+                  key={`lane-${skill.columnId}`}
+                  className="h-full border-r border-app"
+                  style={{ width: MIT_COLUMN_WIDTH }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="sticky left-0 z-20 h-full border-r border-app bg-surface-2 pr-2 text-right pointer-events-none"
+            style={{ width: rulerWidth }}
+          >
+            <div className="relative h-full py-4">
+              {Array.from({ length: Math.ceil(durationSec / RULER_STEP_SEC) }).map((_, i) => {
+                const sec = i * RULER_STEP_SEC;
+                const ms = sec * MS_PER_SEC;
+                if (
+                  ms < visibleRange.start - VISIBLE_RANGE_BUFFER_MS ||
+                  ms > visibleRange.end + VISIBLE_RANGE_BUFFER_MS
+                )
+                  return null;
+                const y = sec * zoom;
+                return (
+                  <div
+                    key={`r-${sec}`}
+                    className="absolute right-2 text-[10px] font-mono text-muted"
+                    style={{ top: y }}
+                  >
+                    {format(new Date(0, 0, 0, 0, 0, sec), 'mm:ss')}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <svg
             width={totalWidth}
             height={totalHeight}
-            className="absolute inset-0 block text-xs pointer-events-none"
+            className="absolute inset-0 z-10 block text-xs pointer-events-none"
           >
             <defs>
               <pattern
@@ -313,7 +553,13 @@ export function TimelineCanvas({
                 patternTransform="rotate(45 0 0)"
                 patternUnits="userSpaceOnUse"
               >
-                <line x1="0" y1="0" x2="0" y2="10" style={{ stroke: '#EF4444', strokeWidth: 1 }} />
+                <line
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="10"
+                  style={{ stroke: 'var(--color-text-muted)', strokeWidth: 1 }}
+                />
               </pattern>
               <pattern
                 id="diagonalHatchUnusable"
@@ -322,38 +568,14 @@ export function TimelineCanvas({
                 patternTransform="rotate(45 0 0)"
                 patternUnits="userSpaceOnUse"
               >
-                <line x1="0" y1="0" x2="0" y2="10" style={{ stroke: '#F59E0B', strokeWidth: 1 }} />
+                <line x1="0" y1="0" x2="0" y2="10" style={{ stroke: '#d29922', strokeWidth: 1 }} />
               </pattern>
             </defs>
 
-            <rect
-              x={0}
-              y={0}
-              width={rulerWidth}
-              height={totalHeight}
-              fill="rgba(17, 24, 39, 0.4)"
-            />
-            <rect
-              x={castX}
-              y={0}
-              width={castWidth}
-              height={totalHeight}
-              fill="rgba(167, 139, 250, 0.05)"
-            />
-            <rect
-              x={dmgX}
-              y={0}
-              width={dmgWidth}
-              height={totalHeight}
-              fill="rgba(248, 113, 113, 0.05)"
-            />
-            <rect
-              x={mitX}
-              y={0}
-              width={mitAreaWidth}
-              height={totalHeight}
-              fill="rgba(52, 211, 153, 0.02)"
-            />
+            <rect x={0} y={0} width={rulerWidth} height={totalHeight} fill="transparent" />
+            <rect x={castX} y={0} width={castWidth} height={totalHeight} fill="transparent" />
+            <rect x={dmgX} y={0} width={dmgWidth} height={totalHeight} fill="transparent" />
+            <rect x={mitX} y={0} width={mitAreaWidth} height={totalHeight} fill="transparent" />
 
             {Array.from({ length: Math.ceil(durationSec / RULER_STEP_SEC) }).map((_, i) => {
               const sec = i * RULER_STEP_SEC;
@@ -372,26 +594,14 @@ export function TimelineCanvas({
                     y1={y}
                     x2={totalWidth}
                     y2={y}
-                    stroke="#374151"
+                    stroke="var(--color-border)"
                     strokeWidth={1}
-                    strokeDasharray="4 4"
-                    opacity={0.5}
+                    opacity={0.35}
                   />
-                  <text x={8} y={y + 12} fill="#6B7280" fontSize={10} fontFamily="monospace">
-                    {format(new Date(0, 0, 0, 0, 0, sec), 'mm:ss')}
-                  </text>
                 </g>
               );
             })}
 
-            <CastLane
-              events={castEvents}
-              zoom={zoom}
-              width={castWidth}
-              left={castX}
-              visibleRange={visibleRange}
-              onHover={setTooltip}
-            />
             <DamageLane
               events={damageEvents}
               mitEvents={mitEvents}
@@ -402,28 +612,131 @@ export function TimelineCanvas({
               onHover={setTooltip}
               lineWidth={lineWidth}
             />
-
-            <g transform={`translate(${mitX}, 0)`}>{cdZones}</g>
           </svg>
+
+          <div
+            className="absolute z-20"
+            style={{ left: rulerWidth, width: encounterWidth, top: 0, height: totalHeight }}
+          >
+            {visibleCasts.map((ev) => {
+              const top = (ev.tMs / MS_PER_SEC) * zoom;
+              const duration = Math.max(0, ev.duration || 0);
+              const height = Math.max(48, (duration / MS_PER_SEC) * zoom);
+              const isBegin = ev.type === 'begincast';
+              const borderColor = isBegin ? '#a855f7' : '#da3633';
+              const labelColor = isBegin ? '#c084fc' : '#da3633';
+              return (
+                <div
+                  key={`${ev.tMs}-${ev.ability.guid}-${ev.type}`}
+                  className="absolute left-2 right-2 rounded bg-surface-3 shadow-sm border-l-2 hover:brightness-125 transition-all cursor-help"
+                  style={{ top, height, borderColor }}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setTooltip({
+                      x: rect.left + rect.width / 2,
+                      y: rect.top,
+                      items: [
+                        {
+                          title: ev.ability.name,
+                          subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
+                          color: labelColor,
+                        },
+                      ],
+                    });
+                  }}
+                  onMouseLeave={() => setTooltip(null)}
+                >
+                  <div className="flex h-full flex-col justify-center px-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-white">{ev.ability.name}</span>
+                      <span
+                        className="text-[9px] font-mono uppercase"
+                        style={{ color: labelColor }}
+                      >
+                        {isBegin ? 'CASTING' : 'CAST'}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[9px] text-muted">
+                      {duration > 0
+                        ? `${(duration / MS_PER_SEC).toFixed(1)}s Cast`
+                        : 'Instant Cast'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
           <div
             id={containerId}
             ref={setMitLaneRef}
-            className="absolute"
+            className="absolute z-20"
             style={{ left: mitX, top: 0, width: mitAreaWidth, height: totalHeight }}
           >
+            {reprisalGhosts.map(({ mit, targetJob }) => {
+              const columnKey = `${mit.skillId}:${targetJob}`;
+              const columnIndex = columnMap[columnKey];
+              if (columnIndex === undefined) return null;
+              const top = (getEffectiveStartMs(mit) / MS_PER_SEC) * zoom;
+              const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
+              const height = 40 + effectHeight;
+              const ghostColor = reprisalSkill?.color ?? 'bg-slate-600';
+              const reprisalIndex = reprisalZIndexMap.get(mit.id) ?? 0;
+              const iconJob = mit.ownerJob ?? targetJob;
+
+              return (
+                <div
+                  key={`reprisal-ghost-${mit.id}-${targetJob}`}
+                  style={{
+                    position: 'absolute',
+                    top,
+                    left: columnIndex * MIT_COLUMN_WIDTH,
+                    width: MIT_COLUMN_WIDTH,
+                    height,
+                    zIndex: 10 + reprisalIndex,
+                    pointerEvents: 'none',
+                  }}
+                  className="opacity-50"
+                >
+                  <div className="flex w-full flex-col">
+                    <div
+                      className={`flex h-10 w-full items-center justify-center border border-white/10 text-[10px] font-semibold text-white ${ghostColor}`}
+                    >
+                      <XivIcon
+                        localSrc={JOB_ICON_LOCAL_SRC[iconJob]}
+                        remoteSrc={() => fetchJobIconUrl(iconJob)}
+                        alt={`${iconJob} icon`}
+                        className="h-full w-full object-cover"
+                        fallback={iconJob}
+                      />
+                    </div>
+                    <div
+                      className="w-full border-x border-white/10 shadow-inner"
+                      style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
             {mitEvents.map((mit) => {
-              const isSelected = selectedMitIds.includes(mit.id);
-              const visualOffsetMs = isSelected && mit.id !== activeDragId ? dragDeltaMs : 0;
+              const visualOffsetMs = getVisualOffsetMs(mit);
 
               const top = ((mit.tStartMs + visualOffsetMs) / MS_PER_SEC) * zoom;
-              const height = (mit.durationMs / MS_PER_SEC) * zoom;
-              const columnIndex = columnMap[mit.skillId] ?? 0;
+              const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
+              const skillDef = SKILLS.find((s) => s.id === mit.skillId);
+              const cooldownMs = (skillDef?.cooldownSec ?? 0) * MS_PER_SEC;
+              const cooldownHeight = (cooldownMs / MS_PER_SEC) * zoom;
+              const height = 40 + effectHeight + cooldownHeight;
+              const columnKey = getMitColumnKey(mit);
+              const columnIndex = columnMap[columnKey];
+              if (columnIndex === undefined) return null;
               const left = columnIndex * MIT_COLUMN_WIDTH;
               const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
 
               const isEditing = editingMitId === mit.id;
-              const zIndex = isEditing ? 100 : 10;
+              const reprisalIndex = reprisalZIndexMap.get(mit.id);
+              const baseZ = isEditing ? 200 : 10;
+              const zIndex = reprisalIndex !== undefined ? baseZ + reprisalIndex : baseZ;
 
               return (
                 <div
@@ -443,6 +756,8 @@ export function TimelineCanvas({
                     mit={mit}
                     left={MIT_COLUMN_PADDING}
                     width={barWidth}
+                    effectHeight={effectHeight}
+                    cooldownHeight={cooldownHeight}
                     onUpdate={(id, update) => updateMitEvent(id, update)}
                     onRemove={(id) => removeMitEvent(id)}
                     isEditing={isEditing}
@@ -506,13 +821,16 @@ export function TimelineCanvas({
             },
           ]}
           position={contextMenu}
-          onClose={() => setContextMenu(null)}
+          onClose={() => {
+            setContextMenu(null);
+            setSelectedMitIds([]);
+          }}
         />
       )}
 
       {tooltip && (
         <div
-          className="fixed z-[9999] pointer-events-none bg-gray-900/95 border border-gray-700 text-white text-xs rounded shadow-xl flex flex-col p-2 min-w-[120px]"
+          className="fixed z-9999 pointer-events-none min-w-30 rounded-lg border border-app bg-surface-3 text-[11px] text-app shadow-2xl backdrop-blur-xl flex flex-col p-2 animate-[fade-in-up_0.2s_ease]"
           style={{
             left: tooltip.x,
             top: tooltip.y,
@@ -522,15 +840,17 @@ export function TimelineCanvas({
           {tooltip.items.map((item, idx) => (
             <div
               key={idx}
-              className={`flex items-center justify-between gap-3 ${idx > 0 ? 'mt-1 border-t border-gray-700 pt-1' : ''}`}
+              className={`flex items-center justify-between gap-3 ${
+                idx > 0 ? 'mt-1 border-t border-app pt-1' : ''
+              }`}
             >
               <span
-                className="font-medium truncate flex-1 min-w-0 leading-none"
-                style={{ color: item.color || '#F3F4F6' }}
+                className="min-w-0 flex-1 truncate font-medium leading-none"
+                style={{ color: item.color || 'var(--color-text)' }}
               >
                 {item.title}
               </span>
-              <span className="text-gray-400 font-mono text-[10px] whitespace-nowrap leading-none shrink-0">
+              <span className="shrink-0 whitespace-nowrap font-mono text-[10px] leading-none text-muted">
                 {item.subtitle}
               </span>
             </div>

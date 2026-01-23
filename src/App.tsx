@@ -444,6 +444,7 @@ export default function App() {
                   setZoom={setZoom}
                   activeDragId={activeItem?.type === 'existing-mit' ? activeItem.mit.id : null}
                   dragDeltaMs={dragDeltaMs}
+                  selectedJobs={selectedJobs ?? undefined}
                 />
               </div>
             </>
