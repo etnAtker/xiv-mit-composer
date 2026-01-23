@@ -35,6 +35,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'pld-sentinel',
     name: '绝对防御',
+    tts: '大减',
     cooldownSec: 120,
     durationSec: 15,
     job: 'PLD',
@@ -44,6 +45,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'pld-h-sheltron',
     name: '圣盾阵',
+    tts: '盾阵',
     cooldownSec: 4,
     durationSec: 8,
     job: 'PLD',
@@ -64,6 +66,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'pld-hallowed-ground',
     name: '神圣领域',
+    tts: '无敌',
     cooldownSec: 420,
     durationSec: 10,
     job: 'PLD',
@@ -73,6 +76,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'pld-passage',
     name: '武装戍卫',
+    tts: '翅膀',
     cooldownSec: 120,
     durationSec: 18,
     job: 'PLD',
@@ -82,6 +86,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'pld-divine-veil',
     name: '圣光幕帘',
+    tts: '幕帘',
     cooldownSec: 90,
     durationSec: 30,
     job: 'PLD',
@@ -103,6 +108,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'war-equilibrium',
     name: '泰然自若',
+    tts: '泰然',
     cooldownSec: 60,
     durationSec: 15,
     job: 'WAR',
@@ -112,6 +118,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'war-damnation',
     name: '戮罪',
+    tts: '大减',
     cooldownSec: 120,
     durationSec: 15,
     job: 'WAR',
@@ -121,6 +128,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'war-bloodwhetting',
     name: '原初的血气',
+    tts: '血气',
     cooldownSec: 25,
     durationSec: 8,
     job: 'WAR',
@@ -131,6 +139,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'war-nascent-flash',
     name: '原初的勇猛',
+    tts: '勇猛',
     cooldownSec: 25,
     durationSec: 8,
     job: 'WAR',
@@ -162,6 +171,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'drk-dark-mind',
     name: '弃明投暗',
+    tts: '弃明',
     cooldownSec: 0.5,
     durationSec: 10,
     job: 'DRK',
@@ -181,6 +191,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'drk-shadow-wall',
     name: '暗影卫',
+    tts: '大减',
     cooldownSec: 120,
     durationSec: 15,
     job: 'DRK',
@@ -190,6 +201,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'drk-tbn',
     name: '至黑之夜',
+    tts: '黑盾',
     cooldownSec: 15,
     durationSec: 7,
     job: 'DRK',
@@ -199,6 +211,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'drk-living-dead',
     name: '行尸走肉',
+    tts: '无敌',
     cooldownSec: 300,
     durationSec: 10,
     job: 'DRK',
@@ -208,6 +221,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'drk-dark-missionary',
     name: '暗黑布道',
+    tts: '布道',
     cooldownSec: 90,
     durationSec: 15,
     job: 'DRK',
@@ -239,6 +253,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'gnb-nebula',
     name: '大星云',
+    tts: '大减',
     cooldownSec: 120,
     durationSec: 15,
     job: 'GNB',
@@ -248,6 +263,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'gnb-hoc',
     name: '刚玉之心',
+    tts: '刚玉',
     cooldownSec: 25,
     durationSec: 8,
     job: 'GNB',
@@ -257,6 +273,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'gnb-superbolide',
     name: '超火流星',
+    tts: '无敌',
     cooldownSec: 360,
     durationSec: 10,
     job: 'GNB',
@@ -266,6 +283,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'gnb-heart-of-light',
     name: '光之心',
+    tts: '光心',
     cooldownSec: 90,
     durationSec: 15,
     job: 'GNB',
