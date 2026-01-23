@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { cn } from '../utils';
 
 interface Props {
@@ -9,16 +9,10 @@ interface Props {
   fallback?: string;
 }
 
-export function XivIcon({ localSrc = '', remoteSrc, alt, className, fallback }: Props) {
+function XivIconInner({ localSrc = '', remoteSrc, alt, className, fallback }: Props) {
   const [src, setSrc] = useState(localSrc);
   const [failed, setFailed] = useState(false);
   const triedRemote = useRef(false);
-
-  useEffect(() => {
-    setSrc(localSrc);
-    setFailed(false);
-    triedRemote.current = false;
-  }, [localSrc]);
 
   const handleError = () => {
     if (!remoteSrc || triedRemote.current) {
@@ -55,4 +49,8 @@ export function XivIcon({ localSrc = '', remoteSrc, alt, className, fallback }: 
       onError={handleError}
     />
   );
+}
+
+export function XivIcon(props: Props) {
+  return <XivIconInner key={props.localSrc ?? ''} {...props} />;
 }
