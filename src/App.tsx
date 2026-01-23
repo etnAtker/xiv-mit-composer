@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { type MitEvent, type Skill } from './model/types';
+import { type Actor, type Job, type MitEvent, type Skill } from './model/types';
 import { useStore } from './store';
 import { SKILLS } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
@@ -10,6 +10,7 @@ import { DragOverlayLayer, type DragOverlayItem } from './components/DragOverlay
 import { EmptyState } from './components/EmptyState';
 import { ExportModal } from './components/ExportModal';
 import { FightInfoBar } from './components/FightInfoBar';
+import { LoadFightModal } from './components/LoadFightModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
@@ -31,6 +32,7 @@ export default function App() {
     selectedPlayerId,
     setSelectedPlayerId,
     loadEvents,
+    loadEventsForPlayers,
     mitEvents,
     addMitEvent,
     setMitEvents,
@@ -46,6 +48,25 @@ export default function App() {
   const [enableTTS, setEnableTTS] = useState(false);
   const [activeItem, setActiveItem] = useState<DragOverlayItem | null>(null);
   const [dragDeltaMs, setDragDeltaMs] = useState(0);
+  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+  const [loadMode, setLoadMode] = useState<'single' | 'dual'>('single');
+  const [dualTankPlayers, setDualTankPlayers] = useState<{ id: number | null; job: Job }[]>([]);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'dark';
+    const stored = window.localStorage.getItem('theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    window.localStorage.setItem('theme', theme);
+  }, [theme]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -55,11 +76,53 @@ export default function App() {
     }),
   );
 
+  const TANK_JOB_MAP: Record<Job, string[]> = {
+    PLD: ['Paladin'],
+    WAR: ['Warrior'],
+    DRK: ['DarkKnight', 'Dark Knight'],
+    GNB: ['Gunbreaker'],
+  };
+
+  const detectTankPlayers = (list: Actor[]) => {
+    const tanks: { id: number; job: Job }[] = [];
+    const seenJobs = new Set<Job>();
+    list.forEach((actor) => {
+      const job = (Object.keys(TANK_JOB_MAP) as Job[]).find(
+        (jobKey) =>
+          TANK_JOB_MAP[jobKey]?.includes(actor.type) ||
+          TANK_JOB_MAP[jobKey]?.includes(actor.subType),
+      );
+      if (job && !seenJobs.has(job)) {
+        tanks.push({ id: actor.id, job });
+        seenJobs.add(job);
+      }
+    });
+    return tanks;
+  };
+
   useEffect(() => {
-    if (fight && selectedPlayerId) {
+    if (!fight) return;
+    if (loadMode === 'dual') {
+      const validPlayers = dualTankPlayers.filter(
+        (player): player is { id: number; job: Job } => !!player.id,
+      );
+      if (validPlayers.length) {
+        loadEventsForPlayers(validPlayers);
+      }
+      return;
+    }
+    if (selectedPlayerId) {
       loadEvents();
     }
-  }, [fight, selectedPlayerId, loadEvents]);
+  }, [
+    fight,
+    selectedPlayerId,
+    selectedJob,
+    loadMode,
+    dualTankPlayers,
+    loadEvents,
+    loadEventsForPlayers,
+  ]);
 
   const pixelsToMs = (pixels: number) => (pixels / zoom) * MS_PER_SEC;
 
@@ -100,6 +163,66 @@ export default function App() {
     const eventsToExport = getEventsToExport();
     const txt = FFLogsExporter.generateTimeline(eventsToExport, enabled);
     setExportContent(txt);
+  };
+
+  const handleOpenLoadModal = () => {
+    setIsLoadModalOpen(true);
+  };
+
+  const handleConfirmLoadFight = async () => {
+    setIsLoadModalOpen(false);
+    await loadFightMetadata();
+
+    if (loadMode !== 'dual') {
+      setDualTankPlayers([]);
+      return;
+    }
+
+    const { actors: latestActors } = useStore.getState();
+    const tanks = detectTankPlayers(latestActors).slice(0, 2);
+    setDualTankPlayers(tanks);
+    if (tanks[0]) {
+      setSelectedJob(tanks[0].job);
+      setSelectedPlayerId(tanks[0].id);
+    }
+  };
+
+  useEffect(() => {
+    if (loadMode !== 'dual') return;
+    const primary = dualTankPlayers.find(
+      (player): player is { id: number; job: Job } => typeof player.id === 'number',
+    );
+    if (!primary) return;
+    if (selectedJob !== primary.job) {
+      setSelectedJob(primary.job);
+    }
+    if (selectedPlayerId !== primary.id) {
+      setSelectedPlayerId(primary.id);
+    }
+  }, [
+    dualTankPlayers,
+    loadMode,
+    selectedJob,
+    selectedPlayerId,
+    setSelectedJob,
+    setSelectedPlayerId,
+  ]);
+
+  const handleToggleDualJob = (job: Job) => {
+    setDualTankPlayers((prev) => {
+      const exists = prev.find((player) => player.job === job);
+      if (exists) {
+        return prev.filter((player) => player.job !== job);
+      }
+      if (prev.length >= 2) return prev;
+      return [...prev, { job, id: null }];
+    });
+  };
+
+  const handleSelectDualPlayer = (job: Job, id: number) => {
+    setDualTankPlayers((prev) =>
+      prev.map((player) => (player.job === job ? { ...player, id } : player)),
+    );
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -193,12 +316,26 @@ export default function App() {
         })
         .filter((m) => m !== undefined);
 
+      if (movedEvents.length !== eventsToMove.length) {
+        return;
+      }
+
       const movedIds = movedEvents.map((m) => m.id);
       setMitEvents([...movedEvents, ...mitEvents.filter((m) => !movedIds.includes(m.id))]);
     }
   };
 
-  const isReady = !!(fight && selectedJob && selectedPlayerId);
+  const selectedJobs =
+    loadMode === 'dual' ? Array.from(new Set(dualTankPlayers.map((p) => p.job))) : null;
+  const dualPlayerMap = useMemo(() => {
+    const map: Record<Job, number | null> = { PLD: null, WAR: null, DRK: null, GNB: null };
+    dualTankPlayers.forEach((player) => {
+      map[player.job] = player.id ?? null;
+    });
+    return map;
+  }, [dualTankPlayers]);
+  const dualReady = dualTankPlayers.some((player) => player.id);
+  const isReady = !!(fight && (loadMode === 'dual' ? dualReady : selectedJob && selectedPlayerId));
 
   return (
     <DndContext
@@ -207,37 +344,47 @@ export default function App() {
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-screen overflow-hidden bg-gray-900 text-white flex flex-col font-sans">
+      <div className="h-screen overflow-hidden bg-app text-app flex flex-col font-sans">
         <AppHeader
           apiKey={apiKey}
           fflogsUrl={fflogsUrl}
           isLoading={isLoading}
           canExport={!!fight && castEvents.length > 0}
           error={error}
+          theme={theme}
           onApiKeyChange={setApiKey}
           onFflogsUrlChange={setFflogsUrl}
-          onLoadFight={loadFightMetadata}
+          onLoadFight={handleOpenLoadModal}
           onExportTimeline={handleExportTimeline}
+          onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         />
 
         {fight && (
           <FightInfoBar
             fight={fight}
             actors={actors}
+            mode={loadMode}
             selectedJob={selectedJob}
+            selectedJobs={selectedJobs ?? []}
             selectedPlayerId={selectedPlayerId}
+            selectedPlayersByJob={dualPlayerMap}
             onSelectJob={setSelectedJob}
+            onToggleJob={handleToggleDualJob}
             onSelectPlayer={setSelectedPlayerId}
+            onSelectPlayerForJob={handleSelectDualPlayer}
           />
         )}
 
         <div className="flex-1 min-h-0 flex overflow-hidden">
           <EmptyState hasFight={!!fight} hasSelection={isReady} />
 
-          {isReady && selectedJob && (
+          {isReady && (selectedJob || selectedJobs?.length) && (
             <>
-              <SkillSidebar selectedJob={selectedJob} />
-              <div className="flex-1 min-h-0 bg-gray-950 relative overflow-hidden flex flex-col">
+              <SkillSidebar
+                selectedJob={(selectedJob ?? selectedJobs?.[0]) as Job}
+                selectedJobs={selectedJobs && selectedJobs.length ? selectedJobs : undefined}
+              />
+              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-app text-app">
                 <Timeline
                   zoom={zoom}
                   setZoom={setZoom}
@@ -260,6 +407,14 @@ export default function App() {
         content={exportContent}
         enableTTS={enableTTS}
         onTtsChange={handleTtsChange}
+      />
+
+      <LoadFightModal
+        isOpen={isLoadModalOpen}
+        mode={loadMode}
+        onModeChange={setLoadMode}
+        onConfirm={handleConfirmLoadFight}
+        onClose={() => setIsLoadModalOpen(false)}
       />
     </DndContext>
   );
