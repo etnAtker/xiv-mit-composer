@@ -16,6 +16,7 @@ const buildOwnerKey = (ownerId?: number, ownerJob?: Job) => {
 
 export function tryBuildCooldowns(events: MitEvent[]): CooldownEvent[] | void {
   const stackEvents = buildStackEvents(events);
+  // 同一时间点先恢复再消耗，保证“转好即可用”的确定性排序。
   const typeOrder: Record<StackEvent['type'], number> = { recover: 0, consume: 1 };
   stackEvents.sort((a, b) => a.tMs - b.tMs || typeOrder[a.type] - typeOrder[b.type]);
 
@@ -140,6 +141,7 @@ function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBo
     stack += stackDelta;
 
     if (stack < 0) {
+      // 容错：异常数据导致负数时重置为 0，保证后续边界可继续生成。
       console.error(`错误：${stackEvent.resourceKey} 冷却层数为负，已重置为 0。`);
       stack = 0;
     }
@@ -401,6 +403,7 @@ function toGroupResourceId(groupId: string): string {
 }
 
 function stripGroupPrefix(resourceId: string): string {
+  // 约定 resourceId 格式为 baseId:ownerKey，且 baseId 不包含冒号。
   const raw = resourceId.startsWith(GROUP_PREFIX)
     ? resourceId.slice(GROUP_PREFIX.length)
     : resourceId;
