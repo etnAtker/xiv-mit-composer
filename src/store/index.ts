@@ -16,7 +16,7 @@ import { MS_PER_SEC } from '../constants/time';
 import { tryBuildCooldowns } from '../utils/playerCast';
 import { parseFFLogsUrl } from '../utils';
 
-interface AppState {
+export interface AppState {
   // 输入状态
   apiKey: string;
   fflogsUrl: string;

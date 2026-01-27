@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import { useShallow } from 'zustand/shallow';
 import { type Actor, type Job, type MitEvent, type Skill } from './model/types';
 import { useStore } from './store';
+import { selectAppActions, selectAppState } from './store/selectors';
 import { getSkillDefinition, withOwnerSkillId } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { AppHeader } from './components/AppHeader';
@@ -22,26 +24,29 @@ export default function App() {
   const {
     apiKey,
     fflogsUrl,
-    setApiKey,
-    setFflogsUrl,
-    setSelectedMitIds,
-    loadFightMetadata,
     fight,
     actors,
     selectedJob,
-    setSelectedJob,
     selectedPlayerId,
-    setSelectedPlayerId,
-    loadEvents,
-    loadEventsForPlayers,
     mitEvents,
-    addMitEvent,
-    setMitEvents,
     castEvents,
     isLoading,
     isRendering,
     error,
-  } = useStore();
+  } = useStore(useShallow(selectAppState));
+
+  const {
+    setApiKey,
+    setFflogsUrl,
+    setSelectedMitIds,
+    loadFightMetadata,
+    setSelectedJob,
+    setSelectedPlayerId,
+    loadEvents,
+    loadEventsForPlayers,
+    addMitEvent,
+    setMitEvents,
+  } = useStore(useShallow(selectAppActions));
 
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
