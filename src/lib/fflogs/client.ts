@@ -10,9 +10,9 @@ export class FFLogsClient {
     this.apiKey = apiKey;
   }
 
-  async fetchReport(reportCode: string): Promise<ReportResponse> {
+  async fetchReport(reportCode: string, signal?: AbortSignal): Promise<ReportResponse> {
     const url = `${BASE_URL}/report/fights/${reportCode}?api_key=${this.apiKey}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`获取报告失败: ${res.statusText}`);
     return res.json() as Promise<ReportResponse>;
   }
@@ -24,6 +24,7 @@ export class FFLogsClient {
     sourceId?: number,
     isEnemy: boolean = false,
     type: 'damage-taken' | 'casts' = 'casts',
+    signal?: AbortSignal,
   ): Promise<T[]> {
     const events: T[] = [];
     const params = new URLSearchParams({
@@ -46,7 +47,7 @@ export class FFLogsClient {
 
       const url = `${BASE_URL}/report/events/${type}/${reportCode}?${params.toString()}`;
 
-      const response = await fetch(url);
+      const response = await fetch(url, { signal });
       if (!response.ok) {
         throw new Error(`FFLogs API Error: ${response.status}`);
       }

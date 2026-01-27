@@ -1,25 +1,33 @@
-﻿import { format } from 'date-fns';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import type { CastEvent, DamageEvent, MitEvent } from '../../model/types';
+import type { CastEvent, DamageEvent, Job, MitEvent } from '../../model/types';
 import { useStore } from '../../store';
+import { useShallow } from 'zustand/shallow';
 import { ContextMenu } from './ContextMenu';
-import { DraggableMitigation } from './DraggableMitigation';
-import { CastLane, DamageLane } from './TimelineLanes';
-import type { TooltipData } from './types';
-import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
-import { MS_PER_SEC } from '../../constants/time';
-import { MAX_ZOOM, MIN_ZOOM } from '../../constants/timeline';
+import { PinnedTimelineLanes } from './PinnedTimelineLanes';
+import type { TimelineSkillColumn, TooltipData } from './types';
+import { buildSkillZIndexMap, MIT_COLUMN_WIDTH } from './timelineUtils';
+import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
+import { SKILLS, normalizeSkillId } from '../../data/skills';
+import { TimelineHeader } from './TimelineHeader';
+import { TimelineBackground } from './TimelineBackground';
+import { TimelineGridLines } from './TimelineGridLines';
+import { MitigationLayer } from './MitigationLayer';
+import { DamageLayers } from './DamageLayers';
+import { TimelineTooltip } from './TimelineTooltip';
+import { useTimelineScroll } from './useTimelineScroll';
+import { useBoxSelection } from './useBoxSelection';
 
 const VISIBLE_RANGE_BUFFER_MS = 5000;
 const ZOOM_WHEEL_STEP = 5;
 const RULER_STEP_SEC = 5;
-const HEADER_HEIGHT = 36;
+const HEADER_HEIGHT = 64;
 
 interface Props {
   containerId: string;
   zoom: number;
   setZoom: (value: number) => void;
+  timelineHeight: number;
   durationSec: number;
   totalWidth: number;
   totalHeight: number;
@@ -30,20 +38,22 @@ interface Props {
   dmgX: number;
   mitX: number;
   mitAreaWidth: number;
-  skillColumns: { id: string; name: string }[];
+  skillColumns: TimelineSkillColumn[];
   castEvents: CastEvent[];
   damageEvents: DamageEvent[];
+  secondaryDamageEvents?: DamageEvent[];
   mitEvents: MitEvent[];
-  cdZones: React.ReactElement[];
   columnMap: Record<string, number>;
   activeDragId?: string | null;
-  dragDeltaMs?: number;
+  dragPreviewPx?: number;
+  selectedJobs?: Job[];
 }
 
 export function TimelineCanvas({
   containerId,
   zoom,
   setZoom,
+  timelineHeight,
   durationSec,
   totalWidth,
   totalHeight,
@@ -57,240 +67,217 @@ export function TimelineCanvas({
   skillColumns,
   castEvents,
   damageEvents,
+  secondaryDamageEvents = [],
   mitEvents,
-  cdZones,
   columnMap,
   activeDragId,
-  dragDeltaMs = 0,
+  dragPreviewPx = 0,
+  selectedJobs,
 }: Props) {
-  const { updateMitEvent, removeMitEvent, selectedMitIds, setSelectedMitIds } = useStore();
+  const { updateMitEvent, removeMitEvent, selectedMitIds, setSelectedMitIds } = useStore(
+    useShallow((state) => ({
+      updateMitEvent: state.updateMitEvent,
+      removeMitEvent: state.removeMitEvent,
+      selectedMitIds: state.selectedMitIds,
+      setSelectedMitIds: state.setSelectedMitIds,
+    })),
+  );
   const [editingMitId, setEditingMitId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [lastContextMenuPosition, setLastContextMenuPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [editPopoverPosition, setEditPopoverPosition] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
 
-  const [boxSelection, setBoxSelection] = useState({
-    isActive: false,
-    startX: 0,
-    startY: 0,
-    endX: 0,
-    endY: 0,
-  });
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const contextMenuElement = document.querySelector(
-        `[data-context-menu-id="${selectedMitIds.join(',')}"]`,
-      );
-      if (contextMenuElement && !contextMenuElement.contains(e.target as Node)) {
-        setContextMenu(null);
-        setSelectedMitIds([]);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [selectedMitIds, setSelectedMitIds]);
+  const handleEditingChange = useCallback((id: string | null) => {
+    setEditingMitId(id);
+    if (!id) {
+      setEditPopoverPosition(null);
+    }
+  }, []);
 
   const { setNodeRef: setMitLaneRef } = useDroppable({
     id: 'mit-lane',
     data: { type: 'lane' },
   });
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 10000 });
-  const prevZoomRef = useRef(zoom);
+  const { scrollRef, visibleRange, isScrolled, handleScroll } = useTimelineScroll({
+    zoom,
+    setZoom,
+    headerHeight: HEADER_HEIGHT,
+    visibleRangeBufferMs: VISIBLE_RANGE_BUFFER_MS,
+    zoomWheelStep: ZOOM_WHEEL_STEP,
+  });
 
-  const handleScroll = useCallback(() => {
-    if (!scrollRef.current) return;
-    const { scrollTop, clientHeight } = scrollRef.current;
-    const visibleHeight = Math.max(0, clientHeight - HEADER_HEIGHT);
+  useEffect(() => {
+    if (selectedMitIds.length === 0) return;
 
-    const startSec = scrollTop / zoom;
-    const endSec = (scrollTop + visibleHeight) / zoom;
-
-    const newStart = Math.max(0, startSec * MS_PER_SEC - VISIBLE_RANGE_BUFFER_MS);
-    const newEnd = endSec * MS_PER_SEC + VISIBLE_RANGE_BUFFER_MS;
-
-    setVisibleRange((prev) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
       if (
-        Math.abs(prev.start - newStart) < MS_PER_SEC &&
-        Math.abs(prev.end - newEnd) < MS_PER_SEC
+        target &&
+        (target.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT')
       ) {
-        return prev;
+        return;
       }
-      return { start: newStart, end: newEnd };
-    });
-  }, [zoom]);
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
 
-  useEffect(() => {
-    handleScroll();
-  }, [zoom, handleScroll]);
-
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const prevZoom = prevZoomRef.current;
-    if (prevZoom === zoom) return;
-
-    const startSec = el.scrollTop / prevZoom;
-    const nextScrollTop = startSec * zoom;
-    el.scrollTop = nextScrollTop;
-    prevZoomRef.current = zoom;
-  }, [zoom]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const handleWheel = (event: WheelEvent) => {
-      if (!event.altKey) return;
       event.preventDefault();
-      event.stopPropagation();
-      const delta = event.deltaY > 0 ? -ZOOM_WHEEL_STEP : ZOOM_WHEEL_STEP;
-      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom + delta));
-      setZoom(newZoom);
+      selectedMitIds.forEach((id) => removeMitEvent(id));
+      setSelectedMitIds([]);
+      setContextMenu(null);
+      handleEditingChange(null);
     };
 
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      el.removeEventListener('wheel', handleWheel);
-    };
-  }, [zoom, setZoom]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleEditingChange, removeMitEvent, selectedMitIds, setContextMenu, setSelectedMitIds]);
 
-  const lineWidth = Math.max(0, totalWidth - dmgX);
   const headerSkillColumns =
-    skillColumns.length > 0 ? skillColumns : [{ id: 'mit-placeholder', name: '减伤' }];
-  const headerColumns = [
-    { key: 'ruler', label: '时间', width: rulerWidth, isSkill: false },
-    { key: 'cast', label: '读条', width: castWidth, isSkill: false },
-    { key: 'damage', label: '承伤', width: dmgWidth, isSkill: false },
-    ...headerSkillColumns.map((skill) => ({
-      key: `skill-${skill.id}`,
-      label: skill.name,
-      width: MIT_COLUMN_WIDTH,
-      isSkill: true,
-    })),
-  ];
+    skillColumns.length > 0
+      ? skillColumns
+      : [
+          {
+            id: 'mit-placeholder',
+            columnId: 'mit-placeholder',
+            name: '减伤',
+            color: 'bg-surface-4',
+            job: 'ALL',
+          },
+        ];
+
+  const jobOrder = selectedJobs && selectedJobs.length > 0 ? selectedJobs : [];
+  const jobGroups = jobOrder.map((job) => ({
+    job,
+    skills: headerSkillColumns.filter((skill) => skill.job === job),
+  }));
+  const utilitySkills = headerSkillColumns.filter((skill) => skill.job === 'ALL');
+  const hasSecondaryDamageLane = jobOrder.length > 1;
+  const primaryJob = jobOrder[0];
+  const secondaryJob = jobOrder[1];
+  const firstGroupCount = jobGroups[0]?.skills.length ?? 0;
+  const secondaryDamageLaneLeft = mitX + firstGroupCount * MIT_COLUMN_WIDTH;
+
+  const getMitColumnLeft = (columnIndex: number) => {
+    const baseLeft = columnIndex * MIT_COLUMN_WIDTH;
+    if (!hasSecondaryDamageLane || firstGroupCount === 0) return baseLeft;
+    return columnIndex >= firstGroupCount ? baseLeft + DAMAGE_LANE_WIDTH : baseLeft;
+  };
+  const getLaneLineWidth = (job: Job | undefined, laneLeft: number) => {
+    const fullWidth = mitX + mitAreaWidth - laneLeft;
+    if (!job) return Math.max(dmgWidth, fullWidth);
+    let lastIndex = -1;
+    headerSkillColumns.forEach((skill, idx) => {
+      if (skill.job === job) lastIndex = idx;
+    });
+    if (lastIndex < 0) return Math.max(dmgWidth, fullWidth);
+    const rightEdge = mitX + getMitColumnLeft(lastIndex) + MIT_COLUMN_WIDTH;
+    return Math.max(dmgWidth, rightEdge - laneLeft);
+  };
+
+  const primaryMitEvents =
+    hasSecondaryDamageLane && primaryJob
+      ? mitEvents.filter((mit) => mit.ownerJob === primaryJob || !mit.ownerJob)
+      : mitEvents;
+  const secondaryMitEvents =
+    hasSecondaryDamageLane && secondaryJob
+      ? mitEvents.filter((mit) => mit.ownerJob === secondaryJob)
+      : [];
+
+  const getMitColumnKey = (mit: MitEvent) => {
+    const ownerJob = mit.ownerJob ?? selectedJobs?.[0];
+    const baseSkillId = normalizeSkillId(mit.skillId);
+    if (ownerJob) {
+      const jobKey = `${baseSkillId}:${ownerJob}`;
+      if (Object.prototype.hasOwnProperty.call(columnMap, jobKey)) {
+        return jobKey;
+      }
+    }
+    return baseSkillId;
+  };
+
+  const { boxSelection, handleMouseDown } = useBoxSelection({
+    containerId,
+    columnMap,
+    mitEvents,
+    zoom,
+    mitX,
+    getMitColumnLeft,
+    getMitColumnKey,
+    setSelectedMitIds,
+    setContextMenu,
+    setEditingMitId: handleEditingChange,
+  });
+
+  const handleContextMenuChange = useCallback(
+    (position: { x: number; y: number } | null) => {
+      setContextMenu(position);
+      if (position) {
+        setLastContextMenuPosition(position);
+      }
+    },
+    [setContextMenu, setLastContextMenuPosition],
+  );
+
+  const getEffectiveStartMs = useCallback((mit: MitEvent) => mit.tStartMs, []);
+
+  const reprisalSkill = SKILLS.find((skill) => skill.id === 'role-reprisal');
+  const reprisalZIndexMap = useMemo(
+    () => buildSkillZIndexMap(mitEvents, 'role-reprisal', getEffectiveStartMs),
+    [mitEvents, getEffectiveStartMs],
+  );
+  const reprisalGhosts =
+    selectedJobs && selectedJobs.length > 1
+      ? mitEvents.flatMap((mit) => {
+          if (normalizeSkillId(mit.skillId) !== 'role-reprisal') return [];
+          if (!mit.ownerJob) return [];
+          return selectedJobs
+            .filter((job) => job !== mit.ownerJob)
+            .map((job) => ({
+              mit,
+              targetJob: job,
+            }));
+        })
+      : [];
+  const primaryLineWidth = getLaneLineWidth(primaryJob, dmgX);
+  const secondaryLineWidth = hasSecondaryDamageLane
+    ? getLaneLineWidth(secondaryJob, secondaryDamageLaneLeft)
+    : dmgWidth;
 
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-auto relative select-none custom-scrollbar bg-gray-950"
+      className="relative flex-1 overflow-auto select-none custom-scrollbar bg-app text-app"
       onScroll={handleScroll}
     >
       <div style={{ width: totalWidth, height: totalHeight + HEADER_HEIGHT, position: 'relative' }}>
-        <div
-          className="sticky top-0 z-30 flex bg-gray-950/95 backdrop-blur border-b border-gray-800"
-          style={{ width: totalWidth, height: HEADER_HEIGHT }}
-        >
-          {headerColumns.map((col) => (
-            <div
-              key={col.key}
-              className={`flex items-center justify-center px-2 border-r border-gray-800 ${
-                col.isSkill
-                  ? 'text-xs text-gray-200 font-semibold'
-                  : 'text-[11px] text-gray-400 font-semibold uppercase tracking-wider'
-              }`}
-              style={{ width: col.width }}
-              title={col.label}
-            >
-              <span className="truncate">{col.label}</span>
-            </div>
-          ))}
-        </div>
+        <TimelineHeader
+          totalWidth={totalWidth}
+          height={HEADER_HEIGHT}
+          rulerWidth={rulerWidth}
+          castWidth={castWidth}
+          dmgWidth={dmgWidth}
+          isScrolled={isScrolled}
+          jobGroups={jobGroups}
+          utilitySkills={utilitySkills}
+          hasSecondaryDamageLane={hasSecondaryDamageLane}
+          primaryJob={primaryJob}
+          secondaryJob={secondaryJob}
+        />
 
         <div
           style={{ width: totalWidth, height: totalHeight, position: 'relative' }}
-          onMouseDown={(e) => {
-            if (
-              e.target === e.currentTarget ||
-              (e.target as HTMLElement).tagName === 'svg' ||
-              (e.target as HTMLElement).id === containerId
-            ) {
-              e.preventDefault();
-              setContextMenu(null);
-              setEditingMitId(null);
-
-              const containerEl = e.currentTarget;
-              const rect = containerEl.getBoundingClientRect();
-              const startX = e.clientX - rect.left;
-              const startY = e.clientY - rect.top;
-
-              setBoxSelection({
-                isActive: true,
-                startX,
-                startY,
-                endX: startX,
-                endY: startY,
-              });
-
-              const handleWindowMouseMove = (wEvent: MouseEvent) => {
-                const currentRect = containerEl.getBoundingClientRect();
-                setBoxSelection((prev) => ({
-                  ...prev,
-                  endX: wEvent.clientX - currentRect.left,
-                  endY: wEvent.clientY - currentRect.top,
-                }));
-              };
-
-              const handleWindowMouseUp = (wEvent: MouseEvent) => {
-                window.removeEventListener('mousemove', handleWindowMouseMove);
-                window.removeEventListener('mouseup', handleWindowMouseUp);
-
-                const currentRect = containerEl.getBoundingClientRect();
-                const endX = wEvent.clientX - currentRect.left;
-                const endY = wEvent.clientY - currentRect.top;
-
-                const selectionRect = {
-                  left: Math.min(startX, endX),
-                  top: Math.min(startY, endY),
-                  right: Math.max(startX, endX),
-                  bottom: Math.max(startY, endY),
-                };
-
-                const newlySelectedIds: string[] = [];
-                const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
-                mitEvents.forEach((mit) => {
-                  const columnIndex = columnMap[mit.skillId] ?? 0;
-                  const left = mitX + columnIndex * MIT_COLUMN_WIDTH + MIT_COLUMN_PADDING;
-                  const top = (mit.tStartMs / MS_PER_SEC) * zoom;
-                  const width = barWidth;
-                  const height = (mit.durationMs / MS_PER_SEC) * zoom;
-
-                  if (
-                    left >= selectionRect.left &&
-                    left + width <= selectionRect.right &&
-                    top >= selectionRect.top &&
-                    top + height <= selectionRect.bottom
-                  ) {
-                    newlySelectedIds.push(mit.id);
-                  }
-                });
-
-                if (wEvent.ctrlKey || wEvent.metaKey) {
-                  const currentSelected = useStore.getState().selectedMitIds;
-                  setSelectedMitIds([...new Set([...currentSelected, ...newlySelectedIds])]);
-                } else {
-                  setSelectedMitIds(newlySelectedIds);
-                }
-
-                setBoxSelection({
-                  isActive: false,
-                  startX: 0,
-                  startY: 0,
-                  endX: 0,
-                  endY: 0,
-                });
-              };
-
-              window.addEventListener('mousemove', handleWindowMouseMove);
-              window.addEventListener('mouseup', handleWindowMouseUp);
-            }
-          }}
+          onMouseDown={handleMouseDown}
         >
           {boxSelection.isActive && (
             <div
-              className="absolute border-2 border-dashed border-blue-400 bg-blue-400/10 z-50 pointer-events-none"
+              className="absolute z-30 border-2 border-dashed border-[#1f6feb] bg-[#1f6feb]/10 pointer-events-none"
               style={{
                 left: Math.min(boxSelection.startX, boxSelection.endX),
                 top: Math.min(boxSelection.startY, boxSelection.endY),
@@ -300,183 +287,96 @@ export function TimelineCanvas({
             />
           )}
 
-          <svg
-            width={totalWidth}
-            height={totalHeight}
-            className="absolute inset-0 block text-xs pointer-events-none"
-          >
-            <defs>
-              <pattern
-                id="diagonalHatchCooldown"
-                width="10"
-                height="10"
-                patternTransform="rotate(45 0 0)"
-                patternUnits="userSpaceOnUse"
-              >
-                <line x1="0" y1="0" x2="0" y2="10" style={{ stroke: '#EF4444', strokeWidth: 1 }} />
-              </pattern>
-              <pattern
-                id="diagonalHatchUnusable"
-                width="10"
-                height="10"
-                patternTransform="rotate(45 0 0)"
-                patternUnits="userSpaceOnUse"
-              >
-                <line x1="0" y1="0" x2="0" y2="10" style={{ stroke: '#F59E0B', strokeWidth: 1 }} />
-              </pattern>
-            </defs>
-
-            <rect
-              x={0}
-              y={0}
-              width={rulerWidth}
-              height={totalHeight}
-              fill="rgba(17, 24, 39, 0.4)"
-            />
-            <rect
-              x={castX}
-              y={0}
-              width={castWidth}
-              height={totalHeight}
-              fill="rgba(167, 139, 250, 0.05)"
-            />
-            <rect
-              x={dmgX}
-              y={0}
-              width={dmgWidth}
-              height={totalHeight}
-              fill="rgba(248, 113, 113, 0.05)"
-            />
-            <rect
-              x={mitX}
-              y={0}
-              width={mitAreaWidth}
-              height={totalHeight}
-              fill="rgba(52, 211, 153, 0.02)"
-            />
-
-            {Array.from({ length: Math.ceil(durationSec / RULER_STEP_SEC) }).map((_, i) => {
-              const sec = i * RULER_STEP_SEC;
-              const ms = sec * MS_PER_SEC;
-              if (
-                ms < visibleRange.start - VISIBLE_RANGE_BUFFER_MS ||
-                ms > visibleRange.end + VISIBLE_RANGE_BUFFER_MS
-              )
-                return null;
-
-              const y = sec * zoom;
-              return (
-                <g key={sec}>
-                  <line
-                    x1={0}
-                    y1={y}
-                    x2={totalWidth}
-                    y2={y}
-                    stroke="#374151"
-                    strokeWidth={1}
-                    strokeDasharray="4 4"
-                    opacity={0.5}
-                  />
-                  <text x={8} y={y + 12} fill="#6B7280" fontSize={10} fontFamily="monospace">
-                    {format(new Date(0, 0, 0, 0, 0, sec), 'mm:ss')}
-                  </text>
-                </g>
-              );
-            })}
-
-            <CastLane
-              events={castEvents}
-              zoom={zoom}
-              width={castWidth}
-              left={castX}
-              visibleRange={visibleRange}
-              onHover={setTooltip}
-            />
-            <DamageLane
-              events={damageEvents}
-              mitEvents={mitEvents}
-              zoom={zoom}
-              width={dmgWidth}
-              left={dmgX}
-              visibleRange={visibleRange}
-              onHover={setTooltip}
-              lineWidth={lineWidth}
-            />
-
-            <g transform={`translate(${mitX}, 0)`}>{cdZones}</g>
-          </svg>
+          <PinnedTimelineLanes
+            rulerWidth={rulerWidth}
+            castWidth={castWidth}
+            durationSec={durationSec}
+            totalHeight={totalHeight}
+            timelineHeight={timelineHeight}
+            zoom={zoom}
+            visibleRange={visibleRange}
+            castEvents={castEvents}
+            onHover={setTooltip}
+          />
 
           <div
-            id={containerId}
-            ref={setMitLaneRef}
-            className="absolute"
-            style={{ left: mitX, top: 0, width: mitAreaWidth, height: totalHeight }}
+            className="absolute left-0 top-0 overflow-hidden"
+            style={{ width: totalWidth, height: timelineHeight }}
           >
-            {mitEvents.map((mit) => {
-              const isSelected = selectedMitIds.includes(mit.id);
-              const visualOffsetMs = isSelected && mit.id !== activeDragId ? dragDeltaMs : 0;
+            <TimelineBackground
+              rulerWidth={rulerWidth}
+              castWidth={castWidth}
+              dmgWidth={dmgWidth}
+              mitAreaWidth={mitAreaWidth}
+              dmgX={dmgX}
+              secondaryDamageLaneLeft={secondaryDamageLaneLeft}
+              headerSkillColumns={headerSkillColumns}
+              hasSecondaryDamageLane={hasSecondaryDamageLane}
+              firstGroupCount={firstGroupCount}
+              timelineHeight={timelineHeight}
+            />
 
-              const top = ((mit.tStartMs + visualOffsetMs) / MS_PER_SEC) * zoom;
-              const height = (mit.durationMs / MS_PER_SEC) * zoom;
-              const columnIndex = columnMap[mit.skillId] ?? 0;
-              const left = columnIndex * MIT_COLUMN_WIDTH;
-              const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
+            <TimelineGridLines
+              totalWidth={totalWidth}
+              timelineHeight={timelineHeight}
+              rulerWidth={rulerWidth}
+              castX={castX}
+              castWidth={castWidth}
+              dmgX={dmgX}
+              dmgWidth={dmgWidth}
+              mitX={mitX}
+              mitAreaWidth={mitAreaWidth}
+              durationSec={durationSec}
+              zoom={zoom}
+              visibleRange={visibleRange}
+              visibleRangeBufferMs={VISIBLE_RANGE_BUFFER_MS}
+              rulerStepSec={RULER_STEP_SEC}
+            />
 
-              const isEditing = editingMitId === mit.id;
-              const zIndex = isEditing ? 100 : 10;
+            <MitigationLayer
+              containerId={containerId}
+              setMitLaneRef={setMitLaneRef}
+              mitX={mitX}
+              mitAreaWidth={mitAreaWidth}
+              timelineHeight={timelineHeight}
+              reprisalGhosts={reprisalGhosts}
+              reprisalSkillColor={reprisalSkill?.color}
+              reprisalZIndexMap={reprisalZIndexMap}
+              getEffectiveStartMs={getEffectiveStartMs}
+              getMitColumnLeft={getMitColumnLeft}
+              getMitColumnKey={getMitColumnKey}
+              columnMap={columnMap}
+              mitEvents={mitEvents}
+              zoom={zoom}
+              editingMitId={editingMitId}
+              setEditingMitId={handleEditingChange}
+              selectedMitIds={selectedMitIds}
+              setSelectedMitIds={setSelectedMitIds}
+              updateMitEvent={updateMitEvent}
+              removeMitEvent={removeMitEvent}
+              setContextMenu={handleContextMenuChange}
+              activeDragId={activeDragId}
+              dragPreviewPx={dragPreviewPx}
+              editPopoverPosition={editPopoverPosition}
+            />
 
-              return (
-                <div
-                  key={mit.id}
-                  style={{
-                    position: 'absolute',
-                    top,
-                    left,
-                    width: MIT_COLUMN_WIDTH,
-                    height,
-                    zIndex,
-                    pointerEvents: 'none',
-                  }}
-                  className={!isEditing ? 'hover:z-20' : ''}
-                >
-                  <DraggableMitigation
-                    mit={mit}
-                    left={MIT_COLUMN_PADDING}
-                    width={barWidth}
-                    onUpdate={(id, update) => updateMitEvent(id, update)}
-                    onRemove={(id) => removeMitEvent(id)}
-                    isEditing={isEditing}
-                    onEditChange={(val) => setEditingMitId(val ? mit.id : null)}
-                    isSelected={selectedMitIds.includes(mit.id)}
-                    onSelect={(mit, e) => {
-                      if (e.ctrlKey || e.metaKey) {
-                        if (selectedMitIds.includes(mit.id)) {
-                          setSelectedMitIds(selectedMitIds.filter((id) => id !== mit.id));
-                        } else {
-                          setSelectedMitIds([...selectedMitIds, mit.id]);
-                        }
-                      } else {
-                        setSelectedMitIds([mit.id]);
-                        if (editingMitId && editingMitId !== mit.id) {
-                          setEditingMitId(null);
-                        }
-                      }
-                      setContextMenu(null);
-                    }}
-                    onRightClick={(e, mit) => {
-                      e.stopPropagation();
-                      if (!selectedMitIds.includes(mit.id)) {
-                        setSelectedMitIds([mit.id]);
-                      }
-                      if (editingMitId) {
-                        setEditingMitId(null);
-                      }
-                      setContextMenu({ x: e.clientX, y: e.clientY });
-                    }}
-                  />
-                </div>
-              );
-            })}
+            <DamageLayers
+              totalWidth={totalWidth}
+              timelineHeight={timelineHeight}
+              zoom={zoom}
+              dmgWidth={dmgWidth}
+              dmgX={dmgX}
+              secondaryDamageLaneLeft={secondaryDamageLaneLeft}
+              visibleRange={visibleRange}
+              damageEvents={damageEvents}
+              secondaryDamageEvents={secondaryDamageEvents}
+              primaryMitEvents={primaryMitEvents}
+              secondaryMitEvents={secondaryMitEvents}
+              hasSecondaryDamageLane={hasSecondaryDamageLane}
+              primaryLineWidth={primaryLineWidth}
+              secondaryLineWidth={secondaryLineWidth}
+              onHover={setTooltip}
+            />
           </div>
         </div>
       </div>
@@ -489,7 +389,8 @@ export function TimelineCanvas({
                   {
                     label: '编辑事件',
                     onClick: () => {
-                      setEditingMitId(selectedMitIds[0]);
+                      handleEditingChange(selectedMitIds[0]);
+                      setEditPopoverPosition(lastContextMenuPosition ?? contextMenu);
                       setContextMenu(null);
                     },
                   },
@@ -506,37 +407,15 @@ export function TimelineCanvas({
             },
           ]}
           position={contextMenu}
-          onClose={() => setContextMenu(null)}
+          onPositionResolved={setLastContextMenuPosition}
+          onClose={() => {
+            setContextMenu(null);
+            setSelectedMitIds([]);
+          }}
         />
       )}
 
-      {tooltip && (
-        <div
-          className="fixed z-[9999] pointer-events-none bg-gray-900/95 border border-gray-700 text-white text-xs rounded shadow-xl flex flex-col p-2 min-w-[120px]"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          {tooltip.items.map((item, idx) => (
-            <div
-              key={idx}
-              className={`flex items-center justify-between gap-3 ${idx > 0 ? 'mt-1 border-t border-gray-700 pt-1' : ''}`}
-            >
-              <span
-                className="font-medium truncate flex-1 min-w-0 leading-none"
-                style={{ color: item.color || '#F3F4F6' }}
-              >
-                {item.title}
-              </span>
-              <span className="text-gray-400 font-mono text-[10px] whitespace-nowrap leading-none shrink-0">
-                {item.subtitle}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <TimelineTooltip tooltip={tooltip} />
     </div>
   );
 }

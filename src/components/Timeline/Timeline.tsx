@@ -1,18 +1,22 @@
-﻿import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/shallow';
 import { useStore } from '../../store';
-import { SKILLS } from '../../data/skills';
+import { ROLE_SKILL_IDS, SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TimelineToolbar } from './TimelineToolbar';
-import { CD_LEFT_PADDING, MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
+import { MIT_COLUMN_WIDTH } from './timelineUtils';
 import { MS_PER_SEC } from '../../constants/time';
 import { CAST_LANE_WIDTH, DAMAGE_LANE_WIDTH } from '../../constants/timeline';
+import type { Job } from '../../model/types';
+import { selectTimelineActions, selectTimelineState } from '../../store/selectors';
 
 interface TimelineProps {
   zoom: number;
   setZoom: (z: number) => void;
   containerId?: string;
   activeDragId?: string | null;
-  dragDeltaMs?: number;
+  dragPreviewPx?: number;
+  selectedJobs?: Job[];
 }
 
 export function Timeline({
@@ -20,17 +24,20 @@ export function Timeline({
   setZoom,
   containerId = 'mit-lane-container',
   activeDragId,
-  dragDeltaMs = 0,
+  dragPreviewPx = 0,
+  selectedJobs,
 }: TimelineProps) {
-  const {
-    fight,
-    mitEvents,
-    cooldownEvents,
-    damageEvents,
-    castEvents,
-    setMitEvents,
-    setIsRendering,
-  } = useStore();
+  const { fight, selectedJob, mitEvents, damageEvents, damageEventsByJob, castEvents } = useStore(
+    useShallow(selectTimelineState),
+  );
+  const { setMitEvents, setIsRendering } = useStore(useShallow(selectTimelineActions));
+
+  const resolvedJobs = useMemo(() => {
+    if (selectedJobs && selectedJobs.length > 0) {
+      return Array.from(new Set(selectedJobs));
+    }
+    return selectedJob ? [selectedJob] : [];
+  }, [selectedJob, selectedJobs]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -40,90 +47,107 @@ export function Timeline({
   }, [mitEvents, damageEvents, castEvents, setIsRendering]);
 
   const { columnMap, skillColumns, mitAreaWidth } = useMemo(() => {
-    if (!mitEvents.length) {
+    const jobs = resolvedJobs;
+    const roleSkillIds = ROLE_SKILL_IDS;
+
+    if (!jobs.length) {
       return { columnMap: {}, skillColumns: [], mitAreaWidth: MIT_COLUMN_WIDTH };
     }
 
-    const skillIds = Array.from(new Set(mitEvents.map((m) => m.skillId))).sort((a, b) => {
-      const indexA = SKILLS.findIndex((s) => s.id === a);
-      const indexB = SKILLS.findIndex((s) => s.id === b);
-      return indexA - indexB;
-    });
+    const jobColumns = jobs.flatMap((job) =>
+      SKILLS.filter((s) => s.job === job || roleSkillIds.has(s.id)).map((skill) => ({
+        id: skill.id,
+        columnId: skill.job === 'ALL' ? `${skill.id}:${job}` : skill.id,
+        name: skill.name,
+        color: skill.color,
+        icon: skill.icon,
+        actionId: skill.actionId,
+        job,
+      })),
+    );
+
+    const utilityColumns = SKILLS.filter((s) => s.job === 'ALL' && !roleSkillIds.has(s.id)).map(
+      (skill) => ({
+        id: skill.id,
+        columnId: skill.id,
+        name: skill.name,
+        color: skill.color,
+        icon: skill.icon,
+        actionId: skill.actionId,
+        job: 'ALL',
+      }),
+    );
+
+    const orderedSkills = [...jobColumns, ...utilityColumns];
+    if (!orderedSkills.length) {
+      return { columnMap: {}, skillColumns: [], mitAreaWidth: MIT_COLUMN_WIDTH };
+    }
+
     const nextColumnMap: Record<string, number> = {};
-    const columns = skillIds.map((sid, index) => {
-      nextColumnMap[sid] = index;
-      const skillDef = SKILLS.find((s) => s.id === sid);
-      return { id: sid, name: skillDef?.name || 'Unknown' };
+    orderedSkills.forEach((skill, index) => {
+      nextColumnMap[skill.columnId] = index;
     });
 
+    const baseMitWidth = Math.max(MIT_COLUMN_WIDTH, orderedSkills.length * MIT_COLUMN_WIDTH);
+    const extraDamageLaneWidth = jobs.length > 1 ? DAMAGE_LANE_WIDTH : 0;
     return {
       columnMap: nextColumnMap,
-      skillColumns: columns,
-      mitAreaWidth: Math.max(MIT_COLUMN_WIDTH, columns.length * MIT_COLUMN_WIDTH),
+      skillColumns: orderedSkills,
+      mitAreaWidth: baseMitWidth + extraDamageLaneWidth,
     };
-  }, [mitEvents]);
+  }, [resolvedJobs]);
 
-  const cdZones = useMemo(() => {
-    if (!cooldownEvents.length) return [];
-    const zones: React.ReactElement[] = [];
+  const lastCastEndMs = useMemo(() => {
+    const toDurationMs = (duration?: number) => {
+      if (!duration || duration <= 0) return 0;
+      return duration < 100 ? duration * MS_PER_SEC : duration;
+    };
 
-    cooldownEvents.forEach((cdEvent) => {
-      const columnIndex = columnMap[cdEvent.skillId];
-      if (columnIndex === undefined) return;
-
-      const columnX = columnIndex * MIT_COLUMN_WIDTH + MIT_COLUMN_PADDING;
-      const zoneWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
-      const cdBoxY = zoneWidth + CD_LEFT_PADDING;
-
-      const startY = (cdEvent.tStartMs / MS_PER_SEC) * zoom;
-      const durationSec = cdEvent.durationMs / MS_PER_SEC;
-      const height = durationSec * zoom;
-      const isUnusable = cdEvent.cdType === 'unusable';
-      const fillColor = isUnusable ? 'url(#diagonalHatchUnusable)' : 'url(#diagonalHatchCooldown)';
-      const strokeColor = isUnusable ? '#F59E0B' : '#EF4444';
-      const opacity = 0.8;
-
-      zones.push(
-        <g
-          key={`cd-${cdEvent.skillId}-${cdEvent.tStartMs}-${cdEvent.cdType}`}
-          transform={`translate(${columnX}, ${startY})`}
-        >
-          <rect x={0} y={0} width={cdBoxY} height={height} fill={fillColor} opacity={opacity} />
-          <line
-            x1={cdBoxY}
-            y1={0}
-            x2={cdBoxY}
-            y2={height}
-            stroke={strokeColor}
-            strokeWidth={2}
-            opacity={opacity}
-          />
-        </g>,
-      );
-    });
-
-    return zones;
-  }, [cooldownEvents, zoom, columnMap]);
+    const hasBeginCast = castEvents.some((ev) => ev.type === 'begincast');
+    let maxEndMs = 0;
+    for (const ev of castEvents) {
+      const durationMs = toDurationMs(ev.duration);
+      const endMs =
+        ev.type === 'begincast'
+          ? ev.tMs + durationMs
+          : durationMs > 0 && !hasBeginCast
+            ? ev.tMs + durationMs
+            : ev.tMs;
+      if (endMs > maxEndMs) maxEndMs = endMs;
+    }
+    return maxEndMs;
+  }, [castEvents]);
 
   if (!fight) return null;
 
-  const durationSec = fight.durationMs / MS_PER_SEC;
-  const totalHeight = durationSec * zoom + 40;
+  const timelineEndMs = fight.durationMs;
+  const renderEndMs = Math.max(timelineEndMs, lastCastEndMs);
+  const durationSec = timelineEndMs / MS_PER_SEC;
+  const timelineHeight = durationSec * zoom + 40;
+  const totalHeight = (renderEndMs / MS_PER_SEC) * zoom + 40;
 
-  const RULER_W = 72;
+  const RULER_W = 60;
   const CAST_X = RULER_W;
   const DMG_X = CAST_X + CAST_LANE_WIDTH;
   const MIT_X = DMG_X + DAMAGE_LANE_WIDTH;
 
   const totalWidth = MIT_X + mitAreaWidth;
 
+  const primaryJob = resolvedJobs[0];
+  const secondaryJob = resolvedJobs[1];
+  const primaryDamageEvents =
+    resolvedJobs.length > 1 && primaryJob ? (damageEventsByJob?.[primaryJob] ?? []) : damageEvents;
+  const secondaryDamageEvents =
+    resolvedJobs.length > 1 && secondaryJob ? (damageEventsByJob?.[secondaryJob] ?? []) : [];
+
   return (
-    <div className="flex flex-col h-full bg-gray-950 relative">
+    <div className="relative flex h-full flex-col overflow-hidden bg-app text-app font-['Space_Grotesk']">
       <TimelineToolbar zoom={zoom} setZoom={setZoom} onClear={() => setMitEvents([])} />
       <TimelineCanvas
         containerId={containerId}
         zoom={zoom}
         setZoom={setZoom}
+        timelineHeight={timelineHeight}
         durationSec={durationSec}
         totalWidth={totalWidth}
         totalHeight={totalHeight}
@@ -136,12 +160,13 @@ export function Timeline({
         mitAreaWidth={mitAreaWidth}
         skillColumns={skillColumns}
         castEvents={castEvents}
-        damageEvents={damageEvents}
+        damageEvents={primaryDamageEvents}
+        secondaryDamageEvents={secondaryDamageEvents}
         mitEvents={mitEvents}
-        cdZones={cdZones}
         columnMap={columnMap}
         activeDragId={activeDragId}
-        dragDeltaMs={dragDeltaMs}
+        dragPreviewPx={dragPreviewPx}
+        selectedJobs={resolvedJobs.length ? resolvedJobs : undefined}
       />
     </div>
   );

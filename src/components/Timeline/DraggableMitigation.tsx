@@ -1,17 +1,27 @@
 import { useDraggable } from '@dnd-kit/core';
 import type { MitEvent } from '../../model/types';
 import { useRef } from 'react';
-import { MitigationBar } from './MitigationBar';
+import { createPortal } from 'react-dom';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
+import { getSkillDefinition } from '../../data/skills';
+import { XivIcon } from '../XivIcon';
+import { getSkillIconLocalSrc } from '../../data/icons';
+import { fetchActionIconUrl } from '../../lib/xivapi/icons';
+import { EFFECT_BAR_COLOR } from './timelineUtils';
+import { useTopBanner } from '../../hooks/useTopBanner';
 
 interface Props {
   mit: MitEvent;
   left: number;
   width: number;
+  effectHeight: number;
+  cooldownHeight: number;
   onUpdate: (id: string, updates: Partial<MitEvent>) => void;
   onRemove: (id: string) => void;
   isEditing: boolean;
   onEditChange: (isEditing: boolean) => void;
+  editPosition?: { x: number; y: number } | null;
+  canUpdateStart?: (tStartMs: number) => boolean;
   isSelected?: boolean;
   onSelect?: (mit: MitEvent, e: React.MouseEvent) => void;
   onRightClick?: (e: React.MouseEvent, mit: MitEvent) => void;
@@ -21,20 +31,26 @@ export function DraggableMitigation({
   mit,
   left,
   width,
+  effectHeight,
+  cooldownHeight,
   onUpdate,
   onRemove,
   isEditing,
   onEditChange,
+  editPosition,
+  canUpdateStart,
   isSelected,
   onSelect,
   onRightClick,
 }: Props) {
+  const { push } = useTopBanner();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: mit.id,
     data: { type: 'existing-mit', mit },
   });
 
-  // 拖拽时隐藏原条，使用覆盖层显示拖拽中的条目
+  const skill = getSkillDefinition(mit.skillId);
+  const iconFallback = skill?.icon ?? skill?.name?.slice(0, 1) ?? '';
 
   const style = {
     left: left,
@@ -48,83 +64,128 @@ export function DraggableMitigation({
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const handleEditSubmit = () => {
-    onEditChange(false);
     const rawValue = editInputRef.current?.value ?? '';
     const val = parseFloat(rawValue);
     if (!isNaN(val)) {
+      const nextStartMs = val * MS_PER_SEC;
+      if (Math.abs(nextStartMs - mit.tStartMs) < 0.5) {
+        onEditChange(false);
+        return;
+      }
+      if (canUpdateStart && !canUpdateStart(nextStartMs)) {
+        push('冷却中，无法调整该技能时间。', { tone: 'error' });
+        return;
+      }
+      onEditChange(false);
       onUpdate(mit.id, {
-        tStartMs: val * MS_PER_SEC,
-        tEndMs: val * MS_PER_SEC + mit.durationMs,
+        tStartMs: nextStartMs,
+        tEndMs: nextStartMs + mit.durationMs,
       });
     }
   };
 
-  return (
+  const editForm = (
     <div
-      ref={setNodeRef}
-      style={style}
-      className="group"
-      onContextMenu={(e) => {
-        // 优先使用外部右键处理
-        if (onRightClick) {
-          onRightClick(e, mit);
-        }
-      }}
+      className={`${
+        editPosition ? 'fixed z-50' : 'absolute left-0 top-full z-30 mt-2'
+      } min-w-40 rounded-lg border border-app bg-surface-3 p-3 shadow-2xl backdrop-blur-xl flex flex-col gap-2 text-app`}
+      style={editPosition ? { left: editPosition.x, top: editPosition.y } : undefined}
+      onPointerDown={(e) => e.stopPropagation()}
     >
-      <div {...attributes} {...listeners} className={isDragging ? 'opacity-0' : 'h-full w-full'}>
-        {!isDragging && (
-          <MitigationBar
-            mit={mit}
-            width={width}
-            isSelected={isSelected}
-            onClick={(mit, e) => onSelect && onSelect(mit, e)}
-            onRightClick={(e, mit) => onRightClick && onRightClick(e, mit)}
+      <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted font-mono">
+        编辑事件
+      </label>
+
+      <div className="flex items-center gap-2">
+        <label className="whitespace-nowrap text-[10px] text-muted font-mono">开始(s):</label>
+        <input
+          autoFocus
+          className="w-16 rounded-md border border-app bg-surface px-2 py-1 text-[11px] font-mono text-app focus:outline-none focus:ring-2 focus:ring-(--color-focus)"
+          ref={editInputRef}
+          defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
+          aria-label="开始时间（秒）"
+          onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
+        />
+      </div>
+
+      <div className="mt-1 flex items-center justify-between border-t border-app pt-2">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(mit.id);
+          }}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-danger transition-colors hover:bg-(--color-danger)/10 hover:text-white active:scale-[0.98]"
+        >
+          <span aria-hidden="true">🗑️</span> 删除
+        </button>
+
+        <button
+          type="button"
+          onClick={handleEditSubmit}
+          className="rounded-md bg-primary-action px-3 py-1 text-[11px] text-white transition-colors hover:bg-[#2ea043] active:scale-[0.98]"
+        >
+          确定
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div ref={setNodeRef} style={style} className="group">
+      <div
+        {...attributes}
+        {...listeners}
+        className={`w-full ${isDragging ? 'opacity-0' : ''}`}
+        onClick={(e) => onSelect && onSelect(mit, e)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (onRightClick) {
+            onRightClick(e, mit);
+          }
+        }}
+      >
+        <div className="flex w-full flex-col">
+          <div
+            className={`relative z-10 flex h-10 w-full items-center justify-center text-white shadow-[0_6px_12px_var(--color-skill-shadow)] ${
+              skill?.color || 'bg-slate-600'
+            } ${isSelected ? 'ring-2 ring-[#2f81f7]' : ''}`}
+          >
+            <XivIcon
+              localSrc={getSkillIconLocalSrc(skill?.actionId)}
+              remoteSrc={skill?.actionId ? () => fetchActionIconUrl(skill.actionId) : undefined}
+              alt={skill?.name ?? 'skill icon'}
+              className="h-full w-full object-cover"
+              fallback={iconFallback}
+            />
+          </div>
+          <div
+            className="relative z-0 w-full border-x border-white/10 shadow-inner"
+            style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
           />
-        )}
+          {cooldownHeight > 0 && (
+            <div
+              className="relative z-0 w-full border-x border-app bg-surface shadow-[inset_0_0_10px_var(--color-cooldown-shadow)]"
+              style={{
+                height: cooldownHeight,
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, var(--color-cooldown-hatch), var(--color-cooldown-hatch) 4px, transparent 4px, transparent 8px)',
+              }}
+            >
+              <div className="sticky top-14 text-center">
+                <span className="text-[8px] font-mono uppercase text-muted">CD</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 编辑态表单 */}
-      {!isDragging && isEditing && (
-        <div
-          className="absolute top-full mt-1 left-0 bg-gray-800 border border-gray-600 p-3 rounded z-[100] w-auto min-w-[140px] shadow-xl flex flex-col gap-2"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <label className="text-xs text-gray-400 font-bold">编辑事件</label>
-
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-gray-500 whitespace-nowrap">开始(s):</label>
-            <input
-              autoFocus
-              className="w-16 bg-gray-700 border border-gray-500 rounded text-xs px-2 py-1 text-white focus:border-blue-500 outline-none"
-              ref={editInputRef}
-              defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
-              aria-label="开始时间（秒）"
-              onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
-            />
-          </div>
-
-          <div className="flex justify-between items-center mt-1 border-t border-gray-700 pt-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(mit.id);
-              }}
-              className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-red-900/30 transition-colors"
-            >
-              <span aria-hidden="true">🗑️</span> 删除
-            </button>
-
-            <button
-              type="button"
-              onClick={handleEditSubmit}
-              className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1 rounded transition-colors"
-            >
-              确定
-            </button>
-          </div>
-        </div>
-      )}
+      {!isDragging &&
+        isEditing &&
+        (editPosition && typeof document !== 'undefined'
+          ? createPortal(editForm, document.body)
+          : editForm)}
     </div>
   );
 }

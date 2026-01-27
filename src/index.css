@@ -1,1 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
 @import 'tailwindcss';
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --color-bg: #f8fafc;
+    --color-surface-1: #ffffff;
+    --color-surface-2: #f6f8fa;
+    --color-surface-3: #eef1f5;
+    --color-surface-4: #e6e9ef;
+    --color-text: #1f2328;
+    --color-text-muted: #656d76;
+    --color-border: #d0d7de;
+    --color-accent: #0969da;
+    --color-accent-strong: #1f6feb;
+    --color-accent-bright: #2f81f7;
+    --color-primary-action: #1f883d;
+    --color-danger: #cf222e;
+    --color-focus: #6366f1;
+    --color-github: #181717;
+    --color-skill-shadow: rgba(15, 23, 42, 0.08);
+    --color-cooldown-shadow: rgba(15, 23, 42, 0.08);
+    --color-cooldown-hatch: rgba(48, 54, 61, 0.18);
+  }
+
+  .dark {
+    color-scheme: dark;
+    --color-bg: #0d1117;
+    --color-surface-1: #010409;
+    --color-surface-2: #151b23;
+    --color-surface-3: #161b22;
+    --color-surface-4: #21262d;
+    --color-text: #e6edf3;
+    --color-text-muted: #8b949e;
+    --color-border: #30363d;
+    --color-accent: #1f6feb;
+    --color-accent-strong: #2f81f7;
+    --color-accent-bright: #0969da;
+    --color-primary-action: #238636;
+    --color-danger: #da3633;
+    --color-focus: #6366f1;
+    --color-github: #ffffff;
+    --color-skill-shadow: rgba(0, 0, 0, 0.38);
+    --color-cooldown-shadow: rgba(0, 0, 0, 0.42);
+    --color-cooldown-hatch: rgba(148, 163, 184, 0.38);
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  }
+
+  select,
+  option {
+    background-color: var(--color-surface-1);
+    color: var(--color-text);
+  }
+
+  .dark select,
+  .dark option {
+    background-color: var(--color-surface-2);
+    color: var(--color-text);
+  }
+}
+
+@layer utilities {
+  .bg-app {
+    background-color: var(--color-bg);
+  }
+  .bg-surface {
+    background-color: var(--color-surface-1);
+  }
+  .bg-surface-2 {
+    background-color: var(--color-surface-2);
+  }
+  .bg-surface-3 {
+    background-color: var(--color-surface-3);
+  }
+  .bg-surface-4 {
+    background-color: var(--color-surface-4);
+  }
+  .bg-accent {
+    background-color: var(--color-accent);
+  }
+  .bg-accent-strong {
+    background-color: var(--color-accent-strong);
+  }
+  .bg-primary-action {
+    background-color: var(--color-primary-action);
+  }
+  .text-app {
+    color: var(--color-text);
+  }
+  .text-muted {
+    color: var(--color-text-muted);
+  }
+  .text-accent {
+    color: var(--color-accent);
+  }
+  .text-danger {
+    color: var(--color-danger);
+  }
+  .border-app {
+    border-color: var(--color-border);
+  }
+  .ring-focus {
+    --tw-ring-color: var(--color-focus);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-top {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

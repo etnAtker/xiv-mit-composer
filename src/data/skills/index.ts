@@ -1,16 +1,10 @@
 import type { CooldownGroup, Skill } from '../../model/types';
 
+export const ROLE_SKILL_IDS = new Set(['role-rampart', 'role-reprisal']);
+const SKILL_OWNER_SEPARATOR = '@';
+
 export const SKILLS: Skill[] = [
   // 职能通用
-  {
-    id: 'role-rampart',
-    name: '铁壁',
-    cooldownSec: 90,
-    durationSec: 20,
-    job: 'ALL',
-    color: 'bg-slate-500',
-    actionId: 7531,
-  },
   {
     id: 'role-reprisal',
     name: '雪仇',
@@ -19,6 +13,15 @@ export const SKILLS: Skill[] = [
     job: 'ALL',
     color: 'bg-slate-600',
     actionId: 7535,
+  },
+  {
+    id: 'role-rampart',
+    name: '铁壁',
+    cooldownSec: 90,
+    durationSec: 20,
+    job: 'ALL',
+    color: 'bg-slate-500',
+    actionId: 7531,
   },
 
   // 骑士 (PLD)
@@ -30,7 +33,7 @@ export const SKILLS: Skill[] = [
     durationSec: 10,
     job: 'PLD',
     color: 'bg-blue-700',
-    actionId: 3540,
+    actionId: 22,
   },
   {
     id: 'pld-sentinel',
@@ -162,7 +165,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'drk-dark-mind',
     name: '弃明投暗',
-    cooldownSec: 0.5,
+    cooldownSec: 60,
     durationSec: 10,
     job: 'DRK',
     color: 'bg-purple-500',
@@ -310,3 +313,13 @@ for (const skill of SKILLS) {
   groupSkills.push(skill);
   COOLDOWN_GROUP_SKILLS_MAP.set(group, groupSkills);
 }
+
+export const normalizeSkillId = (skillId: string) => skillId.split(SKILL_OWNER_SEPARATOR)[0];
+
+export const withOwnerSkillId = (skillId: string, ownerJob?: Skill['job']) => {
+  const baseId = normalizeSkillId(skillId);
+  if (!ownerJob || ownerJob === 'ALL' || !ROLE_SKILL_IDS.has(baseId)) return baseId;
+  return `${baseId}${SKILL_OWNER_SEPARATOR}${ownerJob}`;
+};
+
+export const getSkillDefinition = (skillId: string) => SKILL_MAP.get(normalizeSkillId(skillId));
