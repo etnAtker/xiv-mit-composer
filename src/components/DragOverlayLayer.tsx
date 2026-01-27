@@ -2,7 +2,6 @@ import { DragOverlay } from '@dnd-kit/core';
 import type { Job, MitEvent, Skill } from '../model/types';
 import { MitigationBar } from './Timeline/MitigationBar';
 import { SkillCard } from './Skill/SkillCard';
-import { MS_PER_SEC } from '../constants/time';
 import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './Timeline/timelineUtils';
 
 export type DragOverlayItem =
@@ -24,7 +23,7 @@ export function DragOverlayLayer({ activeItem, zoom }: Props) {
         <MitigationBar
           mit={activeItem.mit}
           width={MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2}
-          height={(activeItem.mit.durationMs / MS_PER_SEC) * zoom}
+          zoom={zoom}
           isOverlay
         />
       )}
