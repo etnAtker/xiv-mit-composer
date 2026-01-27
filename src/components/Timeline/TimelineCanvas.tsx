@@ -329,6 +329,7 @@ export function TimelineCanvas({
               setMitLaneRef={setMitLaneRef}
               mitX={mitX}
               mitAreaWidth={mitAreaWidth}
+              timelineHeight={timelineHeight}
               reprisalGhosts={reprisalGhosts}
               reprisalSkillColor={reprisalSkill?.color}
               reprisalZIndexMap={reprisalZIndexMap}

@@ -17,6 +17,7 @@ interface Props {
   setMitLaneRef: (element: HTMLElement | null) => void;
   mitX: number;
   mitAreaWidth: number;
+  timelineHeight: number;
   reprisalGhosts: ReprisalGhost[];
   reprisalSkillColor?: string;
   reprisalZIndexMap: Map<string, number>;
@@ -41,6 +42,7 @@ export function MitigationLayer({
   setMitLaneRef,
   mitX,
   mitAreaWidth,
+  timelineHeight,
   reprisalGhosts,
   reprisalSkillColor,
   reprisalZIndexMap,
@@ -64,7 +66,7 @@ export function MitigationLayer({
       id={containerId}
       ref={setMitLaneRef}
       className="absolute z-20 pointer-events-none"
-      style={{ left: mitX, top: 0, width: mitAreaWidth, height: '100%' }}
+      style={{ left: mitX, top: 0, width: mitAreaWidth, height: timelineHeight }}
     >
       {reprisalGhosts.map(({ mit, targetJob }) => {
         const columnKey = `${normalizeSkillId(mit.skillId)}:${targetJob}`;
