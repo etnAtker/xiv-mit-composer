@@ -55,12 +55,12 @@ export function TimelineHeader({
 }: Props) {
   return (
     <div
-      className={`sticky top-0 z-60 flex border-b border-app bg-surface-3 ${
+      className={`sticky top-0 z-40 flex border-b border-app bg-surface-3 ${
         isScrolled ? 'shadow-xl' : 'shadow-none'
       }`}
       style={{ width: totalWidth, height }}
     >
-      <div className="sticky left-0 z-40 flex h-full bg-surface-3">
+      <div className="sticky left-0 z-30 flex h-full bg-surface-3">
         <div
           className="flex h-full items-center justify-center border-r border-app text-[10px] font-mono uppercase text-muted"
           style={{ width: rulerWidth }}

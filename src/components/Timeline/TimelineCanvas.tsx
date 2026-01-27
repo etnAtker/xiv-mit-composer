@@ -268,7 +268,7 @@ export function TimelineCanvas({
         >
           {boxSelection.isActive && (
             <div
-              className="absolute z-50 border-2 border-dashed border-[#1f6feb] bg-[#1f6feb]/10 pointer-events-none"
+              className="absolute z-30 border-2 border-dashed border-[#1f6feb] bg-[#1f6feb]/10 pointer-events-none"
               style={{
                 left: Math.min(boxSelection.startX, boxSelection.endX),
                 top: Math.min(boxSelection.startY, boxSelection.endY),

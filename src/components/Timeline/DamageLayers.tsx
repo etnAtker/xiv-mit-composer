@@ -42,7 +42,7 @@ export function DamageLayers({
       <svg
         width={totalWidth}
         height={timelineHeight}
-        className="absolute inset-0 z-40 block text-xs pointer-events-none"
+        className="absolute inset-0 z-30 block text-xs pointer-events-none"
       >
         <DamageLane
           events={damageEvents}
@@ -68,7 +68,7 @@ export function DamageLayers({
         )}
       </svg>
 
-      <div className="absolute inset-0 z-41 pointer-events-none" style={{ height: timelineHeight }}>
+      <div className="absolute inset-0 z-31 pointer-events-none" style={{ height: timelineHeight }}>
         <DamageLaneHitTargets
           events={damageEvents}
           mitEvents={primaryMitEvents}
