@@ -16,7 +16,7 @@ export function SkillCard({ skill, className, job }: Props) {
   return (
     <div
       className={cn(
-        'relative flex items-center gap-2 rounded-md border border-[#1f6feb]/40 bg-[#1f6feb]/15 p-2 text-sm font-medium text-white shadow transition-colors cursor-grab hover:bg-[#1f6feb]/25',
+        'relative flex items-center gap-2 rounded-md border border-[#1f6feb]/40 bg-[#1f6feb]/15 p-2 text-sm font-medium text-app shadow transition-colors cursor-grab hover:bg-[#1f6feb]/25',
         className,
       )}
     >
@@ -33,9 +33,9 @@ export function SkillCard({ skill, className, job }: Props) {
       <div className="min-w-0 flex-1 pointer-events-none">
         <div className="flex items-center justify-between gap-2">
           <span className="truncate">{skill.name}</span>
-          <span className="text-[10px] font-mono text-white/80">{skill.durationSec}s</span>
+          <span className="text-[10px] font-mono text-muted">{skill.durationSec}s</span>
         </div>
-        <div className="mt-1 text-[10px] font-mono text-white/70">CD: {skill.cooldownSec}s</div>
+        <div className="mt-1 text-[10px] font-mono text-muted">CD: {skill.cooldownSec}s</div>
       </div>
 
       {displayJob && (

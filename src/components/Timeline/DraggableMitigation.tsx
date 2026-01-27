@@ -84,7 +84,7 @@ export function DraggableMitigation({
       >
         <div className="flex w-full flex-col">
           <div
-            className={`flex h-10 w-full items-center justify-center text-white shadow-lg ${
+            className={`relative z-10 flex h-10 w-full items-center justify-center text-white shadow-[0_6px_12px_var(--color-skill-shadow)] ${
               skill?.color || 'bg-slate-600'
             } ${isSelected ? 'ring-2 ring-[#2f81f7]' : ''}`}
           >
@@ -97,16 +97,16 @@ export function DraggableMitigation({
             />
           </div>
           <div
-            className="w-full border-x border-white/10 shadow-inner"
+            className="relative z-0 w-full border-x border-white/10 shadow-inner"
             style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
           />
           {cooldownHeight > 0 && (
             <div
-              className="w-full border-x border-app bg-surface shadow-[inset_0_0_12px_rgba(48,54,61,0.25)]"
+              className="relative z-0 w-full border-x border-app bg-surface shadow-[inset_0_0_10px_var(--color-cooldown-shadow)]"
               style={{
                 height: cooldownHeight,
                 backgroundImage:
-                  'repeating-linear-gradient(45deg, rgba(48, 54, 61, 0.4), rgba(48, 54, 61, 0.4) 4px, transparent 4px, transparent 8px)',
+                  'repeating-linear-gradient(45deg, var(--color-cooldown-hatch), var(--color-cooldown-hatch) 4px, transparent 4px, transparent 8px)',
               }}
             >
               <div className="sticky top-14 text-center">
@@ -120,7 +120,7 @@ export function DraggableMitigation({
       {/* 编辑态表单 */}
       {!isDragging && isEditing && (
         <div
-          className="absolute left-0 top-full z-[100] mt-2 min-w-[160px] rounded-lg border border-app bg-surface-3 p-3 shadow-2xl backdrop-blur-xl flex flex-col gap-2 text-app"
+          className="absolute left-0 top-full z-100 mt-2 min-w-40 rounded-lg border border-app bg-surface-3 p-3 shadow-2xl backdrop-blur-xl flex flex-col gap-2 text-app"
           onPointerDown={(e) => e.stopPropagation()}
         >
           <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted font-mono">

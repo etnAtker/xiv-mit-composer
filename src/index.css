@@ -18,6 +18,10 @@
     --color-primary-action: #1f883d;
     --color-danger: #cf222e;
     --color-focus: #6366f1;
+    --color-github: #181717;
+    --color-skill-shadow: rgba(15, 23, 42, 0.08);
+    --color-cooldown-shadow: rgba(15, 23, 42, 0.08);
+    --color-cooldown-hatch: rgba(48, 54, 61, 0.18);
   }
 
   .dark {
@@ -36,6 +40,10 @@
     --color-primary-action: #238636;
     --color-danger: #da3633;
     --color-focus: #6366f1;
+    --color-github: #ffffff;
+    --color-skill-shadow: rgba(0, 0, 0, 0.38);
+    --color-cooldown-shadow: rgba(0, 0, 0, 0.42);
+    --color-cooldown-hatch: rgba(148, 163, 184, 0.38);
   }
 
   body {
