@@ -35,6 +35,7 @@ interface Props {
   removeMitEvent: (id: string) => void;
   setContextMenu: (position: { x: number; y: number } | null) => void;
   getVisualOffsetMs: (mit: MitEvent) => number;
+  editPopoverPosition: { x: number; y: number } | null;
 }
 
 export function MitigationLayer({
@@ -60,6 +61,7 @@ export function MitigationLayer({
   removeMitEvent,
   setContextMenu,
   getVisualOffsetMs,
+  editPopoverPosition,
 }: Props) {
   return (
     <div
@@ -156,6 +158,7 @@ export function MitigationLayer({
               onRemove={(id) => removeMitEvent(id)}
               isEditing={isEditing}
               onEditChange={(val) => setEditingMitId(val ? mit.id : null)}
+              editPosition={isEditing ? editPopoverPosition : null}
               isSelected={selectedMitIds.includes(mit.id)}
               onSelect={(selectedMit, e) => {
                 if (e.ctrlKey || e.metaKey) {
