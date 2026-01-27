@@ -19,6 +19,7 @@ import { Timeline } from './components/Timeline/Timeline';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
 import { canUseSkillAt } from './utils/playerCast';
+import { getStoredTheme, setStoredTheme } from './utils';
 
 export default function App() {
   const {
@@ -59,8 +60,8 @@ export default function App() {
   const [dualTankPlayers, setDualTankPlayers] = useState<{ id: number | null; job: Job }[]>([]);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'dark';
-    const stored = window.localStorage.getItem('theme');
-    if (stored === 'light' || stored === 'dark') return stored;
+    const stored = getStoredTheme();
+    if (stored) return stored;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
@@ -71,7 +72,7 @@ export default function App() {
     } else {
       root.classList.remove('dark');
     }
-    window.localStorage.setItem('theme', theme);
+    setStoredTheme(theme);
   }, [theme]);
 
   const sensors = useSensors(
