@@ -220,10 +220,6 @@ export function TimelineCanvas({
   const firstGroupCount = primaryJob
     ? headerSkillColumns.filter((skill) => skill.job === primaryJob).length
     : 0;
-  const secondaryGroupCount =
-    hasSecondaryDamageLane && secondaryJob
-      ? headerSkillColumns.filter((skill) => skill.job === secondaryJob).length
-      : 0;
   const secondaryDamageLaneLeft = mitX + firstGroupCount * MIT_COLUMN_WIDTH;
   const jobToneMap: Record<string, string> = {
     PLD: 'bg-blue-500/5',
