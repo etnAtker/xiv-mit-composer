@@ -11,6 +11,7 @@ interface Props {
   castWidth: number;
   durationSec: number;
   totalHeight: number;
+  timelineHeight: number;
   zoom: number;
   visibleRange: { start: number; end: number };
   castEvents: CastEvent[];
@@ -22,6 +23,7 @@ export function PinnedTimelineLanes({
   castWidth,
   durationSec,
   totalHeight,
+  timelineHeight,
   zoom,
   visibleRange,
   castEvents,
@@ -39,8 +41,8 @@ export function PinnedTimelineLanes({
       style={{ width: rulerWidth + castWidth, height: totalHeight }}
     >
       <div
-        className="h-full border-r border-app bg-surface-2 pr-2 text-right pointer-events-none"
-        style={{ width: rulerWidth }}
+        className="border-r border-app bg-surface-2 pr-2 text-right pointer-events-none"
+        style={{ width: rulerWidth, height: timelineHeight }}
       >
         <div className="relative h-full py-4">
           {Array.from({ length: Math.ceil(durationSec / RULER_STEP_SEC) }).map((_, i) => {

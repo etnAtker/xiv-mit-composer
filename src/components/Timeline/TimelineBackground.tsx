@@ -12,6 +12,7 @@ interface Props {
   headerSkillColumns: TimelineSkillColumn[];
   hasSecondaryDamageLane: boolean;
   firstGroupCount: number;
+  timelineHeight: number;
 }
 
 export function TimelineBackground({
@@ -24,10 +25,14 @@ export function TimelineBackground({
   headerSkillColumns,
   hasSecondaryDamageLane,
   firstGroupCount,
+  timelineHeight,
 }: Props) {
   return (
     <>
-      <div className="absolute inset-0 z-0 flex pointer-events-none">
+      <div
+        className="absolute left-0 top-0 z-0 flex pointer-events-none"
+        style={{ width: '100%', height: timelineHeight }}
+      >
         <div
           className="h-full border-r border-app bg-surface-2"
           style={{
@@ -62,7 +67,10 @@ export function TimelineBackground({
         </div>
       </div>
 
-      <div className="absolute inset-0 z-0 pointer-events-none">
+      <div
+        className="absolute left-0 top-0 z-0 pointer-events-none"
+        style={{ width: '100%', height: timelineHeight }}
+      >
         <div
           className="absolute top-0 h-full border-r border-app bg-surface-2"
           style={{

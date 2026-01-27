@@ -97,10 +97,34 @@ export function Timeline({
     };
   }, [resolvedJobs]);
 
+  const lastCastEndMs = useMemo(() => {
+    const toDurationMs = (duration?: number) => {
+      if (!duration || duration <= 0) return 0;
+      return duration < 100 ? duration * MS_PER_SEC : duration;
+    };
+
+    const hasBeginCast = castEvents.some((ev) => ev.type === 'begincast');
+    let maxEndMs = 0;
+    for (const ev of castEvents) {
+      const durationMs = toDurationMs(ev.duration);
+      const endMs =
+        ev.type === 'begincast'
+          ? ev.tMs + durationMs
+          : durationMs > 0 && !hasBeginCast
+            ? ev.tMs + durationMs
+            : ev.tMs;
+      if (endMs > maxEndMs) maxEndMs = endMs;
+    }
+    return maxEndMs;
+  }, [castEvents]);
+
   if (!fight) return null;
 
-  const durationSec = fight.durationMs / MS_PER_SEC;
-  const totalHeight = durationSec * zoom + 40;
+  const timelineEndMs = fight.durationMs;
+  const renderEndMs = Math.max(timelineEndMs, lastCastEndMs);
+  const durationSec = timelineEndMs / MS_PER_SEC;
+  const timelineHeight = durationSec * zoom + 40;
+  const totalHeight = (renderEndMs / MS_PER_SEC) * zoom + 40;
 
   const RULER_W = 60;
   const CAST_X = RULER_W;
@@ -123,6 +147,7 @@ export function Timeline({
         containerId={containerId}
         zoom={zoom}
         setZoom={setZoom}
+        timelineHeight={timelineHeight}
         durationSec={durationSec}
         totalWidth={totalWidth}
         totalHeight={totalHeight}
