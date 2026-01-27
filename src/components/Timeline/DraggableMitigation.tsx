@@ -8,6 +8,7 @@ import { XivIcon } from '../XivIcon';
 import { getSkillIconLocalSrc } from '../../data/icons';
 import { fetchActionIconUrl } from '../../lib/xivapi/icons';
 import { EFFECT_BAR_COLOR } from './timelineUtils';
+import { useTopBanner } from '../../hooks/useTopBanner';
 
 interface Props {
   mit: MitEvent;
@@ -20,6 +21,7 @@ interface Props {
   isEditing: boolean;
   onEditChange: (isEditing: boolean) => void;
   editPosition?: { x: number; y: number } | null;
+  canUpdateStart?: (tStartMs: number) => boolean;
   isSelected?: boolean;
   onSelect?: (mit: MitEvent, e: React.MouseEvent) => void;
   onRightClick?: (e: React.MouseEvent, mit: MitEvent) => void;
@@ -36,10 +38,12 @@ export function DraggableMitigation({
   isEditing,
   onEditChange,
   editPosition,
+  canUpdateStart,
   isSelected,
   onSelect,
   onRightClick,
 }: Props) {
+  const { push } = useTopBanner();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: mit.id,
     data: { type: 'existing-mit', mit },
@@ -60,13 +64,22 @@ export function DraggableMitigation({
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const handleEditSubmit = () => {
-    onEditChange(false);
     const rawValue = editInputRef.current?.value ?? '';
     const val = parseFloat(rawValue);
     if (!isNaN(val)) {
+      const nextStartMs = val * MS_PER_SEC;
+      if (Math.abs(nextStartMs - mit.tStartMs) < 0.5) {
+        onEditChange(false);
+        return;
+      }
+      if (canUpdateStart && !canUpdateStart(nextStartMs)) {
+        push('冷却中，无法调整该技能时间。', { tone: 'error' });
+        return;
+      }
+      onEditChange(false);
       onUpdate(mit.id, {
-        tStartMs: val * MS_PER_SEC,
-        tEndMs: val * MS_PER_SEC + mit.durationMs,
+        tStartMs: nextStartMs,
+        tEndMs: nextStartMs + mit.durationMs,
       });
     }
   };

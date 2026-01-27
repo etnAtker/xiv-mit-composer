@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cn } from '../utils';
+import { useTopBanner } from '../hooks/useTopBanner';
 
 interface Props {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface Props {
 
 export function ExportModal({ isOpen, onClose, content, enableTTS, onTtsChange }: Props) {
   const [copied, setCopied] = useState(false);
+  const { push } = useTopBanner();
 
   if (!isOpen) return null;
 
@@ -21,6 +23,7 @@ export function ExportModal({ isOpen, onClose, content, enableTTS, onTtsChange }
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy/copy failed', err);
+      push('复制失败，请检查浏览器权限', { tone: 'error' });
     }
   };
 

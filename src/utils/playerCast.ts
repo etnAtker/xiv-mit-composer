@@ -28,6 +28,41 @@ export function tryBuildCooldowns(events: MitEvent[]): CooldownEvent[] | void {
   return newEvents;
 }
 
+export function canInsertMitigation(
+  skillId: string,
+  startMs: number,
+  allEvents: MitEvent[],
+  ownerJob?: Job,
+  ownerId?: number,
+  excludeIds?: Set<string>,
+): boolean {
+  const baseSkillId = normalizeSkillId(skillId);
+  const skillMeta = getSkillDefinition(baseSkillId);
+  if (!skillMeta) {
+    console.error(`错误：未找到技能 ${baseSkillId} 的定义。`);
+    return false;
+  }
+
+  const filteredEvents =
+    excludeIds && excludeIds.size
+      ? allEvents.filter((event) => !excludeIds.has(event.id))
+      : allEvents;
+  const cooldownEvents = tryBuildCooldowns(filteredEvents) ?? [];
+  const ownerKey = buildOwnerKey(ownerId, ownerJob);
+
+  for (const cooldown of cooldownEvents) {
+    if (cooldown.skillId !== baseSkillId) continue;
+    const matchesOwner =
+      !ownerKey || !cooldown.ownerKey || (ownerKey && cooldown.ownerKey === ownerKey);
+    if (!matchesOwner) continue;
+    if (startMs >= cooldown.tStartMs && startMs < cooldown.tEndMs) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 interface StackEvent {
   resourceKey: string;
   ownerKey?: string;
