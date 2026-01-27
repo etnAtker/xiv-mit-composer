@@ -12,8 +12,11 @@ interface Props {
 }
 
 export function SkillSidebar({ selectedJob, selectedJobs }: Props) {
-  const jobs =
-    selectedJobs && selectedJobs.length > 0 ? Array.from(new Set(selectedJobs)) : [selectedJob];
+  const jobs = useMemo(
+    () =>
+      selectedJobs && selectedJobs.length > 0 ? Array.from(new Set(selectedJobs)) : [selectedJob],
+    [selectedJob, selectedJobs],
+  );
   const [openJobs, setOpenJobs] = useState<Record<Job, boolean>>({
     PLD: false,
     WAR: false,

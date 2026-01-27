@@ -139,27 +139,25 @@ export const DamageLane = memo(
       return merged;
     }, [mitEvents]);
 
-    const isMitigatedAt = useMemo(() => {
+    const isMitigatedAt = (tMs: number) => {
       if (mergedMitWindows.length === 0) {
-        return () => false;
-      }
-      return (tMs: number) => {
-        let left = 0;
-        let right = mergedMitWindows.length - 1;
-        while (left <= right) {
-          const mid = (left + right) >> 1;
-          const window = mergedMitWindows[mid];
-          if (tMs < window.start) {
-            right = mid - 1;
-          } else if (tMs > window.end) {
-            left = mid + 1;
-          } else {
-            return true;
-          }
-        }
         return false;
-      };
-    }, [mergedMitWindows]);
+      }
+      let left = 0;
+      let right = mergedMitWindows.length - 1;
+      while (left <= right) {
+        const mid = (left + right) >> 1;
+        const window = mergedMitWindows[mid];
+        if (tMs < window.start) {
+          right = mid - 1;
+        } else if (tMs > window.end) {
+          left = mid + 1;
+        } else {
+          return true;
+        }
+      }
+      return false;
+    };
 
     const visibleClusters = useMemo(() => {
       return getVisibleClusters(events, zoom, visibleRange, 18);
