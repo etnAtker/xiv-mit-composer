@@ -2,9 +2,10 @@ import type { Job, MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
 import { getSkillDefinition, normalizeSkillId } from '../../data/skills';
 import { JOB_ICON_LOCAL_SRC } from '../../data/icons';
-import { XivIcon } from '../XivIcon';
 import { DraggableMitigation } from './DraggableMitigation';
-import { EFFECT_BAR_COLOR, MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
+import { MitigationBarContent } from './MitigationBar';
+import { getMitigationBarHeights } from './mitigationBarUtils';
+import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
 import { canInsertMitigation } from '../../utils/playerCast';
 
 interface ReprisalGhost {
@@ -80,9 +81,6 @@ export function MitigationLayer({
       style={{ left: mitX, top: 0, width: mitAreaWidth, height: timelineHeight }}
     >
       {previewEvents.map((mit) => {
-        const top = (mit.tStartMs / MS_PER_SEC) * zoom + dragPreviewPx;
-        const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
-        const height = 40 + effectHeight;
         const columnKey = getMitColumnKey(mit);
         const columnIndex = columnMap[columnKey];
         if (columnIndex === undefined) return null;
@@ -90,6 +88,13 @@ export function MitigationLayer({
         const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
         const skillDef = getSkillDefinition(mit.skillId);
         const ghostColor = skillDef?.color || 'bg-slate-600';
+        const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(
+          mit,
+          zoom,
+          skillDef,
+        );
+        const top = (mit.tStartMs / MS_PER_SEC) * zoom + dragPreviewPx;
+        const height = totalHeight;
 
         return (
           <div
@@ -105,15 +110,12 @@ export function MitigationLayer({
             }}
             className="opacity-60"
           >
-            <div className="flex w-full flex-col">
-              <div
-                className={`flex h-10 w-full items-center justify-center border border-white/10 text-[10px] font-semibold text-white ${ghostColor}`}
-              />
-              <div
-                className="w-full border-x border-white/10 shadow-inner"
-                style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
-              />
-            </div>
+            <MitigationBarContent
+              headerClassName={`border border-white/10 ${ghostColor}`}
+              showIcon={false}
+              effectHeight={effectHeight}
+              cooldownHeight={cooldownHeight}
+            />
           </div>
         );
       })}
@@ -121,9 +123,15 @@ export function MitigationLayer({
         const columnKey = `${normalizeSkillId(mit.skillId)}:${targetJob}`;
         const columnIndex = columnMap[columnKey];
         if (columnIndex === undefined) return null;
+        const skillDef = getSkillDefinition(mit.skillId);
+        const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(
+          mit,
+          zoom,
+          skillDef,
+        );
+        const showCooldown = false;
+        const height = showCooldown ? totalHeight : totalHeight - cooldownHeight;
         const top = (getEffectiveStartMs(mit) / MS_PER_SEC) * zoom;
-        const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
-        const height = 40 + effectHeight;
         const ghostColor = reprisalSkillColor ?? 'bg-slate-600';
         const reprisalIndex = reprisalZIndexMap.get(mit.id) ?? 0;
         const iconJob = mit.ownerJob ?? targetJob;
@@ -142,32 +150,27 @@ export function MitigationLayer({
             }}
             className="opacity-50"
           >
-            <div className="flex w-full flex-col">
-              <div
-                className={`flex h-10 w-full items-center justify-center border border-white/10 text-[10px] font-semibold text-white ${ghostColor}`}
-              >
-                <XivIcon
-                  localSrc={JOB_ICON_LOCAL_SRC[iconJob]}
-                  alt={`${iconJob} icon`}
-                  className="h-full w-full object-cover"
-                  fallback={iconJob}
-                />
-              </div>
-              <div
-                className="w-full border-x border-white/10 shadow-inner"
-                style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
-              />
-            </div>
+            <MitigationBarContent
+              headerClassName={`border border-white/10 ${ghostColor}`}
+              iconSrc={JOB_ICON_LOCAL_SRC[iconJob]}
+              iconAlt={`${iconJob} icon`}
+              iconFallback={iconJob}
+              effectHeight={effectHeight}
+              cooldownHeight={cooldownHeight}
+              showCooldown={showCooldown}
+            />
           </div>
         );
       })}
       {mitEvents.map((mit) => {
-        const top = (mit.tStartMs / MS_PER_SEC) * zoom;
-        const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
         const skillDef = getSkillDefinition(mit.skillId);
-        const cooldownMs = (skillDef?.cooldownSec ?? 0) * MS_PER_SEC;
-        const cooldownHeight = (cooldownMs / MS_PER_SEC) * zoom;
-        const height = 40 + effectHeight + cooldownHeight;
+        const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(
+          mit,
+          zoom,
+          skillDef,
+        );
+        const top = (mit.tStartMs / MS_PER_SEC) * zoom;
+        const height = totalHeight;
         const columnKey = getMitColumnKey(mit);
         const columnIndex = columnMap[columnKey];
         if (columnIndex === undefined) return null;

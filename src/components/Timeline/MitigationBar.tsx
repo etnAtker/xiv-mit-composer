@@ -4,7 +4,69 @@ import { EFFECT_BAR_COLOR } from './timelineUtils';
 import { getSkillDefinition } from '../../data/skills';
 import { getSkillIconLocalSrc } from '../../data/icons';
 import { XivIcon } from '../XivIcon';
-import { MS_PER_SEC } from '../../constants/time';
+import { getMitigationBarHeights } from './mitigationBarUtils';
+
+interface MitigationBarContentProps {
+  headerClassName?: string;
+  effectHeight: number;
+  cooldownHeight?: number;
+  showCooldown?: boolean;
+  showIcon?: boolean;
+  iconSrc?: string;
+  iconAlt?: string;
+  iconFallback?: string;
+  iconClassName?: string;
+}
+
+export function MitigationBarContent({
+  headerClassName,
+  effectHeight,
+  cooldownHeight = 0,
+  showCooldown = true,
+  showIcon = true,
+  iconSrc,
+  iconAlt = 'skill icon',
+  iconFallback,
+  iconClassName = 'h-full w-full object-cover',
+}: MitigationBarContentProps) {
+  return (
+    <div className="flex w-full flex-col">
+      <div
+        className={cn(
+          'flex h-10 w-full items-center justify-center text-[10px] font-semibold text-white',
+          headerClassName,
+        )}
+      >
+        {showIcon && (
+          <XivIcon
+            localSrc={iconSrc}
+            alt={iconAlt}
+            className={iconClassName}
+            fallback={iconFallback}
+          />
+        )}
+      </div>
+      <div
+        className="relative z-0 w-full border-x border-white/10 shadow-inner"
+        style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
+      />
+      {showCooldown && cooldownHeight > 0 && (
+        <div
+          className="relative z-0 w-full border-x border-app bg-surface shadow-[inset_0_0_10px_var(--color-cooldown-shadow)]"
+          style={{
+            height: cooldownHeight,
+            backgroundImage:
+              'repeating-linear-gradient(45deg, var(--color-cooldown-hatch), var(--color-cooldown-hatch) 4px, transparent 4px, transparent 8px)',
+          }}
+        >
+          <div className="sticky top-14 text-center">
+            <span className="text-[8px] font-mono uppercase text-muted">CD</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   mit: MitEvent;
@@ -30,10 +92,7 @@ export function MitigationBar({
 }: Props) {
   const skill = getSkillDefinition(mit.skillId);
   const iconFallback = skill?.icon ?? skill?.name?.slice(0, 1) ?? '';
-  const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
-  const cooldownMs = (skill?.cooldownSec ?? 0) * MS_PER_SEC;
-  const cooldownHeight = (cooldownMs / MS_PER_SEC) * zoom;
-  const totalHeight = 40 + effectHeight + cooldownHeight;
+  const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(mit, zoom, skill);
 
   return (
     <div
@@ -52,38 +111,17 @@ export function MitigationBar({
         }
       }}
     >
-      <div className="flex w-full flex-col">
-        <div
-          className={`relative z-10 flex h-10 w-full items-center justify-center text-white shadow-[0_6px_12px_var(--color-skill-shadow)] ${
-            skill?.color || 'bg-slate-600'
-          }`}
-        >
-          <XivIcon
-            localSrc={getSkillIconLocalSrc(skill?.actionId)}
-            alt={skill?.name ?? 'skill icon'}
-            className="h-full w-full object-cover"
-            fallback={iconFallback}
-          />
-        </div>
-        <div
-          className="relative z-0 w-full border-x border-white/10 shadow-inner"
-          style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
-        />
-        {cooldownHeight > 0 && (
-          <div
-            className="relative z-0 w-full border-x border-app bg-surface shadow-[inset_0_0_10px_var(--color-cooldown-shadow)]"
-            style={{
-              height: cooldownHeight,
-              backgroundImage:
-                'repeating-linear-gradient(45deg, var(--color-cooldown-hatch), var(--color-cooldown-hatch) 4px, transparent 4px, transparent 8px)',
-            }}
-          >
-            <div className="sticky top-14 text-center">
-              <span className="text-[8px] font-mono uppercase text-muted">CD</span>
-            </div>
-          </div>
+      <MitigationBarContent
+        headerClassName={cn(
+          'relative z-10 shadow-[0_6px_12px_var(--color-skill-shadow)]',
+          skill?.color || 'bg-slate-600',
         )}
-      </div>
+        iconSrc={getSkillIconLocalSrc(skill?.actionId)}
+        iconAlt={skill?.name ?? 'skill icon'}
+        iconFallback={iconFallback}
+        effectHeight={effectHeight}
+        cooldownHeight={cooldownHeight}
+      />
     </div>
   );
 }

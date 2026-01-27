@@ -3,6 +3,7 @@ import type { MitEvent } from '../../model/types';
 import { useStore } from '../../store';
 import { MS_PER_SEC } from '../../constants/time';
 import { getSkillDefinition } from '../../data/skills';
+import { getMitigationBarHeights } from './mitigationBarUtils';
 import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
 
 interface BoxSelectionState {
@@ -142,11 +143,9 @@ export function useBoxSelection({
         const left = mitX + getMitColumnLeft(columnIndex) + MIT_COLUMN_PADDING;
         const top = (mit.tStartMs / MS_PER_SEC) * zoom;
         const width = barWidth;
-        const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
         const skillDef = getSkillDefinition(mit.skillId);
-        const cooldownMs = (skillDef?.cooldownSec ?? 0) * MS_PER_SEC;
-        const cooldownHeight = (cooldownMs / MS_PER_SEC) * zoom;
-        const height = 40 + effectHeight + cooldownHeight;
+        const { totalHeight } = getMitigationBarHeights(mit, zoom, skillDef);
+        const height = totalHeight;
 
         if (
           left >= selectionRect.left &&
