@@ -33,7 +33,7 @@ export const SKILLS: Skill[] = [
     durationSec: 10,
     job: 'PLD',
     color: 'bg-blue-700',
-    actionId: 3540,
+    actionId: 22,
   },
   {
     id: 'pld-sentinel',
