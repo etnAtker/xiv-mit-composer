@@ -7,6 +7,7 @@ const XIVAPI_BASE_URL = 'https://xivapi.com';
 const OUTPUT_DIR = join(process.cwd(), 'public', 'xiv-icons');
 const ACTION_DIR = join(OUTPUT_DIR, 'actions');
 const JOB_DIR = join(OUTPUT_DIR, 'jobs');
+const MAX_CLASSJOB_PAGES = 6;
 
 const JOBS: Job[] = ['PLD', 'WAR', 'DRK', 'GNB'];
 
@@ -35,9 +36,7 @@ const resolveActionIconPath = async (actionId: number) => {
 const resolveClassJobIconMap = async () => {
   const map: Record<string, string> = {};
   let page = 1;
-  let guard = 0;
-
-  while (guard < 6) {
+  for (let pagesFetched = 0; pagesFetched < MAX_CLASSJOB_PAGES; pagesFetched += 1) {
     const data = await fetchJson(
       `${XIVAPI_BASE_URL}/ClassJob?columns=Abbreviation,Icon&page=${page}`,
     );
@@ -51,7 +50,6 @@ const resolveClassJobIconMap = async () => {
     const nextPage = data?.Pagination?.PageNext;
     if (!nextPage || nextPage === page) break;
     page = nextPage;
-    guard += 1;
   }
 
   return map;
