@@ -56,13 +56,13 @@ export function ExportModal({ isOpen, onClose, content, enableTTS, onTtsChange }
                 type="checkbox"
                 checked={enableTTS}
                 onChange={(e) => onTtsChange(e.target.checked)}
-                className="w-4 h-4 rounded border-app bg-surface-3 text-[var(--color-accent)] focus:ring-[var(--color-focus)] focus:ring-offset-0 cursor-pointer"
+                className="w-4 h-4 rounded border-app bg-surface-3 text-(--color-accent) focus:ring-(--color-focus) focus:ring-offset-0 cursor-pointer"
               />
               <span>生成TTS</span>
             </label>
           </div>
           <textarea
-            className="w-full flex-1 bg-surface border border-app rounded-lg p-3 font-mono text-xs text-accent resize-none focus:outline-none focus:ring-1 focus:ring-[var(--color-focus)] custom-scrollbar"
+            className="w-full flex-1 bg-surface border border-app rounded-lg p-3 font-mono text-xs text-accent resize-none focus:outline-none focus:ring-1 focus:ring-(--color-focus) custom-scrollbar"
             value={content}
             readOnly
             aria-label="导出内容"

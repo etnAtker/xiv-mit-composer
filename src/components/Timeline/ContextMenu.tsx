@@ -70,21 +70,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, onClose, positi
   return (
     <div
       ref={menuRef}
-      className="fixed z-[9999] min-w-[160px] max-w-xs rounded-lg border border-app bg-surface-3 py-1 shadow-2xl backdrop-blur-xl animate-[slide-in-left_0.18s_ease]"
+      className="fixed z-9999 mimin-w-40ax-w-xs rounded-lg border border-app bg-surface-3 py-1 shadow-2xl backdrop-blur-xl animate-[slide-in-left_0.18s_ease]"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
         transform: 'translateY(0)',
       }}
     >
-      <ul className="divide-y divide-[var(--color-border)]">
+      <ul className="divide-y divide-(--color-border)">
         {items.map((item, index) => (
           <li key={index}>
             <button
               className={`w-full px-4 py-2 text-left text-[12px] font-medium transition-colors ${
                 item.danger
-                  ? 'text-danger hover:bg-[var(--color-danger)]/10 hover:text-white'
-                  : 'text-app hover:bg-[var(--color-accent)]/10'
+                  ? 'text-danger hover:bg-(--color-danger)/10 hover:text-white'
+                  : 'text-app hover:bg-(--color-accent)/10'
               }`}
               onClick={(e) => {
                 e.stopPropagation();
