@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useStore } from '../../store';
-import { SKILLS } from '../../data/skills';
+import { ROLE_SKILL_IDS, SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TimelineToolbar } from './TimelineToolbar';
 import { MIT_COLUMN_WIDTH } from './timelineUtils';
@@ -25,8 +25,16 @@ export function Timeline({
   dragDeltaMs = 0,
   selectedJobs,
 }: TimelineProps) {
-  const { fight, selectedJob, mitEvents, damageEvents, castEvents, setMitEvents, setIsRendering } =
-    useStore();
+  const {
+    fight,
+    selectedJob,
+    mitEvents,
+    damageEvents,
+    damageEventsByJob,
+    castEvents,
+    setMitEvents,
+    setIsRendering,
+  } = useStore();
 
   const resolvedJobs = useMemo(() => {
     if (selectedJobs && selectedJobs.length > 0) {
@@ -44,7 +52,7 @@ export function Timeline({
 
   const { columnMap, skillColumns, mitAreaWidth } = useMemo(() => {
     const jobs = resolvedJobs;
-    const roleSkillIds = new Set(['role-rampart', 'role-reprisal']);
+    const roleSkillIds = ROLE_SKILL_IDS;
 
     if (!jobs.length) {
       return { columnMap: {}, skillColumns: [], mitAreaWidth: MIT_COLUMN_WIDTH };
@@ -84,10 +92,12 @@ export function Timeline({
       nextColumnMap[skill.columnId] = index;
     });
 
+    const baseMitWidth = Math.max(MIT_COLUMN_WIDTH, orderedSkills.length * MIT_COLUMN_WIDTH);
+    const extraDamageLaneWidth = jobs.length > 1 ? DAMAGE_LANE_WIDTH : 0;
     return {
       columnMap: nextColumnMap,
       skillColumns: orderedSkills,
-      mitAreaWidth: Math.max(MIT_COLUMN_WIDTH, orderedSkills.length * MIT_COLUMN_WIDTH),
+      mitAreaWidth: baseMitWidth + extraDamageLaneWidth,
     };
   }, [resolvedJobs]);
 
@@ -102,6 +112,13 @@ export function Timeline({
   const MIT_X = DMG_X + DAMAGE_LANE_WIDTH;
 
   const totalWidth = MIT_X + mitAreaWidth;
+
+  const primaryJob = resolvedJobs[0];
+  const secondaryJob = resolvedJobs[1];
+  const primaryDamageEvents =
+    resolvedJobs.length > 1 && primaryJob ? (damageEventsByJob?.[primaryJob] ?? []) : damageEvents;
+  const secondaryDamageEvents =
+    resolvedJobs.length > 1 && secondaryJob ? (damageEventsByJob?.[secondaryJob] ?? []) : [];
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-app text-app font-['Space_Grotesk']">
@@ -122,7 +139,8 @@ export function Timeline({
         mitAreaWidth={mitAreaWidth}
         skillColumns={skillColumns}
         castEvents={castEvents}
-        damageEvents={damageEvents}
+        damageEvents={primaryDamageEvents}
+        secondaryDamageEvents={secondaryDamageEvents}
         mitEvents={mitEvents}
         columnMap={columnMap}
         activeDragId={activeDragId}
