@@ -15,7 +15,7 @@ interface TimelineProps {
   setZoom: (z: number) => void;
   containerId?: string;
   activeDragId?: string | null;
-  dragDeltaMs?: number;
+  dragPreviewPx?: number;
   selectedJobs?: Job[];
 }
 
@@ -24,7 +24,7 @@ export function Timeline({
   setZoom,
   containerId = 'mit-lane-container',
   activeDragId,
-  dragDeltaMs = 0,
+  dragPreviewPx = 0,
   selectedJobs,
 }: TimelineProps) {
   const { fight, selectedJob, mitEvents, damageEvents, damageEventsByJob, castEvents } = useStore(
@@ -165,7 +165,7 @@ export function Timeline({
         mitEvents={mitEvents}
         columnMap={columnMap}
         activeDragId={activeDragId}
-        dragDeltaMs={dragDeltaMs}
+        dragPreviewPx={dragPreviewPx}
         selectedJobs={resolvedJobs.length ? resolvedJobs : undefined}
       />
     </div>

@@ -35,7 +35,8 @@ interface Props {
   updateMitEvent: (id: string, updates: Partial<MitEvent>) => void;
   removeMitEvent: (id: string) => void;
   setContextMenu: (position: { x: number; y: number } | null) => void;
-  getVisualOffsetMs: (mit: MitEvent) => number;
+  activeDragId?: string | null;
+  dragPreviewPx?: number;
   editPopoverPosition: { x: number; y: number } | null;
 }
 
@@ -61,9 +62,17 @@ export function MitigationLayer({
   updateMitEvent,
   removeMitEvent,
   setContextMenu,
-  getVisualOffsetMs,
+  activeDragId,
+  dragPreviewPx = 0,
   editPopoverPosition,
 }: Props) {
+  const shouldPreviewGroup =
+    !!activeDragId && dragPreviewPx !== 0 && selectedMitIds.includes(activeDragId);
+  const previewIds = shouldPreviewGroup ? selectedMitIds.filter((id) => id !== activeDragId) : [];
+  const previewEvents = previewIds.length
+    ? mitEvents.filter((mit) => previewIds.includes(mit.id))
+    : [];
+
   return (
     <div
       id={containerId}
@@ -71,6 +80,44 @@ export function MitigationLayer({
       className="absolute z-20 pointer-events-none"
       style={{ left: mitX, top: 0, width: mitAreaWidth, height: timelineHeight }}
     >
+      {previewEvents.map((mit) => {
+        const top = (mit.tStartMs / MS_PER_SEC) * zoom + dragPreviewPx;
+        const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
+        const height = 40 + effectHeight;
+        const columnKey = getMitColumnKey(mit);
+        const columnIndex = columnMap[columnKey];
+        if (columnIndex === undefined) return null;
+        const left = getMitColumnLeft(columnIndex) + MIT_COLUMN_PADDING;
+        const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
+        const skillDef = getSkillDefinition(mit.skillId);
+        const ghostColor = skillDef?.color || 'bg-slate-600';
+
+        return (
+          <div
+            key={`drag-preview-${mit.id}`}
+            style={{
+              position: 'absolute',
+              top,
+              left,
+              width: barWidth,
+              height,
+              zIndex: 5,
+              pointerEvents: 'none',
+            }}
+            className="opacity-60"
+          >
+            <div className="flex w-full flex-col">
+              <div
+                className={`flex h-10 w-full items-center justify-center border border-white/10 text-[10px] font-semibold text-white ${ghostColor}`}
+              />
+              <div
+                className="w-full border-x border-white/10 shadow-inner"
+                style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
+              />
+            </div>
+          </div>
+        );
+      })}
       {reprisalGhosts.map(({ mit, targetJob }) => {
         const columnKey = `${normalizeSkillId(mit.skillId)}:${targetJob}`;
         const columnIndex = columnMap[columnKey];
@@ -117,8 +164,7 @@ export function MitigationLayer({
         );
       })}
       {mitEvents.map((mit) => {
-        const visualOffsetMs = getVisualOffsetMs(mit);
-        const top = ((mit.tStartMs + visualOffsetMs) / MS_PER_SEC) * zoom;
+        const top = (mit.tStartMs / MS_PER_SEC) * zoom;
         const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
         const skillDef = getSkillDefinition(mit.skillId);
         const cooldownMs = (skillDef?.cooldownSec ?? 0) * MS_PER_SEC;
