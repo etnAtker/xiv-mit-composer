@@ -61,7 +61,7 @@ export function LoadFightModal({ isOpen, mode, onModeChange, onConfirm, onClose 
           </button>
           <button
             type="button"
-            className="rounded border border-[var(--color-accent-strong)] bg-accent-strong px-3 py-1 text-[11px] font-semibold text-white hover:bg-accent"
+            className="rounded border border-(--color-accent-strong) bg-accent-strong px-3 py-1 text-[11px] font-semibold text-white hover:bg-accent"
             onClick={onConfirm}
           >
             开始加载

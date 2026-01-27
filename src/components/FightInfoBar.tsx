@@ -57,7 +57,7 @@ export function FightInfoBar({
         </span>
       </div>
 
-      <div className="w-[1px] h-6 bg-[var(--color-border)]"></div>
+      <div className="w-px h-6 bg-(--color-border)"></div>
 
       <div className="flex items-center gap-3">
         <span className="text-muted text-xs font-bold uppercase tracking-wider">职业</span>
@@ -97,7 +97,7 @@ export function FightInfoBar({
         )}
       </div>
 
-      <div className="w-[1px] h-6 bg-[var(--color-border)]"></div>
+      <div className="w-px h-6 bg-(--color-border)"></div>
 
       <div className="flex items-center gap-3">
         <span className="text-muted text-xs font-bold uppercase tracking-wider">玩家</span>
@@ -111,7 +111,7 @@ export function FightInfoBar({
                   value={selectedPlayersByJob[job] ?? ''}
                   onChange={(e) => onSelectPlayerForJob(job, Number(e.target.value))}
                   aria-label={`选择玩家-${job}`}
-                  className="appearance-none bg-surface-1 border border-app hover:border-[var(--color-accent)] rounded-lg pl-3 pr-8 py-1.5 text-sm w-72 text-app focus:outline-none focus:ring-1 focus:ring-[var(--color-focus)] transition-colors cursor-pointer"
+                  className="appearance-none bg-surface-1 border border-app hover:border-(--color-accent) rounded-lg pl-3 pr-8 py-1.5 text-sm w-72 text-app focus:outline-none focus:ring-1 focus:ring-(--color-focus) transition-colors cursor-pointer"
                 >
                   <option value="">选择玩家...</option>
                   {filteredActors(job).map((actor) => (
@@ -147,7 +147,7 @@ export function FightInfoBar({
               value={selectedPlayerId ?? ''}
               onChange={(e) => onSelectPlayer(Number(e.target.value))}
               aria-label="选择玩家"
-              className="appearance-none bg-surface-1 border border-app hover:border-[var(--color-accent)] rounded-lg pl-3 pr-8 py-1.5 text-sm w-80 text-app focus:outline-none focus:ring-1 focus:ring-[var(--color-focus)] transition-colors cursor-pointer"
+              className="appearance-none bg-surface-1 border border-app hover:border-(--color-accent) rounded-lg pl-3 pr-8 py-1.5 text-sm w-80 text-app focus:outline-none focus:ring-1 focus:ring-(--color-focus) transition-colors cursor-pointer"
             >
               <option value="">选择玩家...</option>
               {filteredActors(selectedJob).map((actor) => (

@@ -12,7 +12,7 @@ export function LoadingOverlay({ isLoading, isRendering }: Props) {
       role="status"
       aria-live="polite"
     >
-      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[var(--color-accent)] mb-4"></div>
+      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-(--color-accent) mb-4"></div>
       <p className="text-lg font-semibold animate-pulse">
         {isLoading ? '正在加载数据...' : '正在渲染...'}
       </p>

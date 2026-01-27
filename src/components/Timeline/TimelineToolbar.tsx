@@ -34,7 +34,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
       <div className="flex items-center rounded border border-app bg-surface-3 p-1">
         <button
           type="button"
-          className="flex h-6 w-7 items-center justify-center rounded border border-app bg-surface text-xs text-muted transition-colors hover:border-[var(--color-accent)] hover:text-app"
+          className="flex h-6 w-7 items-center justify-center rounded border border-app bg-surface text-xs text-muted transition-colors hover:border-(--color-accent) hover:text-app"
           onClick={() => setZoom(Math.max(MIN_ZOOM, zoom - ZOOM_STEP))}
         >
           -
@@ -58,18 +58,18 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
         </div>
         <button
           type="button"
-          className="flex h-6 w-7 items-center justify-center rounded border border-app bg-surface text-xs text-muted transition-colors hover:border-[var(--color-accent)] hover:text-app"
+          className="flex h-6 w-7 items-center justify-center rounded border border-app bg-surface text-xs text-muted transition-colors hover:border-(--color-accent) hover:text-app"
           onClick={() => setZoom(Math.min(MAX_ZOOM, zoom + ZOOM_STEP))}
         >
           +
         </button>
       </div>
 
-      <div className="mx-2 h-4 w-px bg-[var(--color-border)]"></div>
+      <div className="mx-2 h-4 w-px bg-(--color-border)"></div>
 
       <button
         type="button"
-        className="rounded border border-app bg-surface-3 px-3 py-1 text-[10px] text-muted transition-colors hover:border-[var(--color-accent)] hover:text-app"
+        className="rounded border border-app bg-surface-3 px-3 py-1 text-[10px] text-muted transition-colors hover:border-(--color-accent) hover:text-app"
         onClick={() => setZoom(DEFAULT_ZOOM)}
       >
         Reset
@@ -77,7 +77,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
 
       <button
         type="button"
-        className="rounded border border-app bg-surface-3 px-3 py-1 text-[10px] text-danger transition-colors hover:border-[var(--color-danger)] hover:text-white"
+        className="rounded border border-app bg-surface-3 px-3 py-1 text-[10px] text-danger transition-colors hover:border-(--color-danger) hover:text-white"
         onClick={() => {
           if (confirm('确定要清空所有已排的技能吗？此操作无法撤销。')) {
             onClear();

@@ -40,7 +40,7 @@ export function AppHeader({
           className="bg-transparent border-none focus:ring-0 text-sm w-64 px-2 text-app placeholder:text-muted outline-none"
           placeholder="API Key"
         />
-        <div className="w-px h-4 bg-[var(--color-border)]"></div>
+        <div className="w-px h-4 bg-(--color-border)"></div>
         <input
           type="text"
           value={fflogsUrl}
@@ -110,7 +110,7 @@ export function AppHeader({
       </div>
 
       {error && (
-        <div className="absolute top-full left-0 w-full bg-[var(--color-danger)]/90 text-white text-xs px-4 py-2 flex justify-center backdrop-blur-sm z-30">
+        <div className="absolute top-full left-0 w-full bg-(--color-danger)/90 text-white text-xs px-4 py-2 flex justify-center backdrop-blur-sm z-30">
           {error}
         </div>
       )}

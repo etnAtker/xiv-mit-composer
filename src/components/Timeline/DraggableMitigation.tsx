@@ -131,7 +131,7 @@ export function DraggableMitigation({
             <label className="whitespace-nowrap text-[10px] text-muted font-mono">开始(s):</label>
             <input
               autoFocus
-              className="w-16 rounded-md border border-app bg-surface px-2 py-1 text-[11px] font-mono text-app focus:outline-none focus:ring-2 focus:ring-[var(--color-focus)]"
+              className="w-16 rounded-md border border-app bg-surface px-2 py-1 text-[11px] font-mono text-app focus:outline-none focus:ring-2 focus:ring-(--color-focus)"
               ref={editInputRef}
               defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
               aria-label="开始时间（秒）"
@@ -146,7 +146,7 @@ export function DraggableMitigation({
                 e.stopPropagation();
                 onRemove(mit.id);
               }}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-danger transition-colors hover:bg-[var(--color-danger)]/10 hover:text-white active:scale-[0.98]"
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-danger transition-colors hover:bg-(--color-danger)/10 hover:text-white active:scale-[0.98]"
             >
               <span aria-hidden="true">🗑️</span> 删除
             </button>
