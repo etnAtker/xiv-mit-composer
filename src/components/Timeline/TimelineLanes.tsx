@@ -114,50 +114,62 @@ interface DamageLaneProps {
   lineWidth: number;
 }
 
+interface DamageLaneHitTargetsProps {
+  events: DamageEvent[];
+  mitEvents: MitEvent[];
+  zoom: number;
+  width: number;
+  left: number;
+  visibleRange: { start: number; end: number };
+  onHover: (data: TooltipData | null) => void;
+}
+
+const mergeMitWindows = (mitEvents: MitEvent[]) => {
+  if (mitEvents.length === 0) return [];
+  const sorted = mitEvents
+    .map((mit) => ({
+      start: mit.tStartMs,
+      end: mit.tEndMs,
+    }))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const merged: { start: number; end: number }[] = [];
+  for (const window of sorted) {
+    const last = merged[merged.length - 1];
+    if (!last || window.start > last.end) {
+      merged.push({ ...window });
+      continue;
+    }
+    if (window.end > last.end) {
+      last.end = window.end;
+    }
+  }
+  return merged;
+};
+
+const isMitigatedAt = (windows: { start: number; end: number }[], tMs: number) => {
+  if (windows.length === 0) {
+    return false;
+  }
+  let left = 0;
+  let right = windows.length - 1;
+  while (left <= right) {
+    const mid = (left + right) >> 1;
+    const window = windows[mid];
+    if (tMs < window.start) {
+      right = mid - 1;
+    } else if (tMs > window.end) {
+      left = mid + 1;
+    } else {
+      return true;
+    }
+  }
+  return false;
+};
+
 export const DamageLane = memo(
   ({ events, mitEvents, zoom, width, left, visibleRange, onHover, lineWidth }: DamageLaneProps) => {
-    const mergedMitWindows = useMemo(() => {
-      if (mitEvents.length === 0) return [];
-      const sorted = mitEvents
-        .map((mit) => ({
-          start: mit.tStartMs,
-          end: mit.tEndMs,
-        }))
-        .sort((a, b) => a.start - b.start || a.end - b.end);
-
-      const merged: { start: number; end: number }[] = [];
-      for (const window of sorted) {
-        const last = merged[merged.length - 1];
-        if (!last || window.start > last.end) {
-          merged.push({ ...window });
-          continue;
-        }
-        if (window.end > last.end) {
-          last.end = window.end;
-        }
-      }
-      return merged;
-    }, [mitEvents]);
-
-    const isMitigatedAt = (tMs: number) => {
-      if (mergedMitWindows.length === 0) {
-        return false;
-      }
-      let left = 0;
-      let right = mergedMitWindows.length - 1;
-      while (left <= right) {
-        const mid = (left + right) >> 1;
-        const window = mergedMitWindows[mid];
-        if (tMs < window.start) {
-          right = mid - 1;
-        } else if (tMs > window.end) {
-          left = mid + 1;
-        } else {
-          return true;
-        }
-      }
-      return false;
-    };
+    const mergedMitWindows = useMemo(() => mergeMitWindows(mitEvents), [mitEvents]);
 
     const visibleClusters = useMemo(() => {
       return getVisibleClusters(events, zoom, visibleRange, 18);
@@ -169,7 +181,7 @@ export const DamageLane = memo(
           const firstEv = cluster.events[0];
           const count = cluster.events.length;
 
-          const isCovered = cluster.events.some((ev) => isMitigatedAt(ev.tMs));
+          const isCovered = cluster.events.some((ev) => isMitigatedAt(mergedMitWindows, ev.tMs));
           const color = getDamageColor(isCovered);
 
           const damageNumStr = (firstEv.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(
@@ -177,10 +189,12 @@ export const DamageLane = memo(
           );
           const damageStr = isNaN(Number(damageNumStr)) ? '???' : `${damageNumStr}k`;
 
-          const labelText =
+          const skillName = firstEv.ability.name ? firstEv.ability.name : '';
+          const skillLabelText =
             count > 1
-              ? `${damageStr} ${truncateText(firstEv.ability.name ? `(${firstEv.ability.name})` : '', TRUNCATE_LEN)} (+${count - 1})`
-              : `${damageStr} ${truncateText(firstEv.ability.name ? `(${firstEv.ability.name})` : '', TRUNCATE_LEN + 5)}`;
+              ? `${truncateText(skillName, TRUNCATE_LEN)} (+${count - 1})`
+              : truncateText(skillName, TRUNCATE_LEN + 5);
+          const lineY = cluster.startY;
 
           const hitY = cluster.startY - 8;
           const hitH = Math.max(cluster.endY - cluster.startY + 16, 40);
@@ -189,9 +203,9 @@ export const DamageLane = memo(
             <g key={`c-${cIdx}`}>
               <line
                 x1={0}
-                y1={cluster.startY}
+                y1={lineY}
                 x2={lineWidth}
-                y2={cluster.startY}
+                y2={lineY}
                 stroke={color}
                 strokeWidth={2}
                 strokeDasharray="4 4"
@@ -200,7 +214,7 @@ export const DamageLane = memo(
 
               {cluster.events.map((ev, idx) => {
                 const y = (ev.tMs / MS_PER_SEC) * zoom;
-                const covered = isMitigatedAt(ev.tMs);
+                const covered = isMitigatedAt(mergedMitWindows, ev.tMs);
                 const subColor = getDamageColor(covered);
                 return (
                   <circle
@@ -217,14 +231,27 @@ export const DamageLane = memo(
 
               <text
                 x={8}
-                y={cluster.startY + 12}
+                y={lineY}
+                dy="-0.4em"
                 fill={color}
                 fontSize={11}
                 textAnchor="start"
                 fontWeight={600}
                 className="pointer-events-none select-none font-['Space_Grotesk'] tracking-tight"
               >
-                {labelText}
+                {skillLabelText}
+              </text>
+              <text
+                x={8}
+                y={lineY}
+                dy="1em"
+                fill={color}
+                fontSize={11}
+                textAnchor="start"
+                fontWeight={600}
+                className="pointer-events-none select-none font-['Space_Grotesk'] tracking-tight"
+              >
+                {damageStr}
               </text>
 
               <rect
@@ -232,28 +259,95 @@ export const DamageLane = memo(
                 y={hitY}
                 width={width}
                 height={hitH}
-                fill="transparent"
-                style={{ pointerEvents: 'all', cursor: 'help' }}
-                onMouseEnter={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const barCenterOffset = 8 + (cluster.endY - cluster.startY) / 2;
-
+                fill="rgba(0,0,0,0.001)"
+                pointerEvents="all"
+                style={{ cursor: 'help' }}
+                onPointerEnter={(e) => {
                   onHover({
-                    x: rect.left + width / 2,
-                    y: rect.top + barCenterOffset,
+                    x: e.clientX,
+                    y: e.clientY,
                     items: cluster.events.map((ev) => ({
                       title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
                       subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
-                      color: getDamageColor(isMitigatedAt(ev.tMs)),
+                      color: getDamageColor(isMitigatedAt(mergedMitWindows, ev.tMs)),
                     })),
                   });
                 }}
-                onMouseLeave={() => onHover(null)}
+                onPointerMove={(e) => {
+                  onHover({
+                    x: e.clientX,
+                    y: e.clientY,
+                    items: cluster.events.map((ev) => ({
+                      title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
+                      subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
+                      color: getDamageColor(isMitigatedAt(mergedMitWindows, ev.tMs)),
+                    })),
+                  });
+                }}
+                onPointerLeave={() => onHover(null)}
               />
             </g>
           );
         })}
       </g>
+    );
+  },
+);
+
+export const DamageLaneHitTargets = memo(
+  ({ events, mitEvents, zoom, width, left, visibleRange, onHover }: DamageLaneHitTargetsProps) => {
+    const mergedMitWindows = useMemo(() => mergeMitWindows(mitEvents), [mitEvents]);
+    const visibleClusters = useMemo(() => {
+      return getVisibleClusters(events, zoom, visibleRange, 18);
+    }, [events, visibleRange, zoom]);
+
+    return (
+      <div
+        className="absolute top-0 h-full pointer-events-none"
+        style={{ left, width }}
+        aria-hidden="true"
+      >
+        {visibleClusters.map((cluster, cIdx) => {
+          const hitY = cluster.startY - 8;
+          const hitH = Math.max(cluster.endY - cluster.startY + 16, 40);
+
+          return (
+            <div
+              key={`hit-${cIdx}`}
+              className="absolute left-0 pointer-events-auto"
+              style={{
+                top: hitY,
+                width,
+                height: hitH,
+                cursor: 'help',
+              }}
+              onMouseEnter={(e) => {
+                onHover({
+                  x: e.clientX,
+                  y: e.clientY,
+                  items: cluster.events.map((ev) => ({
+                    title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
+                    subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
+                    color: getDamageColor(isMitigatedAt(mergedMitWindows, ev.tMs)),
+                  })),
+                });
+              }}
+              onMouseMove={(e) => {
+                onHover({
+                  x: e.clientX,
+                  y: e.clientY,
+                  items: cluster.events.map((ev) => ({
+                    title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
+                    subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
+                    color: getDamageColor(isMitigatedAt(mergedMitWindows, ev.tMs)),
+                  })),
+                });
+              }}
+              onMouseLeave={() => onHover(null)}
+            />
+          );
+        })}
+      </div>
     );
   },
 );
