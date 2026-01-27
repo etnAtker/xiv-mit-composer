@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useShallow } from 'zustand/shallow';
@@ -55,7 +55,9 @@ export default function App() {
   const [exportContent, setExportContent] = useState('');
   const [enableTTS, setEnableTTS] = useState(false);
   const [activeItem, setActiveItem] = useState<DragOverlayItem | null>(null);
-  const [dragDeltaMs, setDragDeltaMs] = useState(0);
+  const [dragPreviewPx, setDragPreviewPx] = useState(0);
+  const dragPreviewRef = useRef(0);
+  const dragPreviewRafRef = useRef<number | null>(null);
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [loadMode, setLoadMode] = useState<'single' | 'dual'>('single');
   const [dualTankPlayers, setDualTankPlayers] = useState<{ id: number | null; job: Job }[]>([]);
@@ -77,13 +79,15 @@ export default function App() {
     setStoredTheme(theme);
   }, [theme]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
+  const sensorOptions = useMemo(
+    () => ({
       activationConstraint: {
         distance: 5,
       },
     }),
+    [],
   );
+  const sensors = useSensors(useSensor(PointerSensor, sensorOptions));
 
   const TANK_JOB_MAP: Record<Job, string[]> = {
     PLD: ['Paladin'],
@@ -248,12 +252,22 @@ export default function App() {
     if (currentItem?.type === 'new-skill') {
       setSelectedMitIds([]);
     }
-    setDragDeltaMs(0);
+    dragPreviewRef.current = 0;
+    if (dragPreviewRafRef.current !== null) {
+      cancelAnimationFrame(dragPreviewRafRef.current);
+      dragPreviewRafRef.current = null;
+    }
+    setDragPreviewPx(0);
   };
 
   const handleDragMove = (event: DragEndEvent) => {
     const { delta } = event;
-    setDragDeltaMs(pixelsToMs(delta.y));
+    dragPreviewRef.current = delta.y;
+    if (dragPreviewRafRef.current !== null) return;
+    dragPreviewRafRef.current = requestAnimationFrame(() => {
+      dragPreviewRafRef.current = null;
+      setDragPreviewPx(dragPreviewRef.current);
+    });
   };
 
   const getDropStartMs = (event: DragEndEvent) => {
@@ -296,7 +310,12 @@ export default function App() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveItem(null);
-    setDragDeltaMs(0);
+    dragPreviewRef.current = 0;
+    if (dragPreviewRafRef.current !== null) {
+      cancelAnimationFrame(dragPreviewRafRef.current);
+      dragPreviewRafRef.current = null;
+    }
+    setDragPreviewPx(0);
     const { active, over } = event;
     if (!over) return;
 
@@ -385,6 +404,14 @@ export default function App() {
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
+      onDragCancel={() => {
+        dragPreviewRef.current = 0;
+        if (dragPreviewRafRef.current !== null) {
+          cancelAnimationFrame(dragPreviewRafRef.current);
+          dragPreviewRafRef.current = null;
+        }
+        setDragPreviewPx(0);
+      }}
     >
       <div className="h-screen overflow-hidden bg-app text-app flex flex-col font-sans">
         <AppHeader
@@ -430,7 +457,7 @@ export default function App() {
                   zoom={zoom}
                   setZoom={setZoom}
                   activeDragId={activeItem?.type === 'existing-mit' ? activeItem.mit.id : null}
-                  dragDeltaMs={dragDeltaMs}
+                  dragPreviewPx={dragPreviewPx}
                   selectedJobs={selectedJobs ?? undefined}
                 />
               </div>

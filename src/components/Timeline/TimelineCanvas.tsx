@@ -45,7 +45,7 @@ interface Props {
   mitEvents: MitEvent[];
   columnMap: Record<string, number>;
   activeDragId?: string | null;
-  dragDeltaMs?: number;
+  dragPreviewPx?: number;
   selectedJobs?: Job[];
 }
 
@@ -71,7 +71,7 @@ export function TimelineCanvas({
   mitEvents,
   columnMap,
   activeDragId,
-  dragDeltaMs = 0,
+  dragPreviewPx = 0,
   selectedJobs,
 }: Props) {
   const { updateMitEvent, removeMitEvent, selectedMitIds, setSelectedMitIds } = useStore(
@@ -225,22 +225,7 @@ export function TimelineCanvas({
     [setContextMenu, setLastContextMenuPosition],
   );
 
-  const getVisualOffsetMs = useCallback(
-    (mit: MitEvent) => {
-      if (!activeDragId || dragDeltaMs === 0) return 0;
-      const shouldMoveGroup = selectedMitIds.includes(activeDragId as string);
-      const shouldMove =
-        (shouldMoveGroup && selectedMitIds.includes(mit.id)) ||
-        (!shouldMoveGroup && mit.id === activeDragId);
-      return shouldMove ? dragDeltaMs : 0;
-    },
-    [activeDragId, dragDeltaMs, selectedMitIds],
-  );
-
-  const getEffectiveStartMs = useCallback(
-    (mit: MitEvent) => mit.tStartMs + getVisualOffsetMs(mit),
-    [getVisualOffsetMs],
-  );
+  const getEffectiveStartMs = useCallback((mit: MitEvent) => mit.tStartMs, []);
 
   const reprisalSkill = SKILLS.find((skill) => skill.id === 'role-reprisal');
   const reprisalZIndexMap = useMemo(
@@ -370,7 +355,8 @@ export function TimelineCanvas({
               updateMitEvent={updateMitEvent}
               removeMitEvent={removeMitEvent}
               setContextMenu={handleContextMenuChange}
-              getVisualOffsetMs={getVisualOffsetMs}
+              activeDragId={activeDragId}
+              dragPreviewPx={dragPreviewPx}
               editPopoverPosition={editPopoverPosition}
             />
 
