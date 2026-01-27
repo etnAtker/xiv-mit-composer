@@ -123,6 +123,7 @@ function pushStackEvents(
 interface CooldownEventBoundary {
   skillId: string;
   resourceId: string;
+  ownerKey?: string;
   tMs: number;
   boundaryType: 'unusedStart' | 'unusedEnd' | 'cooldownStart' | 'cooldownEnd';
 }
@@ -152,18 +153,21 @@ function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBo
           {
             skillId,
             resourceId: stackEvent.resourceKey,
+            ownerKey: stackEvent.ownerKey,
             tMs: stackEvent.tMs - stackEvent.cooldownMs,
             boundaryType: 'unusedStart',
           },
           {
             skillId,
             resourceId: stackEvent.resourceKey,
+            ownerKey: stackEvent.ownerKey,
             tMs: stackEvent.tMs,
             boundaryType: 'unusedEnd',
           },
           {
             skillId,
             resourceId: stackEvent.resourceKey,
+            ownerKey: stackEvent.ownerKey,
             tMs: stackEvent.tMs,
             boundaryType: 'cooldownStart',
           },
@@ -175,6 +179,7 @@ function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBo
           {
             skillId,
             resourceId: stackEvent.resourceKey,
+            ownerKey: stackEvent.ownerKey,
             tMs: stackEvent.tMs,
             boundaryType: 'cooldownEnd',
           },
@@ -237,6 +242,7 @@ function buildCooldownEventsSingle(
   }
 
   const cooldowns: CooldownEvent[] = [];
+  const ownerKey = boundaries[0]?.ownerKey;
 
   boundaries.sort((a, b) => a.tMs - b.tMs);
 
@@ -264,6 +270,7 @@ function buildCooldownEventsSingle(
       eventType: 'cooldown',
       cdType: type,
       skillId,
+      ownerKey,
       tStartMs: tMs,
       durationMs: 0,
       tEndMs: 0,
@@ -308,94 +315,6 @@ function buildCooldownEventsSingle(
   }
 
   return cooldowns;
-}
-
-const matchesOwner = (event: MitEvent, ownerId?: number, ownerJob?: Job) => {
-  if (typeof ownerId === 'number') {
-    return event.ownerId === ownerId;
-  }
-  if (ownerJob) {
-    return event.ownerJob === ownerJob;
-  }
-  return true;
-};
-
-export function canUseSkillAt(payload: {
-  skillId: string;
-  tStartMs: number;
-  events: MitEvent[];
-  excludeIds?: Set<string>;
-  ownerId?: number;
-  ownerJob?: Job;
-}): boolean {
-  const { skillId, tStartMs, events, excludeIds, ownerId, ownerJob } = payload;
-  const baseSkillId = normalizeSkillId(skillId);
-  const skillMeta = getSkillDefinition(baseSkillId);
-  if (!skillMeta) {
-    console.error(`错误：未找到技能 ${baseSkillId} 的定义。`);
-    return false;
-  }
-
-  const cooldownMs = skillMeta.cooldownSec * MS_PER_SEC;
-  if (cooldownMs > 0) {
-    for (const event of events) {
-      if (excludeIds?.has(event.id)) continue;
-      if (normalizeSkillId(event.skillId) !== baseSkillId) continue;
-      if (!matchesOwner(event, ownerId, ownerJob)) continue;
-      const eventStart = event.tStartMs;
-      if (tStartMs >= eventStart && tStartMs < eventStart + cooldownMs) {
-        return false;
-      }
-      if (eventStart >= tStartMs && eventStart < tStartMs + cooldownMs) {
-        return false;
-      }
-    }
-  }
-
-  const groupId = skillMeta.cooldownGroup;
-  if (!groupId) return true;
-
-  const groupMeta = COOLDOWN_GROUP_MAP.get(groupId);
-  if (!groupMeta) {
-    console.error(`错误：未找到技能组 ${groupId} 的定义。`);
-    return true;
-  }
-
-  const groupSkills = COOLDOWN_GROUP_SKILLS_MAP.get(groupId) ?? [];
-  const groupSkillIds = new Set(
-    groupSkills.length ? groupSkills.map((skill) => skill.id) : [baseSkillId],
-  );
-  const groupCooldownMs = groupMeta.cooldownSec * MS_PER_SEC;
-  const maxCharges = groupMeta.stack ?? 1;
-
-  const checkpoints: { tMs: number; delta: number; order: number }[] = [];
-
-  for (const event of events) {
-    if (excludeIds?.has(event.id)) continue;
-    if (!groupSkillIds.has(normalizeSkillId(event.skillId))) continue;
-    if (!matchesOwner(event, ownerId, ownerJob)) continue;
-
-    const consumeAt = event.tStartMs;
-    const recoverAt = event.tStartMs + groupCooldownMs;
-    checkpoints.push({ tMs: recoverAt, delta: 1, order: 0 });
-    checkpoints.push({ tMs: consumeAt, delta: -1, order: 1 });
-  }
-
-  const candidateRecoverAt = tStartMs + groupCooldownMs;
-  checkpoints.push({ tMs: candidateRecoverAt, delta: 1, order: 0 });
-  checkpoints.push({ tMs: tStartMs, delta: -1, order: 1 });
-
-  checkpoints.sort((a, b) => a.tMs - b.tMs || a.order - b.order);
-
-  let charges = maxCharges;
-  for (const point of checkpoints) {
-    charges = Math.min(maxCharges, charges + point.delta);
-    if (charges < 0) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 function toGroupResourceId(groupId: string): string {
