@@ -2,7 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import type { MitEvent } from '../../model/types';
 import { useRef } from 'react';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
-import { SKILLS } from '../../data/skills';
+import { getSkillDefinition } from '../../data/skills';
 import { XivIcon } from '../XivIcon';
 import { getSkillIconLocalSrc } from '../../data/icons';
 import { fetchActionIconUrl } from '../../lib/xivapi/icons';
@@ -42,7 +42,7 @@ export function DraggableMitigation({
     data: { type: 'existing-mit', mit },
   });
 
-  const skill = SKILLS.find((s) => s.id === mit.skillId);
+  const skill = getSkillDefinition(mit.skillId);
   const iconFallback = skill?.icon ?? skill?.name?.slice(0, 1) ?? '';
 
   const style = {

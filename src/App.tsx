@@ -3,7 +3,7 @@ import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { type Actor, type Job, type MitEvent, type Skill } from './model/types';
 import { useStore } from './store';
-import { SKILLS } from './data/skills';
+import { getSkillDefinition, withOwnerSkillId } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { AppHeader } from './components/AppHeader';
 import { DragOverlayLayer, type DragOverlayItem } from './components/DragOverlayLayer';
@@ -16,6 +16,7 @@ import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
+import { canUseSkillAt } from './utils/playerCast';
 
 export default function App() {
   const {
@@ -146,7 +147,7 @@ export default function App() {
         sourceId: e.sourceID,
       })),
       ...mitEvents.map((m) => {
-        const skill = SKILLS.find((s) => s.id === m.skillId);
+        const skill = getSkillDefinition(m.skillId);
         return {
           time: Number((m.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
           actionName: skill?.name || 'Unknown',
@@ -268,14 +269,15 @@ export default function App() {
     ownerJob?: Job,
     ownerId?: number,
   ): MitEvent | null => {
-    const skillDef = SKILLS.find((s) => s.id === skillId);
+    const skillDef = getSkillDefinition(skillId);
     if (!skillDef) return null;
     const durationMs = skillDef.durationSec * MS_PER_SEC;
     const resolvedOwner = resolveOwnerContext(ownerJob);
+    const resolvedSkillId = withOwnerSkillId(skillDef.id, resolvedOwner.ownerJob);
     return {
       eventType: 'mit',
       id,
-      skillId,
+      skillId: resolvedSkillId,
       tStartMs,
       durationMs,
       tEndMs: tStartMs + durationMs,
@@ -284,29 +286,22 @@ export default function App() {
     };
   };
 
-  const isInCooldownShadow = (
+  const canInsertMitigation = (
     skillId: string,
     startMs: number,
     excludeIds: Set<string>,
     allEvents: MitEvent[],
     ownerJob?: Job,
     ownerId?: number,
-  ) => {
-    const skillDef = SKILLS.find((s) => s.id === skillId);
-    if (!skillDef) return false;
-    const cooldownMs = skillDef.cooldownSec * MS_PER_SEC;
-
-    return allEvents.some((event) => {
-      if (excludeIds.has(event.id)) return false;
-      if (event.skillId !== skillId) return false;
-      if (ownerId && event.ownerId && event.ownerId !== ownerId) return false;
-      if (!ownerId && ownerJob && event.ownerJob && event.ownerJob !== ownerJob) return false;
-
-      const effectEnd = event.tStartMs + event.durationMs;
-      const cdEnd = effectEnd + cooldownMs;
-      return startMs >= effectEnd && startMs < cdEnd;
+  ) =>
+    canUseSkillAt({
+      skillId,
+      tStartMs: startMs,
+      events: allEvents,
+      excludeIds,
+      ownerJob,
+      ownerId,
     });
-  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveItem(null);
@@ -325,7 +320,7 @@ export default function App() {
     if (type === 'new-skill') {
       const skill = active.data.current?.skill as Skill;
       const { ownerJob, ownerId } = resolveOwnerContext(active.data.current?.ownerJob);
-      if (isInCooldownShadow(skill.id, tStartMs, new Set(), mitEvents, ownerJob, ownerId)) {
+      if (!canInsertMitigation(skill.id, tStartMs, new Set(), mitEvents, ownerJob, ownerId)) {
         return;
       }
       const newMit = buildMitEventFromSkill(skill.id, tStartMs, undefined, ownerJob, ownerId);
@@ -350,7 +345,7 @@ export default function App() {
           const newStart = m.tStartMs + deltaMs;
           if (newStart < 0) return;
           if (
-            isInCooldownShadow(
+            !canInsertMitigation(
               m.skillId,
               newStart,
               movingIds,

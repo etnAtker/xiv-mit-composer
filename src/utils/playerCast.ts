@@ -1,12 +1,23 @@
 import { MS_PER_SEC } from '../constants/time';
-import { COOLDOWN_GROUP_MAP, COOLDOWN_GROUP_SKILLS_MAP, SKILL_MAP } from '../data/skills';
-import type { CooldownEvent, MitEvent } from '../model/types';
+import {
+  COOLDOWN_GROUP_MAP,
+  COOLDOWN_GROUP_SKILLS_MAP,
+  getSkillDefinition,
+  normalizeSkillId,
+} from '../data/skills';
+import type { CooldownEvent, Job, MitEvent } from '../model/types';
 
 const GROUP_PREFIX = 'grp:';
+const buildOwnerKey = (ownerId?: number, ownerJob?: Job) => {
+  if (typeof ownerId === 'number') return `id:${ownerId}`;
+  if (ownerJob) return `job:${ownerJob}`;
+  return undefined;
+};
 
 export function tryBuildCooldowns(events: MitEvent[]): CooldownEvent[] | void {
   const stackEvents = buildStackEvents(events);
-  stackEvents.sort((a, b) => a.tMs - b.tMs);
+  const typeOrder: Record<StackEvent['type'], number> = { recover: 0, consume: 1 };
+  stackEvents.sort((a, b) => a.tMs - b.tMs || typeOrder[a.type] - typeOrder[b.type]);
 
   const skillStacksCounts = buildBoundaries(stackEvents);
   if (!skillStacksCounts) return;
@@ -30,20 +41,21 @@ function buildStackEvents(mitEvents: MitEvent[]): StackEvent[] {
   const stackEvents: StackEvent[] = [];
 
   for (const event of mitEvents) {
-    const skillMeta = SKILL_MAP.get(event.skillId);
+    const baseSkillId = normalizeSkillId(event.skillId);
+    const skillMeta = getSkillDefinition(baseSkillId);
 
     if (!skillMeta) {
-      console.error(`致命错误：未找到技能 ${event.skillId} 的定义。`);
+      console.error(`致命错误：未找到技能 ${baseSkillId} 的定义。`);
       continue;
     }
 
-    const ownerKey = event.ownerJob ?? (event.ownerId ? String(event.ownerId) : undefined);
-    const skillResourceKey = ownerKey ? `${event.skillId}:${ownerKey}` : event.skillId;
+    const ownerKey = buildOwnerKey(event.ownerId, event.ownerJob);
+    const skillResourceKey = ownerKey ? `${baseSkillId}:${ownerKey}` : baseSkillId;
     const skillCooldownMs = skillMeta.cooldownSec * MS_PER_SEC;
     pushStackEvents(stackEvents, {
       resourceKey: skillResourceKey,
       ownerKey,
-      skillId: event.skillId,
+      skillId: baseSkillId,
       isGroup: false,
       tStartMs: event.tStartMs,
       cooldownMs: skillCooldownMs,
@@ -63,7 +75,7 @@ function buildStackEvents(mitEvents: MitEvent[]): StackEvent[] {
       pushStackEvents(stackEvents, {
         resourceKey: groupResourceKey,
         ownerKey,
-        skillId: event.skillId,
+        skillId: baseSkillId,
         isGroup: true,
         tStartMs: event.tStartMs,
         cooldownMs: groupCooldownMs,
@@ -127,7 +139,10 @@ function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBo
     const stackDelta = stackEvent.type === 'consume' ? -1 : 1;
     stack += stackDelta;
 
-    if (stack < 0) return;
+    if (stack < 0) {
+      console.error(`错误：${stackEvent.resourceKey} 冷却层数为负，已重置为 0。`);
+      stack = 0;
+    }
 
     const buildBoundary = (skillId: string): CooldownEventBoundary[] => {
       if (stack === 0) {
@@ -213,9 +228,9 @@ function buildCooldownEventsSingle(
   skillId: string,
   boundaries: CooldownEventBoundary[],
 ): CooldownEvent[] {
-  const skill = SKILL_MAP.get(skillId);
+  const skill = getSkillDefinition(skillId);
   if (!skill) {
-    console.error(`致命错误：技能 ${skillId} 不存在`);
+    console.error(`致命错误：技能 ${normalizeSkillId(skillId)} 不存在`);
     return [];
   }
 
@@ -291,6 +306,94 @@ function buildCooldownEventsSingle(
   }
 
   return cooldowns;
+}
+
+const matchesOwner = (event: MitEvent, ownerId?: number, ownerJob?: Job) => {
+  if (typeof ownerId === 'number') {
+    return event.ownerId === ownerId;
+  }
+  if (ownerJob) {
+    return event.ownerJob === ownerJob;
+  }
+  return true;
+};
+
+export function canUseSkillAt(payload: {
+  skillId: string;
+  tStartMs: number;
+  events: MitEvent[];
+  excludeIds?: Set<string>;
+  ownerId?: number;
+  ownerJob?: Job;
+}): boolean {
+  const { skillId, tStartMs, events, excludeIds, ownerId, ownerJob } = payload;
+  const baseSkillId = normalizeSkillId(skillId);
+  const skillMeta = getSkillDefinition(baseSkillId);
+  if (!skillMeta) {
+    console.error(`错误：未找到技能 ${baseSkillId} 的定义。`);
+    return false;
+  }
+
+  const cooldownMs = skillMeta.cooldownSec * MS_PER_SEC;
+  if (cooldownMs > 0) {
+    for (const event of events) {
+      if (excludeIds?.has(event.id)) continue;
+      if (normalizeSkillId(event.skillId) !== baseSkillId) continue;
+      if (!matchesOwner(event, ownerId, ownerJob)) continue;
+      const eventStart = event.tStartMs;
+      if (tStartMs >= eventStart && tStartMs < eventStart + cooldownMs) {
+        return false;
+      }
+      if (eventStart >= tStartMs && eventStart < tStartMs + cooldownMs) {
+        return false;
+      }
+    }
+  }
+
+  const groupId = skillMeta.cooldownGroup;
+  if (!groupId) return true;
+
+  const groupMeta = COOLDOWN_GROUP_MAP.get(groupId);
+  if (!groupMeta) {
+    console.error(`错误：未找到技能组 ${groupId} 的定义。`);
+    return true;
+  }
+
+  const groupSkills = COOLDOWN_GROUP_SKILLS_MAP.get(groupId) ?? [];
+  const groupSkillIds = new Set(
+    groupSkills.length ? groupSkills.map((skill) => skill.id) : [baseSkillId],
+  );
+  const groupCooldownMs = groupMeta.cooldownSec * MS_PER_SEC;
+  const maxCharges = groupMeta.stack ?? 1;
+
+  const checkpoints: { tMs: number; delta: number; order: number }[] = [];
+
+  for (const event of events) {
+    if (excludeIds?.has(event.id)) continue;
+    if (!groupSkillIds.has(normalizeSkillId(event.skillId))) continue;
+    if (!matchesOwner(event, ownerId, ownerJob)) continue;
+
+    const consumeAt = event.tStartMs;
+    const recoverAt = event.tStartMs + groupCooldownMs;
+    checkpoints.push({ tMs: recoverAt, delta: 1, order: 0 });
+    checkpoints.push({ tMs: consumeAt, delta: -1, order: 1 });
+  }
+
+  const candidateRecoverAt = tStartMs + groupCooldownMs;
+  checkpoints.push({ tMs: candidateRecoverAt, delta: 1, order: 0 });
+  checkpoints.push({ tMs: tStartMs, delta: -1, order: 1 });
+
+  checkpoints.sort((a, b) => a.tMs - b.tMs || a.order - b.order);
+
+  let charges = maxCharges;
+  for (const point of checkpoints) {
+    charges = Math.min(maxCharges, charges + point.delta);
+    if (charges < 0) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function toGroupResourceId(groupId: string): string {

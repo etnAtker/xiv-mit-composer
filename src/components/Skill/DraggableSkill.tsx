@@ -10,8 +10,9 @@ interface Props {
 
 export function DraggableSkill({ skill, jobOverride }: Props) {
   const ownerJob = jobOverride ?? (skill.job !== 'ALL' ? skill.job : undefined);
+  const dragId = `new-${skill.id}-${ownerJob ?? 'ALL'}`;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `new-${skill.id}`, // 与减伤事件区分的唯一 ID
+    id: dragId, // 双T时需要按职业区分，避免角色通用技能ID冲突
     data: { type: 'new-skill', skill, ownerJob },
   });
 
