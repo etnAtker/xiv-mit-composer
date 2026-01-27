@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import type { MitEvent } from '../../model/types';
 import { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
 import { getSkillDefinition } from '../../data/skills';
 import { XivIcon } from '../XivIcon';
@@ -18,6 +19,7 @@ interface Props {
   onRemove: (id: string) => void;
   isEditing: boolean;
   onEditChange: (isEditing: boolean) => void;
+  editPosition?: { x: number; y: number } | null;
   isSelected?: boolean;
   onSelect?: (mit: MitEvent, e: React.MouseEvent) => void;
   onRightClick?: (e: React.MouseEvent, mit: MitEvent) => void;
@@ -33,6 +35,7 @@ export function DraggableMitigation({
   onRemove,
   isEditing,
   onEditChange,
+  editPosition,
   isSelected,
   onSelect,
   onRightClick,
@@ -67,6 +70,53 @@ export function DraggableMitigation({
       });
     }
   };
+
+  const editForm = (
+    <div
+      className={`${
+        editPosition ? 'fixed z-50' : 'absolute left-0 top-full z-30 mt-2'
+      } min-w-40 rounded-lg border border-app bg-surface-3 p-3 shadow-2xl backdrop-blur-xl flex flex-col gap-2 text-app`}
+      style={editPosition ? { left: editPosition.x, top: editPosition.y } : undefined}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted font-mono">
+        编辑事件
+      </label>
+
+      <div className="flex items-center gap-2">
+        <label className="whitespace-nowrap text-[10px] text-muted font-mono">开始(s):</label>
+        <input
+          autoFocus
+          className="w-16 rounded-md border border-app bg-surface px-2 py-1 text-[11px] font-mono text-app focus:outline-none focus:ring-2 focus:ring-(--color-focus)"
+          ref={editInputRef}
+          defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
+          aria-label="开始时间（秒）"
+          onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
+        />
+      </div>
+
+      <div className="mt-1 flex items-center justify-between border-t border-app pt-2">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(mit.id);
+          }}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-danger transition-colors hover:bg-(--color-danger)/10 hover:text-white active:scale-[0.98]"
+        >
+          <span aria-hidden="true">🗑️</span> 删除
+        </button>
+
+        <button
+          type="button"
+          onClick={handleEditSubmit}
+          className="rounded-md bg-primary-action px-3 py-1 text-[11px] text-white transition-colors hover:bg-[#2ea043] active:scale-[0.98]"
+        >
+          确定
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div ref={setNodeRef} style={style} className="group">
@@ -118,49 +168,11 @@ export function DraggableMitigation({
       </div>
 
       {/* 编辑态表单 */}
-      {!isDragging && isEditing && (
-        <div
-          className="absolute left-0 top-full z-30 mt-2 min-w-40 rounded-lg border border-app bg-surface-3 p-3 shadow-2xl backdrop-blur-xl flex flex-col gap-2 text-app"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted font-mono">
-            编辑事件
-          </label>
-
-          <div className="flex items-center gap-2">
-            <label className="whitespace-nowrap text-[10px] text-muted font-mono">开始(s):</label>
-            <input
-              autoFocus
-              className="w-16 rounded-md border border-app bg-surface px-2 py-1 text-[11px] font-mono text-app focus:outline-none focus:ring-2 focus:ring-(--color-focus)"
-              ref={editInputRef}
-              defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
-              aria-label="开始时间（秒）"
-              onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
-            />
-          </div>
-
-          <div className="mt-1 flex items-center justify-between border-t border-app pt-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(mit.id);
-              }}
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-danger transition-colors hover:bg-(--color-danger)/10 hover:text-white active:scale-[0.98]"
-            >
-              <span aria-hidden="true">🗑️</span> 删除
-            </button>
-
-            <button
-              type="button"
-              onClick={handleEditSubmit}
-              className="rounded-md bg-primary-action px-3 py-1 text-[11px] text-white transition-colors hover:bg-[#2ea043] active:scale-[0.98]"
-            >
-              确定
-            </button>
-          </div>
-        </div>
-      )}
+      {!isDragging &&
+        isEditing &&
+        (editPosition && typeof document !== 'undefined'
+          ? createPortal(editForm, document.body)
+          : editForm)}
     </div>
   );
 }
