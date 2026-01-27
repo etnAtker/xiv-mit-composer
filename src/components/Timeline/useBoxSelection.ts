@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import type { MitEvent } from '../../model/types';
-import { useStore } from '../../store';
 import { MS_PER_SEC } from '../../constants/time';
 import { getSkillDefinition } from '../../data/skills';
 import { getMitigationBarHeights } from './mitigationBarUtils';
@@ -15,9 +14,9 @@ interface BoxSelectionState {
 }
 
 interface UseBoxSelectionOptions {
-  containerId: string;
   columnMap: Record<string, number>;
   mitEvents: MitEvent[];
+  selectedMitIds: string[];
   zoom: number;
   mitX: number;
   getMitColumnLeft: (columnIndex: number) => number;
@@ -28,9 +27,9 @@ interface UseBoxSelectionOptions {
 }
 
 export function useBoxSelection({
-  containerId,
   columnMap,
   mitEvents,
+  selectedMitIds,
   zoom,
   mitX,
   getMitColumnLeft,
@@ -51,11 +50,8 @@ export function useBoxSelection({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (
-        e.target === e.currentTarget ||
-        (e.target as HTMLElement).tagName === 'svg' ||
-        (e.target as HTMLElement).id === containerId
-      ) {
+      if (e.button !== 0) return;
+      if (e.currentTarget.contains(e.target as Node)) {
         e.preventDefault();
         setContextMenu(null);
         setEditingMitId(null);
@@ -83,7 +79,7 @@ export function useBoxSelection({
         });
       }
     },
-    [containerId, setContextMenu, setEditingMitId],
+    [setContextMenu, setEditingMitId],
   );
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -158,8 +154,7 @@ export function useBoxSelection({
       });
 
       if (e.ctrlKey || e.metaKey) {
-        const currentSelected = useStore.getState().selectedMitIds;
-        setSelectedMitIds([...new Set([...currentSelected, ...newlySelectedIds])]);
+        setSelectedMitIds([...new Set([...selectedMitIds, ...newlySelectedIds])]);
       } else {
         setSelectedMitIds(newlySelectedIds);
       }
@@ -172,7 +167,16 @@ export function useBoxSelection({
         endY: 0,
       });
     },
-    [columnMap, getMitColumnKey, getMitColumnLeft, mitEvents, mitX, setSelectedMitIds, zoom],
+    [
+      columnMap,
+      getMitColumnKey,
+      getMitColumnLeft,
+      mitEvents,
+      mitX,
+      selectedMitIds,
+      setSelectedMitIds,
+      zoom,
+    ],
   );
 
   const handlePointerUp = useCallback(

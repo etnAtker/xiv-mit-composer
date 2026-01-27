@@ -209,9 +209,9 @@ export function TimelineCanvas({
     handlePointerUp,
     handlePointerCancel,
   } = useBoxSelection({
-    containerId,
     columnMap,
     mitEvents,
+    selectedMitIds,
     zoom,
     mitX,
     getMitColumnLeft,
