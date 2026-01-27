@@ -120,7 +120,7 @@ export function DraggableMitigation({
       {/* 编辑态表单 */}
       {!isDragging && isEditing && (
         <div
-          className="absolute left-0 top-full z-100 mt-2 min-w-40 rounded-lg border border-app bg-surface-3 p-3 shadow-2xl backdrop-blur-xl flex flex-col gap-2 text-app"
+          className="absolute left-0 top-full z-30 mt-2 min-w-40 rounded-lg border border-app bg-surface-3 p-3 shadow-2xl backdrop-blur-xl flex flex-col gap-2 text-app"
           onPointerDown={(e) => e.stopPropagation()}
         >
           <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted font-mono">

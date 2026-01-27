@@ -9,7 +9,7 @@ export function TimelineTooltip({ tooltip }: Props) {
 
   return (
     <div
-      className="fixed z-9999 pointer-events-none min-w-30 rounded-lg border border-app bg-surface-3 text-[11px] text-app shadow-2xl backdrop-blur-xl flex flex-col p-2 animate-[fade-in-up_0.2s_ease]"
+      className="fixed z-30 pointer-events-none min-w-30 rounded-lg border border-app bg-surface-3 text-[11px] text-app shadow-2xl backdrop-blur-xl flex flex-col p-2 animate-[fade-in-up_0.2s_ease]"
       style={{
         left: tooltip.x,
         top: tooltip.y,
