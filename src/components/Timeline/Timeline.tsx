@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/shallow';
 import { useStore } from '../../store';
 import { ROLE_SKILL_IDS, SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
@@ -7,6 +8,7 @@ import { MIT_COLUMN_WIDTH } from './timelineUtils';
 import { MS_PER_SEC } from '../../constants/time';
 import { CAST_LANE_WIDTH, DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 import type { Job } from '../../model/types';
+import { selectTimelineActions, selectTimelineState } from '../../store/selectors';
 
 interface TimelineProps {
   zoom: number;
@@ -25,16 +27,10 @@ export function Timeline({
   dragDeltaMs = 0,
   selectedJobs,
 }: TimelineProps) {
-  const {
-    fight,
-    selectedJob,
-    mitEvents,
-    damageEvents,
-    damageEventsByJob,
-    castEvents,
-    setMitEvents,
-    setIsRendering,
-  } = useStore();
+  const { fight, selectedJob, mitEvents, damageEvents, damageEventsByJob, castEvents } = useStore(
+    useShallow(selectTimelineState),
+  );
+  const { setMitEvents, setIsRendering } = useStore(useShallow(selectTimelineActions));
 
   const resolvedJobs = useMemo(() => {
     if (selectedJobs && selectedJobs.length > 0) {
