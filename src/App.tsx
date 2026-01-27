@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/shallow';
 import { type Actor, type Job, type MitEvent, type Skill } from './model/types';
 import { useStore } from './store';
 import { selectAppActions, selectAppState } from './store/selectors';
-import { getSkillDefinition, normalizeSkillId, withOwnerSkillId } from './data/skills';
+import { getSkillDefinition, withOwnerSkillId } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { AppHeader } from './components/AppHeader';
 import { DragOverlayLayer, type DragOverlayItem } from './components/DragOverlayLayer';
@@ -16,9 +16,11 @@ import { LoadFightModal } from './components/LoadFightModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
+import { TopBannerStack } from './components/TopBanner';
+import { useTopBanner } from './hooks/useTopBanner';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
-import { tryBuildCooldowns } from './utils/playerCast';
+import { canInsertMitigation } from './utils/playerCast';
 import { getStoredTheme, setStoredTheme } from './utils';
 
 export default function App() {
@@ -33,7 +35,6 @@ export default function App() {
     castEvents,
     isLoading,
     isRendering,
-    error,
   } = useStore(useShallow(selectAppState));
 
   const {
@@ -58,6 +59,7 @@ export default function App() {
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [loadMode, setLoadMode] = useState<'single' | 'dual'>('single');
   const [dualTankPlayers, setDualTankPlayers] = useState<{ id: number | null; job: Job }[]>([]);
+  const { push } = useTopBanner();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'dark';
     const stored = getStoredTheme();
@@ -292,46 +294,6 @@ export default function App() {
     };
   };
 
-  const buildOwnerKey = (ownerId?: number, ownerJob?: Job) => {
-    if (typeof ownerId === 'number') return `id:${ownerId}`;
-    if (ownerJob) return `job:${ownerJob}`;
-    return undefined;
-  };
-
-  const canInsertMitigation = (
-    skillId: string,
-    startMs: number,
-    excludeIds: Set<string>,
-    allEvents: MitEvent[],
-    ownerJob?: Job,
-    ownerId?: number,
-  ) => {
-    const baseSkillId = normalizeSkillId(skillId);
-    const skillMeta = getSkillDefinition(baseSkillId);
-    if (!skillMeta) {
-      console.error(`错误：未找到技能 ${baseSkillId} 的定义。`);
-      return false;
-    }
-
-    const filteredEvents = excludeIds.size
-      ? allEvents.filter((event) => !excludeIds.has(event.id))
-      : allEvents;
-    const cooldownEvents = tryBuildCooldowns(filteredEvents) ?? [];
-    const ownerKey = buildOwnerKey(ownerId, ownerJob);
-
-    for (const cooldown of cooldownEvents) {
-      if (cooldown.skillId !== baseSkillId) continue;
-      const matchesOwner =
-        !ownerKey || !cooldown.ownerKey || (ownerKey && cooldown.ownerKey === ownerKey);
-      if (!matchesOwner) continue;
-      if (startMs >= cooldown.tStartMs && startMs < cooldown.tEndMs) {
-        return false;
-      }
-    }
-
-    return true;
-  };
-
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveItem(null);
     setDragDeltaMs(0);
@@ -349,7 +311,8 @@ export default function App() {
     if (type === 'new-skill') {
       const skill = active.data.current?.skill as Skill;
       const { ownerJob, ownerId } = resolveOwnerContext(active.data.current?.ownerJob);
-      if (!canInsertMitigation(skill.id, tStartMs, new Set(), mitEvents, ownerJob, ownerId)) {
+      if (!canInsertMitigation(skill.id, tStartMs, mitEvents, ownerJob, ownerId)) {
+        push('冷却中，无法放置该技能。', { tone: 'error' });
         return;
       }
       const newMit = buildMitEventFromSkill(skill.id, tStartMs, undefined, ownerJob, ownerId);
@@ -377,10 +340,10 @@ export default function App() {
             !canInsertMitigation(
               m.skillId,
               newStart,
-              movingIds,
               mitEvents,
               m.ownerJob ?? undefined,
               m.ownerId ?? undefined,
+              movingIds,
             )
           ) {
             return;
@@ -395,6 +358,7 @@ export default function App() {
         .filter((m) => m !== undefined);
 
       if (movedEvents.length !== eventsToMove.length) {
+        push('冷却冲突或时间无效，已取消移动。', { tone: 'error' });
         return;
       }
 
@@ -428,7 +392,6 @@ export default function App() {
           fflogsUrl={fflogsUrl}
           isLoading={isLoading}
           canExport={!!fight && castEvents.length > 0}
-          error={error}
           theme={theme}
           onApiKeyChange={setApiKey}
           onFflogsUrlChange={setFflogsUrl}
@@ -495,6 +458,8 @@ export default function App() {
         onConfirm={handleConfirmLoadFight}
         onClose={() => setIsLoadModalOpen(false)}
       />
+
+      <TopBannerStack />
     </DndContext>
   );
 }
