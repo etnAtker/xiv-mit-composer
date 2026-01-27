@@ -3,15 +3,6 @@ import type { CooldownGroup, Skill } from '../../model/types';
 export const SKILLS: Skill[] = [
   // 职能通用
   {
-    id: 'role-rampart',
-    name: '铁壁',
-    cooldownSec: 90,
-    durationSec: 20,
-    job: 'ALL',
-    color: 'bg-slate-500',
-    actionId: 7531,
-  },
-  {
     id: 'role-reprisal',
     name: '雪仇',
     cooldownSec: 60,
@@ -19,6 +10,15 @@ export const SKILLS: Skill[] = [
     job: 'ALL',
     color: 'bg-slate-600',
     actionId: 7535,
+  },
+  {
+    id: 'role-rampart',
+    name: '铁壁',
+    cooldownSec: 90,
+    durationSec: 20,
+    job: 'ALL',
+    color: 'bg-slate-500',
+    actionId: 7531,
   },
 
   // 骑士 (PLD)

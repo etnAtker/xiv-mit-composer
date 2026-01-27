@@ -1,4 +1,4 @@
-﻿import { format } from 'date-fns';
+import { format } from 'date-fns';
 import { memo, useMemo } from 'react';
 import type { CastEvent, DamageEvent, MitEvent } from '../../model/types';
 import type { TooltipData } from './types';
@@ -56,7 +56,7 @@ export const CastLane = memo(
                     width={barWidth}
                     height={Math.max(2, ((ev.duration || 0) / MS_PER_SEC) * zoom)}
                     fill={color}
-                    opacity={0.6}
+                    opacity={0.55}
                   />
                 );
               })}
@@ -65,9 +65,9 @@ export const CastLane = memo(
                 x={8}
                 y={cluster.startY + 12}
                 fill={getCastColor(cluster.events[0].type)}
-                fontSize={12}
+                fontSize={11}
                 textAnchor="start"
-                className="pointer-events-none select-none opacity-90 font-medium"
+                className="pointer-events-none select-none font-['Space_Grotesk'] font-medium tracking-tight opacity-90"
               >
                 {labelText}
               </text>
@@ -116,6 +116,51 @@ interface DamageLaneProps {
 
 export const DamageLane = memo(
   ({ events, mitEvents, zoom, width, left, visibleRange, onHover, lineWidth }: DamageLaneProps) => {
+    const mergedMitWindows = useMemo(() => {
+      if (mitEvents.length === 0) return [];
+      const sorted = mitEvents
+        .map((mit) => ({
+          start: mit.tStartMs,
+          end: mit.tEndMs,
+        }))
+        .sort((a, b) => a.start - b.start || a.end - b.end);
+
+      const merged: { start: number; end: number }[] = [];
+      for (const window of sorted) {
+        const last = merged[merged.length - 1];
+        if (!last || window.start > last.end) {
+          merged.push({ ...window });
+          continue;
+        }
+        if (window.end > last.end) {
+          last.end = window.end;
+        }
+      }
+      return merged;
+    }, [mitEvents]);
+
+    const isMitigatedAt = useMemo(() => {
+      if (mergedMitWindows.length === 0) {
+        return () => false;
+      }
+      return (tMs: number) => {
+        let left = 0;
+        let right = mergedMitWindows.length - 1;
+        while (left <= right) {
+          const mid = (left + right) >> 1;
+          const window = mergedMitWindows[mid];
+          if (tMs < window.start) {
+            right = mid - 1;
+          } else if (tMs > window.end) {
+            left = mid + 1;
+          } else {
+            return true;
+          }
+        }
+        return false;
+      };
+    }, [mergedMitWindows]);
+
     const visibleClusters = useMemo(() => {
       return getVisibleClusters(events, zoom, visibleRange, 18);
     }, [events, visibleRange, zoom]);
@@ -126,9 +171,7 @@ export const DamageLane = memo(
           const firstEv = cluster.events[0];
           const count = cluster.events.length;
 
-          const isCovered = cluster.events.some((ev) =>
-            mitEvents.some((m) => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs),
-          );
+          const isCovered = cluster.events.some((ev) => isMitigatedAt(ev.tMs));
           const color = getDamageColor(isCovered);
 
           const damageNumStr = (firstEv.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(
@@ -153,13 +196,13 @@ export const DamageLane = memo(
                 y2={cluster.startY}
                 stroke={color}
                 strokeWidth={2}
-                strokeDasharray="3 3"
+                strokeDasharray="4 4"
                 opacity={0.5}
               />
 
               {cluster.events.map((ev, idx) => {
                 const y = (ev.tMs / MS_PER_SEC) * zoom;
-                const covered = mitEvents.some((m) => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs);
+                const covered = isMitigatedAt(ev.tMs);
                 const subColor = getDamageColor(covered);
                 return (
                   <circle
@@ -168,7 +211,7 @@ export const DamageLane = memo(
                     cy={y}
                     r={4}
                     fill={subColor}
-                    stroke="rgba(0,0,0,0.2)"
+                    stroke="rgba(255,255,255,0.16)"
                     strokeWidth={1}
                   />
                 );
@@ -178,10 +221,10 @@ export const DamageLane = memo(
                 x={8}
                 y={cluster.startY + 12}
                 fill={color}
-                fontSize={12}
+                fontSize={11}
                 textAnchor="start"
-                fontWeight="bold"
-                className="pointer-events-none select-none"
+                fontWeight={600}
+                className="pointer-events-none select-none font-['Space_Grotesk'] tracking-tight"
               >
                 {labelText}
               </text>
@@ -203,9 +246,7 @@ export const DamageLane = memo(
                     items: cluster.events.map((ev) => ({
                       title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
                       subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
-                      color: getDamageColor(
-                        mitEvents.some((m) => ev.tMs >= m.tStartMs && ev.tMs <= m.tEndMs),
-                      ),
+                      color: getDamageColor(isMitigatedAt(ev.tMs)),
                     })),
                   });
                 }}

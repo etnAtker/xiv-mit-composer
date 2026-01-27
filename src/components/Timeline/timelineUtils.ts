@@ -1,21 +1,22 @@
 ﻿import { MS_PER_SEC } from '../../constants/time';
+import type { MitEvent } from '../../model/types';
 
 export const CHAR_W = 7;
 export const TRUNCATE_LEN = 12;
-export const MIT_COLUMN_WIDTH = 100;
-export const MIT_COLUMN_PADDING = 20;
-export const CD_LEFT_PADDING = 2;
+export const MIT_COLUMN_WIDTH = 40;
+export const MIT_COLUMN_PADDING = 0;
+export const EFFECT_BAR_COLOR = 'rgba(213,221,246,.6)';
 
 const VISIBLE_CLUSTER_BUFFER_MS = 2000;
 
 const EVENT_COLORS = {
   cast: {
-    begincast: '#60A5FA',
-    default: '#A78BFA',
+    begincast: '#1f6feb',
+    default: '#6366f1',
   },
   damage: {
-    mitigated: '#34D399',
-    unmitigated: '#F87171',
+    mitigated: '#238636',
+    unmitigated: '#da3633',
   },
 };
 
@@ -24,6 +25,23 @@ export const getCastColor = (type: string) =>
 
 export const getDamageColor = (isMitigated: boolean) =>
   isMitigated ? EVENT_COLORS.damage.mitigated : EVENT_COLORS.damage.unmitigated;
+
+export function buildSkillZIndexMap(
+  events: MitEvent[],
+  skillId: string,
+  getStartMs: (event: MitEvent) => number = (event) => event.tStartMs,
+) {
+  const sorted = events
+    .filter((event) => event.skillId === skillId)
+    .slice()
+    .sort((a, b) => getStartMs(a) - getStartMs(b) || a.id.localeCompare(b.id));
+
+  const map = new Map<string, number>();
+  sorted.forEach((event, index) => {
+    map.set(event.id, index);
+  });
+  return map;
+}
 
 export function truncateText(text: string, maxLength: number) {
   if (!text) return '';
