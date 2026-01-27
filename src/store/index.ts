@@ -118,6 +118,30 @@ const mergeDamageEvents = (damages: DamageEvent[], fightStart: number): DamageEv
   return finalDamages.map(processTimestamp);
 };
 
+let fightRequestSeq = 0;
+let fightAbortController: AbortController | null = null;
+let eventsRequestSeq = 0;
+let eventsAbortController: AbortController | null = null;
+
+const beginFightRequest = () => {
+  fightRequestSeq += 1;
+  if (fightAbortController) fightAbortController.abort();
+  fightAbortController = new AbortController();
+  return { requestId: fightRequestSeq, signal: fightAbortController.signal };
+};
+
+const beginEventsRequest = () => {
+  eventsRequestSeq += 1;
+  if (eventsAbortController) eventsAbortController.abort();
+  eventsAbortController = new AbortController();
+  return { requestId: eventsRequestSeq, signal: eventsAbortController.signal };
+};
+
+const isAbortError = (error: unknown, signal: AbortSignal) => {
+  if (signal.aborted) return true;
+  return error instanceof Error && error.name === 'AbortError';
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -146,18 +170,21 @@ export const useStore = create<AppState>()(
       setIsRendering: (is) => set({ isRendering: is }),
 
       loadFightMetadata: async () => {
+        const { requestId, signal } = beginFightRequest();
         const { apiKey, fflogsUrl } = get();
         const { reportCode, fightId } = parseFFLogsUrl(fflogsUrl) ?? {};
 
         if (!apiKey || !reportCode) {
-          set({ error: 'FFLogs URL 不合法' });
+          if (requestId !== fightRequestSeq) return;
+          set({ error: 'FFLogs URL 不合法', isLoading: false });
           return;
         }
 
         set({ isLoading: true, error: null });
         try {
           const client = new FFLogsClient(apiKey);
-          const report = await client.fetchReport(reportCode);
+          const report = await client.fetchReport(reportCode, signal);
+          if (requestId !== fightRequestSeq || signal.aborted) return;
 
           let fightMeta;
           if (fightId === 'last') {
@@ -200,6 +227,7 @@ export const useStore = create<AppState>()(
 
           set({ fight, actors, bossIds, isLoading: false });
         } catch (err: unknown) {
+          if (requestId !== fightRequestSeq || isAbortError(err, signal)) return;
           console.error(err);
           const msg = err instanceof Error ? err.message : String(err);
           set({ error: msg || '加载战斗失败', isLoading: false });
@@ -212,6 +240,7 @@ export const useStore = create<AppState>()(
         if (!apiKey || !reportCode || !fight || !selectedPlayerId) return;
 
         // 标记渲染中，等待 Timeline 通知完成
+        const { requestId, signal } = beginEventsRequest();
         set({ isLoading: true, isRendering: true, error: null });
         const client = new FFLogsClient(apiKey);
 
@@ -224,6 +253,7 @@ export const useStore = create<AppState>()(
             selectedPlayerId,
             false,
             'damage-taken',
+            signal,
           );
 
           // 获取友方施法事件并按技能表过滤
@@ -234,14 +264,22 @@ export const useStore = create<AppState>()(
           );
 
           const friendlyCastsPromise = client
-            .fetchEvents(reportCode, fight.start, fight.end, selectedPlayerId, false)
+            .fetchEvents(
+              reportCode,
+              fight.start,
+              fight.end,
+              selectedPlayerId,
+              false,
+              'casts',
+              signal,
+            )
             .then((events) =>
               FFLogsProcessor.processFriendlyEvents(events, fight.start, allowedActionIds),
             );
 
           // 获取敌方施法事件（覆盖所有检测到的 Boss）
           const enemyCastsPromises = bossIds.map((bossId) =>
-            client.fetchEvents(reportCode, fight.start, fight.end, bossId, true),
+            client.fetchEvents(reportCode, fight.start, fight.end, bossId, true, 'casts', signal),
           );
 
           const [damages, friendlyCasts, enemyCastsMatrix] = await Promise.all([
@@ -249,6 +287,7 @@ export const useStore = create<AppState>()(
             friendlyCastsPromise,
             Promise.all(enemyCastsPromises),
           ]);
+          if (requestId !== eventsRequestSeq || signal.aborted) return;
 
           const flatEnemyEvents = enemyCastsMatrix.flat();
           const processedEnemyCasts = FFLogsProcessor.processEnemyEvents(
@@ -314,6 +353,7 @@ export const useStore = create<AppState>()(
             // 等待 Timeline 通知渲染完成后再取消遮罩
           });
         } catch (err: unknown) {
+          if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
           console.error(err);
           const msg = err instanceof Error ? err.message : String(err);
           set({ error: msg || '加载事件失败', isLoading: false, isRendering: false });
@@ -325,6 +365,7 @@ export const useStore = create<AppState>()(
         const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
         if (!apiKey || !reportCode || !fight || players.length === 0) return;
 
+        const { requestId, signal } = beginEventsRequest();
         set({ isLoading: true, isRendering: true, error: null });
         const client = new FFLogsClient(apiKey);
 
@@ -342,6 +383,8 @@ export const useStore = create<AppState>()(
               fight.end,
               player.id,
               false,
+              'casts',
+              signal,
             );
             const casts = FFLogsProcessor.processFriendlyEvents(
               events,
@@ -352,7 +395,7 @@ export const useStore = create<AppState>()(
           });
 
           const enemyCastsPromises = bossIds.map((bossId) =>
-            client.fetchEvents(reportCode, fight.start, fight.end, bossId, true),
+            client.fetchEvents(reportCode, fight.start, fight.end, bossId, true, 'casts', signal),
           );
 
           const damagePromises = players.map(async (player) => ({
@@ -364,6 +407,7 @@ export const useStore = create<AppState>()(
               player.id,
               false,
               'damage-taken',
+              signal,
             ),
           }));
 
@@ -372,6 +416,7 @@ export const useStore = create<AppState>()(
             Promise.all(friendlyCastsPromises),
             Promise.all(enemyCastsPromises),
           ]);
+          if (requestId !== eventsRequestSeq || signal.aborted) return;
 
           const flatEnemyEvents = enemyCastsMatrix.flat();
           const processedEnemyCasts = FFLogsProcessor.processEnemyEvents(
@@ -437,6 +482,7 @@ export const useStore = create<AppState>()(
             isLoading: false,
           });
         } catch (err: unknown) {
+          if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
           console.error(err);
           const msg = err instanceof Error ? err.message : String(err);
           set({ error: msg || '加载事件失败', isLoading: false, isRendering: false });
