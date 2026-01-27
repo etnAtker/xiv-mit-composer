@@ -2,7 +2,7 @@ import { MS_PER_SEC } from '../../constants/time';
 
 interface Props {
   totalWidth: number;
-  totalHeight: number;
+  timelineHeight: number;
   rulerWidth: number;
   castX: number;
   castWidth: number;
@@ -19,7 +19,7 @@ interface Props {
 
 export function TimelineGridLines({
   totalWidth,
-  totalHeight,
+  timelineHeight,
   rulerWidth,
   castX,
   castWidth,
@@ -36,8 +36,8 @@ export function TimelineGridLines({
   return (
     <svg
       width={totalWidth}
-      height={totalHeight}
-      className="absolute inset-0 z-10 block text-xs pointer-events-none"
+      height={timelineHeight}
+      className="absolute left-0 top-0 z-10 block text-xs pointer-events-none"
     >
       <defs>
         <pattern
@@ -66,10 +66,10 @@ export function TimelineGridLines({
         </pattern>
       </defs>
 
-      <rect x={0} y={0} width={rulerWidth} height={totalHeight} fill="transparent" />
-      <rect x={castX} y={0} width={castWidth} height={totalHeight} fill="transparent" />
-      <rect x={dmgX} y={0} width={dmgWidth} height={totalHeight} fill="transparent" />
-      <rect x={mitX} y={0} width={mitAreaWidth} height={totalHeight} fill="transparent" />
+      <rect x={0} y={0} width={rulerWidth} height={timelineHeight} fill="transparent" />
+      <rect x={castX} y={0} width={castWidth} height={timelineHeight} fill="transparent" />
+      <rect x={dmgX} y={0} width={dmgWidth} height={timelineHeight} fill="transparent" />
+      <rect x={mitX} y={0} width={mitAreaWidth} height={timelineHeight} fill="transparent" />
 
       {Array.from({ length: Math.ceil(durationSec / rulerStepSec) }).map((_, i) => {
         const sec = i * rulerStepSec;

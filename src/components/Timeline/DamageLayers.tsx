@@ -4,7 +4,7 @@ import { DamageLane, DamageLaneHitTargets } from './TimelineLanes';
 
 interface Props {
   totalWidth: number;
-  totalHeight: number;
+  timelineHeight: number;
   zoom: number;
   dmgWidth: number;
   dmgX: number;
@@ -22,7 +22,7 @@ interface Props {
 
 export function DamageLayers({
   totalWidth,
-  totalHeight,
+  timelineHeight,
   zoom,
   dmgWidth,
   dmgX,
@@ -41,7 +41,7 @@ export function DamageLayers({
     <>
       <svg
         width={totalWidth}
-        height={totalHeight}
+        height={timelineHeight}
         className="absolute inset-0 z-40 block text-xs pointer-events-none"
       >
         <DamageLane
@@ -68,7 +68,7 @@ export function DamageLayers({
         )}
       </svg>
 
-      <div className="absolute inset-0 z-41 pointer-events-none">
+      <div className="absolute inset-0 z-41 pointer-events-none" style={{ height: timelineHeight }}>
         <DamageLaneHitTargets
           events={damageEvents}
           mitEvents={primaryMitEvents}

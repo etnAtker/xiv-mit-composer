@@ -27,6 +27,7 @@ interface Props {
   containerId: string;
   zoom: number;
   setZoom: (value: number) => void;
+  timelineHeight: number;
   durationSec: number;
   totalWidth: number;
   totalHeight: number;
@@ -52,6 +53,7 @@ export function TimelineCanvas({
   containerId,
   zoom,
   setZoom,
+  timelineHeight,
   durationSec,
   totalWidth,
   totalHeight,
@@ -276,88 +278,94 @@ export function TimelineCanvas({
             />
           )}
 
-          <TimelineBackground
-            rulerWidth={rulerWidth}
-            castWidth={castWidth}
-            dmgWidth={dmgWidth}
-            mitAreaWidth={mitAreaWidth}
-            dmgX={dmgX}
-            secondaryDamageLaneLeft={secondaryDamageLaneLeft}
-            headerSkillColumns={headerSkillColumns}
-            hasSecondaryDamageLane={hasSecondaryDamageLane}
-            firstGroupCount={firstGroupCount}
-          />
-
           <PinnedTimelineLanes
             rulerWidth={rulerWidth}
             castWidth={castWidth}
             durationSec={durationSec}
             totalHeight={totalHeight}
+            timelineHeight={timelineHeight}
             zoom={zoom}
             visibleRange={visibleRange}
             castEvents={castEvents}
             onHover={setTooltip}
           />
 
-          <TimelineGridLines
-            totalWidth={totalWidth}
-            totalHeight={totalHeight}
-            rulerWidth={rulerWidth}
-            castX={castX}
-            castWidth={castWidth}
-            dmgX={dmgX}
-            dmgWidth={dmgWidth}
-            mitX={mitX}
-            mitAreaWidth={mitAreaWidth}
-            durationSec={durationSec}
-            zoom={zoom}
-            visibleRange={visibleRange}
-            visibleRangeBufferMs={VISIBLE_RANGE_BUFFER_MS}
-            rulerStepSec={RULER_STEP_SEC}
-          />
+          <div
+            className="absolute left-0 top-0 overflow-hidden"
+            style={{ width: totalWidth, height: timelineHeight }}
+          >
+            <TimelineBackground
+              rulerWidth={rulerWidth}
+              castWidth={castWidth}
+              dmgWidth={dmgWidth}
+              mitAreaWidth={mitAreaWidth}
+              dmgX={dmgX}
+              secondaryDamageLaneLeft={secondaryDamageLaneLeft}
+              headerSkillColumns={headerSkillColumns}
+              hasSecondaryDamageLane={hasSecondaryDamageLane}
+              firstGroupCount={firstGroupCount}
+              timelineHeight={timelineHeight}
+            />
 
-          <MitigationLayer
-            containerId={containerId}
-            setMitLaneRef={setMitLaneRef}
-            mitX={mitX}
-            mitAreaWidth={mitAreaWidth}
-            totalHeight={totalHeight}
-            reprisalGhosts={reprisalGhosts}
-            reprisalSkillColor={reprisalSkill?.color}
-            reprisalZIndexMap={reprisalZIndexMap}
-            getEffectiveStartMs={getEffectiveStartMs}
-            getMitColumnLeft={getMitColumnLeft}
-            getMitColumnKey={getMitColumnKey}
-            columnMap={columnMap}
-            mitEvents={mitEvents}
-            zoom={zoom}
-            editingMitId={editingMitId}
-            setEditingMitId={setEditingMitId}
-            selectedMitIds={selectedMitIds}
-            setSelectedMitIds={setSelectedMitIds}
-            updateMitEvent={updateMitEvent}
-            removeMitEvent={removeMitEvent}
-            setContextMenu={setContextMenu}
-            getVisualOffsetMs={getVisualOffsetMs}
-          />
+            <TimelineGridLines
+              totalWidth={totalWidth}
+              timelineHeight={timelineHeight}
+              rulerWidth={rulerWidth}
+              castX={castX}
+              castWidth={castWidth}
+              dmgX={dmgX}
+              dmgWidth={dmgWidth}
+              mitX={mitX}
+              mitAreaWidth={mitAreaWidth}
+              durationSec={durationSec}
+              zoom={zoom}
+              visibleRange={visibleRange}
+              visibleRangeBufferMs={VISIBLE_RANGE_BUFFER_MS}
+              rulerStepSec={RULER_STEP_SEC}
+            />
 
-          <DamageLayers
-            totalWidth={totalWidth}
-            totalHeight={totalHeight}
-            zoom={zoom}
-            dmgWidth={dmgWidth}
-            dmgX={dmgX}
-            secondaryDamageLaneLeft={secondaryDamageLaneLeft}
-            visibleRange={visibleRange}
-            damageEvents={damageEvents}
-            secondaryDamageEvents={secondaryDamageEvents}
-            primaryMitEvents={primaryMitEvents}
-            secondaryMitEvents={secondaryMitEvents}
-            hasSecondaryDamageLane={hasSecondaryDamageLane}
-            primaryLineWidth={primaryLineWidth}
-            secondaryLineWidth={secondaryLineWidth}
-            onHover={setTooltip}
-          />
+            <MitigationLayer
+              containerId={containerId}
+              setMitLaneRef={setMitLaneRef}
+              mitX={mitX}
+              mitAreaWidth={mitAreaWidth}
+              reprisalGhosts={reprisalGhosts}
+              reprisalSkillColor={reprisalSkill?.color}
+              reprisalZIndexMap={reprisalZIndexMap}
+              getEffectiveStartMs={getEffectiveStartMs}
+              getMitColumnLeft={getMitColumnLeft}
+              getMitColumnKey={getMitColumnKey}
+              columnMap={columnMap}
+              mitEvents={mitEvents}
+              zoom={zoom}
+              editingMitId={editingMitId}
+              setEditingMitId={setEditingMitId}
+              selectedMitIds={selectedMitIds}
+              setSelectedMitIds={setSelectedMitIds}
+              updateMitEvent={updateMitEvent}
+              removeMitEvent={removeMitEvent}
+              setContextMenu={setContextMenu}
+              getVisualOffsetMs={getVisualOffsetMs}
+            />
+
+            <DamageLayers
+              totalWidth={totalWidth}
+              timelineHeight={timelineHeight}
+              zoom={zoom}
+              dmgWidth={dmgWidth}
+              dmgX={dmgX}
+              secondaryDamageLaneLeft={secondaryDamageLaneLeft}
+              visibleRange={visibleRange}
+              damageEvents={damageEvents}
+              secondaryDamageEvents={secondaryDamageEvents}
+              primaryMitEvents={primaryMitEvents}
+              secondaryMitEvents={secondaryMitEvents}
+              hasSecondaryDamageLane={hasSecondaryDamageLane}
+              primaryLineWidth={primaryLineWidth}
+              secondaryLineWidth={secondaryLineWidth}
+              onHover={setTooltip}
+            />
+          </div>
         </div>
       </div>
 
