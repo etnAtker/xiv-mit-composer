@@ -9,3 +9,13 @@ export interface TooltipData {
   y: number;
   items: TooltipItem[];
 }
+
+export interface TimelineSkillColumn {
+  id: string;
+  columnId: string;
+  name: string;
+  color?: string;
+  icon?: string;
+  actionId?: number;
+  job?: string;
+}
