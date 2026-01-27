@@ -1,5 +1,6 @@
 ﻿import { MS_PER_SEC } from '../../constants/time';
 import type { MitEvent } from '../../model/types';
+import { normalizeSkillId } from '../../data/skills';
 
 export const CHAR_W = 7;
 export const TRUNCATE_LEN = 12;
@@ -31,8 +32,9 @@ export function buildSkillZIndexMap(
   skillId: string,
   getStartMs: (event: MitEvent) => number = (event) => event.tStartMs,
 ) {
+  const baseSkillId = normalizeSkillId(skillId);
   const sorted = events
-    .filter((event) => event.skillId === skillId)
+    .filter((event) => normalizeSkillId(event.skillId) === baseSkillId)
     .slice()
     .sort((a, b) => getStartMs(a) - getStartMs(b) || a.id.localeCompare(b.id));
 

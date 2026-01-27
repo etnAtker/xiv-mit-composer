@@ -11,7 +11,7 @@ import {
 } from '../model/types';
 import { FFLogsClient } from '../lib/fflogs/client';
 import { FFLogsProcessor } from '../lib/fflogs/processor';
-import { SKILLS } from '../data/skills';
+import { SKILLS, withOwnerSkillId } from '../data/skills';
 import { MS_PER_SEC } from '../constants/time';
 import { tryBuildCooldowns } from '../utils/playerCast';
 import { parseFFLogsUrl } from '../utils';
@@ -30,6 +30,7 @@ interface AppState {
   selectedMitIds: string[];
 
   damageEvents: DamageEvent[];
+  damageEventsByJob: Partial<Record<Job, DamageEvent[]>>;
   castEvents: CastEvent[];
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
@@ -56,6 +57,67 @@ interface AppState {
   setMitEvents: (events: MitEvent[]) => void;
 }
 
+const mergeDamageEvents = (damages: DamageEvent[], fightStart: number): DamageEvent[] => {
+  const processTimestamp = (e: DamageEvent): DamageEvent => ({
+    ...e,
+    tMs: e.timestamp - fightStart,
+  });
+  const dict = new Map<number, { calc?: DamageEvent; dmg?: DamageEvent }>();
+  const standaloneEvents: DamageEvent[] = [];
+
+  damages.forEach((e) => {
+    const pid = e.packetID;
+    if (pid) {
+      if (!dict.has(pid)) dict.set(pid, {});
+      const entry = dict.get(pid)!;
+
+      if (e.type === 'calculateddamage') {
+        entry.calc = e;
+      } else {
+        entry.dmg = e;
+      }
+    } else {
+      if (e.type === 'calculateddamage') {
+        standaloneEvents.push({
+          ...e,
+          ability: { ...e.ability, name: `? ${e.ability.name}` },
+        });
+      } else {
+        standaloneEvents.push(e);
+      }
+    }
+  });
+
+  const combinedDamages: DamageEvent[] = [];
+
+  for (const { calc, dmg } of dict.values()) {
+    if (calc && dmg) {
+      combinedDamages.push({
+        ...dmg,
+        timestamp: calc.timestamp,
+        packetID: calc.packetID,
+        type: 'damage-combined',
+      });
+    } else if (calc) {
+      combinedDamages.push({
+        ...calc,
+        ability: { ...calc.ability, name: `? ${calc.ability.name}` },
+      });
+    } else if (dmg) {
+      combinedDamages.push({
+        ...dmg,
+        ability: { ...dmg.ability, name: `* ${dmg.ability.name}` },
+      });
+    }
+  }
+
+  const finalDamages = [...standaloneEvents, ...combinedDamages].sort(
+    (a, b) => a.timestamp - b.timestamp,
+  );
+
+  return finalDamages.map(processTimestamp);
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -68,6 +130,7 @@ export const useStore = create<AppState>()(
       selectedPlayerId: null,
       selectedMitIds: [],
       damageEvents: [],
+      damageEventsByJob: {},
       castEvents: [],
       mitEvents: [],
       cooldownEvents: [],
@@ -204,11 +267,12 @@ export const useStore = create<AppState>()(
 
               const tStartMs = e.time * MS_PER_SEC;
               const durationMs = skillDef.durationSec * MS_PER_SEC;
+              const resolvedSkillId = withOwnerSkillId(skillDef.id, selectedJob ?? undefined);
 
               return {
                 id: crypto.randomUUID(),
                 eventType: 'mit',
-                skillId: skillDef.id,
+                skillId: resolvedSkillId,
                 tStartMs: tStartMs,
                 durationMs: durationMs,
                 tEndMs: tStartMs + durationMs,
@@ -236,67 +300,13 @@ export const useStore = create<AppState>()(
             .sort((a, b) => a.tMs - b.tMs);
 
           // 按 packetID 合并同一条伤害记录
-          const processTimestamp = (e: DamageEvent): DamageEvent => ({
-            ...e,
-            tMs: e.timestamp - fight.start,
-          });
-          const dict = new Map<number, { calc?: DamageEvent; dmg?: DamageEvent }>();
-          const standaloneEvents: DamageEvent[] = [];
-
-          damages.forEach((e) => {
-            const pid = e.packetID;
-            if (pid) {
-              if (!dict.has(pid)) dict.set(pid, {});
-              const entry = dict.get(pid)!;
-
-              if (e.type === 'calculateddamage') {
-                entry.calc = e;
-              } else {
-                entry.dmg = e;
-              }
-            } else {
-              if (e.type === 'calculateddamage') {
-                standaloneEvents.push({
-                  ...e,
-                  ability: { ...e.ability, name: `? ${e.ability.name}` },
-                });
-              } else {
-                standaloneEvents.push(e);
-              }
-            }
-          });
-
-          const combinedDamages: DamageEvent[] = [];
-
-          for (const { calc, dmg } of dict.values()) {
-            if (calc && dmg) {
-              combinedDamages.push({
-                ...dmg,
-                timestamp: calc.timestamp,
-                packetID: calc.packetID,
-                type: 'damage-combined',
-              });
-            } else if (calc) {
-              combinedDamages.push({
-                ...calc,
-                ability: { ...calc.ability, name: `? ${calc.ability.name}` },
-              });
-            } else if (dmg) {
-              combinedDamages.push({
-                ...dmg,
-                ability: { ...dmg.ability, name: `* ${dmg.ability.name}` },
-              });
-            }
-          }
-
-          const finalDamages = [...standaloneEvents, ...combinedDamages].sort(
-            (a, b) => a.timestamp - b.timestamp,
-          );
-
           newMitEvents.sort((a, b) => a.tStartMs - b.tStartMs);
           const cooldowns = tryBuildCooldowns(newMitEvents) ?? [];
+          const mergedDamages = mergeDamageEvents(damages, fight.start);
+          const damageEventsByJob = selectedJob ? { [selectedJob]: mergedDamages } : {};
           set({
-            damageEvents: finalDamages.map(processTimestamp),
+            damageEvents: mergedDamages,
+            damageEventsByJob,
             castEvents: finalCasts,
             mitEvents: newMitEvents,
             cooldownEvents: cooldowns,
@@ -319,18 +329,6 @@ export const useStore = create<AppState>()(
         const client = new FFLogsClient(apiKey);
 
         try {
-          const primaryPlayerId = players[0]?.id;
-          const damagePromise = primaryPlayerId
-            ? client.fetchEvents<DamageEvent>(
-                reportCode,
-                fight.start,
-                fight.end,
-                primaryPlayerId,
-                false,
-                'damage-taken',
-              )
-            : Promise.resolve<DamageEvent[]>([]);
-
           const friendlyCastsPromises = players.map(async (player) => {
             const allowedActionIds = new Set(
               SKILLS.filter((s) => s.job === player.job || s.job === 'ALL')
@@ -357,8 +355,20 @@ export const useStore = create<AppState>()(
             client.fetchEvents(reportCode, fight.start, fight.end, bossId, true),
           );
 
-          const [damages, friendlyResults, enemyCastsMatrix] = await Promise.all([
-            damagePromise,
+          const damagePromises = players.map(async (player) => ({
+            job: player.job,
+            events: await client.fetchEvents<DamageEvent>(
+              reportCode,
+              fight.start,
+              fight.end,
+              player.id,
+              false,
+              'damage-taken',
+            ),
+          }));
+
+          const [damagesByJob, friendlyResults, enemyCastsMatrix] = await Promise.all([
+            Promise.all(damagePromises),
             Promise.all(friendlyCastsPromises),
             Promise.all(enemyCastsPromises),
           ]);
@@ -394,13 +404,14 @@ export const useStore = create<AppState>()(
 
                   const tStartMs = e.time * MS_PER_SEC;
                   const durationMs = skillDef.durationSec * MS_PER_SEC;
+                  const resolvedSkillId = withOwnerSkillId(skillDef.id, result.job);
 
                   return {
                     id: crypto.randomUUID(),
                     eventType: 'mit',
                     ownerId: result.playerId,
                     ownerJob: result.job,
-                    skillId: skillDef.id,
+                    skillId: resolvedSkillId,
                     tStartMs: tStartMs,
                     durationMs: durationMs,
                     tEndMs: tStartMs + durationMs,
@@ -410,55 +421,16 @@ export const useStore = create<AppState>()(
             })
             .sort((a, b) => a.tStartMs - b.tStartMs);
 
-          const processTimestamp = (e: DamageEvent): DamageEvent => ({
-            ...e,
-            tMs: e.timestamp - fight.start,
-          });
-          const dict = new Map<number, { calc?: DamageEvent; dmg?: DamageEvent }>();
-          const standaloneEvents: DamageEvent[] = [];
-
-          damages.forEach((e) => {
-            const packetId = e.packetID;
-            if (packetId) {
-              const current = dict.get(packetId) ?? {};
-              if (e.type === 'calculateddamage') current.calc = e;
-              if (e.type === 'damage-taken') current.dmg = e;
-              dict.set(packetId, current);
-            } else {
-              standaloneEvents.push(e);
-            }
-          });
-
-          const combinedDamages: DamageEvent[] = [];
-
-          for (const { calc, dmg } of dict.values()) {
-            if (calc && dmg) {
-              combinedDamages.push({
-                ...dmg,
-                timestamp: calc.timestamp,
-                packetID: calc.packetID,
-                type: 'damage-combined',
-              });
-            } else if (calc) {
-              combinedDamages.push({
-                ...calc,
-                ability: { ...calc.ability, name: `? ${calc.ability.name}` },
-              });
-            } else if (dmg) {
-              combinedDamages.push({
-                ...dmg,
-                ability: { ...dmg.ability, name: `* ${dmg.ability.name}` },
-              });
-            }
-          }
-
-          const finalDamages = [...standaloneEvents, ...combinedDamages].sort(
-            (a, b) => a.timestamp - b.timestamp,
-          );
-
           const cooldowns = tryBuildCooldowns(newMitEvents) ?? [];
+          const damageEventsByJob: Partial<Record<Job, DamageEvent[]>> = {};
+          damagesByJob.forEach(({ job, events }) => {
+            damageEventsByJob[job] = mergeDamageEvents(events, fight.start);
+          });
+          const primaryJob = players[0]?.job;
+          const primaryDamages = primaryJob ? (damageEventsByJob[primaryJob] ?? []) : [];
           set({
-            damageEvents: finalDamages.map(processTimestamp),
+            damageEvents: primaryDamages,
+            damageEventsByJob,
             castEvents: finalCasts,
             mitEvents: newMitEvents,
             cooldownEvents: cooldowns,
@@ -516,6 +488,27 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'xiv-mit-composer-storage',
+      version: 1,
+      migrate: (persistedState) => {
+        const state = persistedState as Partial<AppState>;
+        const fallbackOwnerId =
+          typeof state.selectedPlayerId === 'number' ? state.selectedPlayerId : undefined;
+        const fallbackOwnerJob = state.selectedJob ?? undefined;
+        const mitEvents =
+          state.mitEvents?.map((event) => {
+            if (event.ownerId || event.ownerJob) return event;
+            return {
+              ...event,
+              ownerId: fallbackOwnerId,
+              ownerJob: fallbackOwnerJob,
+            };
+          }) ?? [];
+
+        return {
+          ...state,
+          mitEvents,
+        } as AppState;
+      },
       partialize: (state) => ({
         apiKey: state.apiKey,
         fflogsUrl: state.fflogsUrl,

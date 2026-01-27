@@ -1,5 +1,8 @@
 import type { CooldownGroup, Skill } from '../../model/types';
 
+export const ROLE_SKILL_IDS = new Set(['role-rampart', 'role-reprisal']);
+const SKILL_OWNER_SEPARATOR = '@';
+
 export const SKILLS: Skill[] = [
   // 职能通用
   {
@@ -310,3 +313,13 @@ for (const skill of SKILLS) {
   groupSkills.push(skill);
   COOLDOWN_GROUP_SKILLS_MAP.set(group, groupSkills);
 }
+
+export const normalizeSkillId = (skillId: string) => skillId.split(SKILL_OWNER_SEPARATOR)[0];
+
+export const withOwnerSkillId = (skillId: string, ownerJob?: Skill['job']) => {
+  const baseId = normalizeSkillId(skillId);
+  if (!ownerJob || ownerJob === 'ALL' || !ROLE_SKILL_IDS.has(baseId)) return baseId;
+  return `${baseId}${SKILL_OWNER_SEPARATOR}${ownerJob}`;
+};
+
+export const getSkillDefinition = (skillId: string) => SKILL_MAP.get(normalizeSkillId(skillId));
