@@ -2,6 +2,7 @@ import type { Job, Skill } from '../../model/types';
 import { cn } from '../../utils';
 import { XivIcon } from '../XivIcon';
 import { JOB_ICON_LOCAL_SRC, getSkillIconLocalSrc } from '../../data/icons';
+import { COOLDOWN_GROUP_MAP } from '../../data/skills';
 import { fetchActionIconUrl, fetchJobIconUrl } from '../../lib/xivapi/icons';
 
 interface Props {
@@ -12,6 +13,12 @@ interface Props {
 
 export function SkillCard({ skill, className, job }: Props) {
   const displayJob = job ?? (skill.job !== 'ALL' ? skill.job : undefined);
+  const cooldownGroup = skill.cooldownGroup ? COOLDOWN_GROUP_MAP.get(skill.cooldownGroup) : null;
+  const isStackedCooldown = cooldownGroup ? cooldownGroup.stack > 1 : false;
+  const cooldownText = isStackedCooldown
+    ? `充能: ${cooldownGroup?.cooldownSec ?? skill.cooldownSec}s`
+    : `CD: ${skill.cooldownSec}s`;
+  const stackHint = isStackedCooldown ? `上限：${cooldownGroup?.stack ?? 1}` : '';
 
   return (
     <div
@@ -35,7 +42,10 @@ export function SkillCard({ skill, className, job }: Props) {
           <span className="truncate">{skill.name}</span>
           <span className="text-[10px] font-mono text-muted">{skill.durationSec}s</span>
         </div>
-        <div className="mt-1 text-[10px] font-mono text-muted">CD: {skill.cooldownSec}s</div>
+        <div className="mt-1 flex items-center gap-2 text-[10px] font-mono text-muted">
+          <span>{cooldownText}</span>
+          {stackHint ? <span>· {stackHint}</span> : null}
+        </div>
       </div>
 
       {displayJob && (
