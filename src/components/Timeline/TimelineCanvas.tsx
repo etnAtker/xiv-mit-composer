@@ -84,7 +84,21 @@ export function TimelineCanvas({
   );
   const [editingMitId, setEditingMitId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [lastContextMenuPosition, setLastContextMenuPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [editPopoverPosition, setEditPopoverPosition] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+
+  const handleEditingChange = useCallback((id: string | null) => {
+    setEditingMitId(id);
+    if (!id) {
+      setEditPopoverPosition(null);
+    }
+  }, []);
 
   const { setNodeRef: setMitLaneRef } = useDroppable({
     id: 'mit-lane',
@@ -118,12 +132,12 @@ export function TimelineCanvas({
       selectedMitIds.forEach((id) => removeMitEvent(id));
       setSelectedMitIds([]);
       setContextMenu(null);
-      setEditingMitId(null);
+      handleEditingChange(null);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedMitIds, removeMitEvent, setSelectedMitIds, setContextMenu, setEditingMitId]);
+  }, [handleEditingChange, removeMitEvent, selectedMitIds, setContextMenu, setSelectedMitIds]);
 
   const headerSkillColumns =
     skillColumns.length > 0
@@ -198,8 +212,18 @@ export function TimelineCanvas({
     getMitColumnKey,
     setSelectedMitIds,
     setContextMenu,
-    setEditingMitId,
+    setEditingMitId: handleEditingChange,
   });
+
+  const handleContextMenuChange = useCallback(
+    (position: { x: number; y: number } | null) => {
+      setContextMenu(position);
+      if (position) {
+        setLastContextMenuPosition(position);
+      }
+    },
+    [setContextMenu, setLastContextMenuPosition],
+  );
 
   const getVisualOffsetMs = useCallback(
     (mit: MitEvent) => {
@@ -340,13 +364,14 @@ export function TimelineCanvas({
               mitEvents={mitEvents}
               zoom={zoom}
               editingMitId={editingMitId}
-              setEditingMitId={setEditingMitId}
+              setEditingMitId={handleEditingChange}
               selectedMitIds={selectedMitIds}
               setSelectedMitIds={setSelectedMitIds}
               updateMitEvent={updateMitEvent}
               removeMitEvent={removeMitEvent}
-              setContextMenu={setContextMenu}
+              setContextMenu={handleContextMenuChange}
               getVisualOffsetMs={getVisualOffsetMs}
+              editPopoverPosition={editPopoverPosition}
             />
 
             <DamageLayers
@@ -378,7 +403,8 @@ export function TimelineCanvas({
                   {
                     label: '编辑事件',
                     onClick: () => {
-                      setEditingMitId(selectedMitIds[0]);
+                      handleEditingChange(selectedMitIds[0]);
+                      setEditPopoverPosition(lastContextMenuPosition ?? contextMenu);
                       setContextMenu(null);
                     },
                   },
@@ -395,6 +421,7 @@ export function TimelineCanvas({
             },
           ]}
           position={contextMenu}
+          onPositionResolved={setLastContextMenuPosition}
           onClose={() => {
             setContextMenu(null);
             setSelectedMitIds([]);

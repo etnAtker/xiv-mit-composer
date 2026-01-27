@@ -10,9 +10,15 @@ interface ContextMenuProps {
   items: ContextMenuItem[];
   onClose: () => void;
   position: { x: number; y: number };
+  onPositionResolved?: (position: { x: number; y: number }) => void;
 }
 
-export const ContextMenu: React.FC<ContextMenuProps> = ({ items, onClose, position }) => {
+export const ContextMenu: React.FC<ContextMenuProps> = ({
+  items,
+  onClose,
+  position,
+  onPositionResolved,
+}) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -64,6 +70,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, onClose, positi
 
     return { x: adjustedX, y: adjustedY };
   }, [menuSize, position]);
+
+  useEffect(() => {
+    if (onPositionResolved) {
+      onPositionResolved(adjustedPosition);
+    }
+  }, [adjustedPosition, onPositionResolved]);
 
   if (!isVisible) return null;
 
