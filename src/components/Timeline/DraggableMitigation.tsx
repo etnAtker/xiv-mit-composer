@@ -4,9 +4,8 @@ import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
 import { getSkillDefinition } from '../../data/skills';
-import { XivIcon } from '../XivIcon';
 import { getSkillIconLocalSrc } from '../../data/icons';
-import { EFFECT_BAR_COLOR } from './timelineUtils';
+import { MitigationBarContent } from './MitigationBar';
 import { useTopBanner } from '../../hooks/useTopBanner';
 
 interface Props {
@@ -144,38 +143,16 @@ export function DraggableMitigation({
           }
         }}
       >
-        <div className="flex w-full flex-col">
-          <div
-            className={`relative z-10 flex h-10 w-full items-center justify-center text-white shadow-[0_6px_12px_var(--color-skill-shadow)] ${
-              skill?.color || 'bg-slate-600'
-            } ${isSelected ? 'ring-2 ring-[#2f81f7]' : ''}`}
-          >
-            <XivIcon
-              localSrc={getSkillIconLocalSrc(skill?.actionId)}
-              alt={skill?.name ?? 'skill icon'}
-              className="h-full w-full object-cover"
-              fallback={iconFallback}
-            />
-          </div>
-          <div
-            className="relative z-0 w-full border-x border-white/10 shadow-inner"
-            style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
-          />
-          {cooldownHeight > 0 && (
-            <div
-              className="relative z-0 w-full border-x border-app bg-surface shadow-[inset_0_0_10px_var(--color-cooldown-shadow)]"
-              style={{
-                height: cooldownHeight,
-                backgroundImage:
-                  'repeating-linear-gradient(45deg, var(--color-cooldown-hatch), var(--color-cooldown-hatch) 4px, transparent 4px, transparent 8px)',
-              }}
-            >
-              <div className="sticky top-14 text-center">
-                <span className="text-[8px] font-mono uppercase text-muted">CD</span>
-              </div>
-            </div>
-          )}
-        </div>
+        <MitigationBarContent
+          headerClassName={`relative z-10 shadow-[0_6px_12px_var(--color-skill-shadow)] ${
+            skill?.color || 'bg-slate-600'
+          } ${isSelected ? 'ring-2 ring-[#2f81f7]' : ''}`}
+          iconSrc={getSkillIconLocalSrc(skill?.actionId)}
+          iconAlt={skill?.name ?? 'skill icon'}
+          iconFallback={iconFallback}
+          effectHeight={effectHeight}
+          cooldownHeight={cooldownHeight}
+        />
       </div>
 
       {/* 编辑态表单 */}
