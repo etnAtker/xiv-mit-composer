@@ -70,7 +70,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ items, onClose, positi
   return (
     <div
       ref={menuRef}
-      className="fixed z-9999 mimin-w-40ax-w-xs rounded-lg border border-app bg-surface-3 py-1 shadow-2xl backdrop-blur-xl animate-[slide-in-left_0.18s_ease]"
+      className="fixed z-9999 min-w-40 max-w-xs rounded-lg border border-app bg-surface-3 py-1 shadow-2xl backdrop-blur-xl animate-[slide-in-left_0.18s_ease]"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
