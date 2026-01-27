@@ -1,6 +1,7 @@
 import type { Job } from '../../model/types';
 
 const XIVAPI_BASE_URL = 'https://xivapi.com';
+const MAX_CLASSJOB_PAGES = 6;
 
 let classJobIconCache: Promise<Record<string, string>> | null = null;
 
@@ -28,9 +29,7 @@ export const fetchActionIconUrl = async (actionId?: number | null): Promise<stri
 const fetchClassJobIconMap = async (): Promise<Record<string, string>> => {
   const map: Record<string, string> = {};
   let page = 1;
-  let guard = 0;
-
-  while (guard < 6) {
+  for (let pagesFetched = 0; pagesFetched < MAX_CLASSJOB_PAGES; pagesFetched += 1) {
     const data = await fetchJson(
       `${XIVAPI_BASE_URL}/ClassJob?columns=Abbreviation,Icon&page=${page}`,
     );
@@ -44,7 +43,6 @@ const fetchClassJobIconMap = async (): Promise<Record<string, string>> => {
     const nextPage = data?.Pagination?.PageNext;
     if (!nextPage || nextPage === page) break;
     page = nextPage;
-    guard += 1;
   }
 
   return map;
