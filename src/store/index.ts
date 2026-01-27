@@ -48,6 +48,7 @@ interface AppState {
 
   loadFightMetadata: () => Promise<void>;
   loadEvents: () => Promise<void>;
+  loadEventsForPlayers: (players: { id: number; job: Job }[]) => Promise<void>;
 
   addMitEvent: (event: MitEvent) => void;
   updateMitEvent: (id: string, updates: Partial<MitEvent>) => void;
@@ -118,6 +119,7 @@ export const useStore = create<AppState>()(
 
           const actors: Actor[] = report.friendlies
             .filter((f) => f.type !== 'LimitBreak' && f.type !== 'Environment') // 过滤非战斗单位
+            .filter((f) => f.fights?.some((fightRef) => fightRef.id === fightMeta.id))
             .map((f) => ({
               id: f.id,
               name: f.name,
@@ -306,11 +308,169 @@ export const useStore = create<AppState>()(
         }
       },
 
+      loadEventsForPlayers: async (players) => {
+        const { apiKey, fflogsUrl, fight, bossIds } = get();
+        const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
+        if (!apiKey || !reportCode || !fight || players.length === 0) return;
+
+        set({ isLoading: true, isRendering: true, error: null });
+        const client = new FFLogsClient(apiKey);
+
+        try {
+          const primaryPlayerId = players[0]?.id;
+          const damagePromise = primaryPlayerId
+            ? client.fetchEvents<DamageEvent>(
+                reportCode,
+                fight.start,
+                fight.end,
+                primaryPlayerId,
+                false,
+                'damage-taken',
+              )
+            : Promise.resolve<DamageEvent[]>([]);
+
+          const friendlyCastsPromises = players.map(async (player) => {
+            const allowedActionIds = new Set(
+              SKILLS.filter((s) => s.job === player.job || s.job === 'ALL')
+                .map((s) => s.actionId)
+                .filter((id): id is number => !!id),
+            );
+
+            const events = await client.fetchEvents(
+              reportCode,
+              fight.start,
+              fight.end,
+              player.id,
+              false,
+            );
+            const casts = FFLogsProcessor.processFriendlyEvents(
+              events,
+              fight.start,
+              allowedActionIds,
+            );
+            return { casts, job: player.job, playerId: player.id };
+          });
+
+          const enemyCastsPromises = bossIds.map((bossId) =>
+            client.fetchEvents(reportCode, fight.start, fight.end, bossId, true),
+          );
+
+          const [damages, friendlyResults, enemyCastsMatrix] = await Promise.all([
+            damagePromise,
+            Promise.all(friendlyCastsPromises),
+            Promise.all(enemyCastsPromises),
+          ]);
+
+          const flatEnemyEvents = enemyCastsMatrix.flat();
+          const processedEnemyCasts = FFLogsProcessor.processEnemyEvents(
+            flatEnemyEvents,
+            fight.start,
+          );
+
+          const finalCasts: CastEvent[] = processedEnemyCasts
+            .map((e) => ({
+              timestamp: fight.start + e.time * MS_PER_SEC,
+              tMs: e.time * MS_PER_SEC,
+              type: e.type,
+              sourceID: e.sourceID,
+              targetID: 0,
+              ability: { guid: e.actionId, name: e.actionName, type: 0 },
+              originalActionId: e.actionId,
+              isBossEvent: true,
+              isFriendly: false,
+              originalType: e.type as 'cast' | 'begincast',
+              duration: e.duration,
+            }))
+            .sort((a, b) => a.tMs - b.tMs);
+
+          const newMitEvents: MitEvent[] = friendlyResults
+            .flatMap((result) => {
+              return result.casts
+                .map((e): MitEvent | null => {
+                  const skillDef = SKILLS.find((s) => s.actionId === e.actionId);
+                  if (!skillDef) return null;
+
+                  const tStartMs = e.time * MS_PER_SEC;
+                  const durationMs = skillDef.durationSec * MS_PER_SEC;
+
+                  return {
+                    id: crypto.randomUUID(),
+                    eventType: 'mit',
+                    skillId: skillDef.id,
+                    tStartMs: tStartMs,
+                    durationMs: durationMs,
+                    tEndMs: tStartMs + durationMs,
+                  };
+                })
+                .filter((e): e is MitEvent => !!e);
+            })
+            .sort((a, b) => a.tStartMs - b.tStartMs);
+
+          const processTimestamp = (e: DamageEvent): DamageEvent => ({
+            ...e,
+            tMs: e.timestamp - fight.start,
+          });
+          const dict = new Map<number, { calc?: DamageEvent; dmg?: DamageEvent }>();
+          const standaloneEvents: DamageEvent[] = [];
+
+          damages.forEach((e) => {
+            const packetId = e.packetID;
+            if (packetId) {
+              const current = dict.get(packetId) ?? {};
+              if (e.type === 'calculateddamage') current.calc = e;
+              if (e.type === 'damage-taken') current.dmg = e;
+              dict.set(packetId, current);
+            } else {
+              standaloneEvents.push(e);
+            }
+          });
+
+          const combinedDamages: DamageEvent[] = [];
+
+          for (const { calc, dmg } of dict.values()) {
+            if (calc && dmg) {
+              combinedDamages.push({
+                ...dmg,
+                timestamp: calc.timestamp,
+                packetID: calc.packetID,
+                type: 'damage-combined',
+              });
+            } else if (calc) {
+              combinedDamages.push({
+                ...calc,
+                ability: { ...calc.ability, name: `? ${calc.ability.name}` },
+              });
+            } else if (dmg) {
+              combinedDamages.push({
+                ...dmg,
+                ability: { ...dmg.ability, name: `* ${dmg.ability.name}` },
+              });
+            }
+          }
+
+          const finalDamages = [...standaloneEvents, ...combinedDamages].sort(
+            (a, b) => a.timestamp - b.timestamp,
+          );
+
+          const cooldowns = tryBuildCooldowns(newMitEvents) ?? [];
+          set({
+            damageEvents: finalDamages.map(processTimestamp),
+            castEvents: finalCasts,
+            mitEvents: newMitEvents,
+            cooldownEvents: cooldowns,
+            isLoading: false,
+          });
+        } catch (err: unknown) {
+          console.error(err);
+          const msg = err instanceof Error ? err.message : String(err);
+          set({ error: msg || '加载事件失败', isLoading: false, isRendering: false });
+        }
+      },
+
       addMitEvent: (event: MitEvent) => {
         set((state) => {
           const newMits = [...state.mitEvents, event];
-          const cooldownEvents = tryBuildCooldowns(newMits);
-          if (!cooldownEvents) return {};
+          const cooldownEvents = tryBuildCooldowns(newMits) ?? [];
 
           newMits.sort((a, b) => a.tStartMs - b.tStartMs);
           return {

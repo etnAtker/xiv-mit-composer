@@ -1,23 +1,69 @@
-﻿import { SKILLS } from '../data/skills';
+import { useMemo, useState } from 'react';
+import { SKILLS } from '../data/skills';
 import type { Job } from '../model/types';
 import { DraggableSkill } from './Skill/DraggableSkill';
 
 interface Props {
   selectedJob: Job;
+  selectedJobs?: Job[];
 }
 
-export function SkillSidebar({ selectedJob }: Props) {
+export function SkillSidebar({ selectedJob, selectedJobs }: Props) {
+  const jobs =
+    selectedJobs && selectedJobs.length > 0 ? Array.from(new Set(selectedJobs)) : [selectedJob];
+  const [openJobs, setOpenJobs] = useState<Record<Job, boolean>>({
+    PLD: false,
+    WAR: false,
+    DRK: false,
+    GNB: false,
+  });
+
+  const skillGroups = useMemo(
+    () =>
+      jobs.map((job) => ({
+        job,
+        skills: SKILLS.filter((skill) => skill.job === job || skill.job === 'ALL'),
+      })),
+    [jobs],
+  );
+
   return (
-    <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col z-10 shadow-lg">
-      <div className="p-4 border-b border-gray-800 bg-gray-900">
-        <h3 className="font-bold text-gray-300 text-sm uppercase tracking-wide">
-          可用技能 ({selectedJob})
-        </h3>
+    <div className="w-64 bg-surface-2 border-r border-app flex flex-col z-10 shadow-lg">
+      <div className="p-4 border-b border-app bg-surface-2">
+        <h3 className="font-bold text-muted text-sm uppercase tracking-wide">可用技能</h3>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-        {SKILLS.filter((s) => s.job === selectedJob || s.job === 'ALL').map((skill) => (
-          <DraggableSkill key={skill.id} skill={skill} />
-        ))}
+        {skillGroups.map((group) => {
+          const isOpen = openJobs[group.job];
+          return (
+            <div key={group.job} className="rounded-lg border border-app bg-surface-3">
+              <button
+                type="button"
+                onClick={() => setOpenJobs((prev) => ({ ...prev, [group.job]: !prev[group.job] }))}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-xs uppercase tracking-wide text-muted"
+              >
+                <div className="flex items-center gap-2">
+                  <span>{group.job} 技能</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-muted">
+                  <span>{group.skills.length}</span>
+                  <span className={isOpen ? 'rotate-90' : ''}>{'>'}</span>
+                </div>
+              </button>
+              {isOpen && (
+                <div className="px-3 pb-3 pt-1 space-y-2">
+                  {group.skills.map((skill) => (
+                    <DraggableSkill
+                      key={`${group.job}-${skill.id}`}
+                      skill={skill}
+                      jobOverride={group.job}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
