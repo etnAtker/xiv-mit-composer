@@ -17,7 +17,9 @@ export function tryBuildCooldowns(events: MitEvent[]): CooldownEvent[] | void {
 }
 
 interface StackEvent {
-  resourceId: string;
+  resourceKey: string;
+  ownerKey?: string;
+  skillId: string;
   isGroup: boolean;
   type: 'consume' | 'recover';
   cooldownMs: number;
@@ -35,9 +37,13 @@ function buildStackEvents(mitEvents: MitEvent[]): StackEvent[] {
       continue;
     }
 
+    const ownerKey = event.ownerJob ?? (event.ownerId ? String(event.ownerId) : undefined);
+    const skillResourceKey = ownerKey ? `${event.skillId}:${ownerKey}` : event.skillId;
     const skillCooldownMs = skillMeta.cooldownSec * MS_PER_SEC;
     pushStackEvents(stackEvents, {
-      resourceId: event.skillId,
+      resourceKey: skillResourceKey,
+      ownerKey,
+      skillId: event.skillId,
       isGroup: false,
       tStartMs: event.tStartMs,
       cooldownMs: skillCooldownMs,
@@ -52,8 +58,12 @@ function buildStackEvents(mitEvents: MitEvent[]): StackEvent[] {
       }
 
       const groupCooldownMs = cooldownGroupMeta.cooldownSec * MS_PER_SEC;
+      const groupResourceBase = toGroupResourceId(skillGroupId);
+      const groupResourceKey = ownerKey ? `${groupResourceBase}:${ownerKey}` : groupResourceBase;
       pushStackEvents(stackEvents, {
-        resourceId: toGroupResourceId(skillGroupId),
+        resourceKey: groupResourceKey,
+        ownerKey,
+        skillId: event.skillId,
         isGroup: true,
         tStartMs: event.tStartMs,
         cooldownMs: groupCooldownMs,
@@ -66,18 +76,29 @@ function buildStackEvents(mitEvents: MitEvent[]): StackEvent[] {
 
 function pushStackEvents(
   stackEvents: StackEvent[],
-  payload: { resourceId: string; isGroup: boolean; tStartMs: number; cooldownMs: number },
+  payload: {
+    resourceKey: string;
+    ownerKey?: string;
+    skillId: string;
+    isGroup: boolean;
+    tStartMs: number;
+    cooldownMs: number;
+  },
 ): void {
   stackEvents.push(
     {
-      resourceId: payload.resourceId,
+      resourceKey: payload.resourceKey,
+      ownerKey: payload.ownerKey,
+      skillId: payload.skillId,
       isGroup: payload.isGroup,
       type: 'consume',
       cooldownMs: payload.cooldownMs,
       tMs: payload.tStartMs,
     },
     {
-      resourceId: payload.resourceId,
+      resourceKey: payload.resourceKey,
+      ownerKey: payload.ownerKey,
+      skillId: payload.skillId,
       isGroup: payload.isGroup,
       type: 'recover',
       cooldownMs: payload.cooldownMs,
@@ -96,10 +117,12 @@ interface CooldownEventBoundary {
 function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBoundary[]> | void {
   const stacksBuffer = new Map<string, number>();
   const boundaries = new Map<string, CooldownEventBoundary[]>();
+  const getSkillKey = (skillId: string, ownerKey?: string) =>
+    ownerKey ? `${skillId}:${ownerKey}` : skillId;
 
   for (const stackEvent of stackEvents) {
     const initialStack = getInitialStack(stackEvent);
-    let stack = stacksBuffer.get(stackEvent.resourceId) ?? initialStack;
+    let stack = stacksBuffer.get(stackEvent.resourceKey) ?? initialStack;
 
     const stackDelta = stackEvent.type === 'consume' ? -1 : 1;
     stack += stackDelta;
@@ -111,19 +134,19 @@ function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBo
         return [
           {
             skillId,
-            resourceId: stackEvent.resourceId,
+            resourceId: stackEvent.resourceKey,
             tMs: stackEvent.tMs - stackEvent.cooldownMs,
             boundaryType: 'unusedStart',
           },
           {
             skillId,
-            resourceId: stackEvent.resourceId,
+            resourceId: stackEvent.resourceKey,
             tMs: stackEvent.tMs,
             boundaryType: 'unusedEnd',
           },
           {
             skillId,
-            resourceId: stackEvent.resourceId,
+            resourceId: stackEvent.resourceKey,
             tMs: stackEvent.tMs,
             boundaryType: 'cooldownStart',
           },
@@ -134,7 +157,7 @@ function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBo
         return [
           {
             skillId,
-            resourceId: stackEvent.resourceId,
+            resourceId: stackEvent.resourceKey,
             tMs: stackEvent.tMs,
             boundaryType: 'cooldownEnd',
           },
@@ -145,21 +168,23 @@ function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBo
     };
 
     if (!stackEvent.isGroup) {
-      const boundary = boundaries.get(stackEvent.resourceId) || [];
-      boundary.push(...buildBoundary(stackEvent.resourceId));
-      boundaries.set(stackEvent.resourceId, boundary);
+      const skillKey = getSkillKey(stackEvent.skillId, stackEvent.ownerKey);
+      const boundary = boundaries.get(skillKey) || [];
+      boundary.push(...buildBoundary(stackEvent.skillId));
+      boundaries.set(skillKey, boundary);
     } else {
-      const skills = COOLDOWN_GROUP_SKILLS_MAP.get(stripGroupPrefix(stackEvent.resourceId));
+      const skills = COOLDOWN_GROUP_SKILLS_MAP.get(stripGroupPrefix(stackEvent.resourceKey));
       if (!skills) continue;
 
       for (const skill of skills) {
-        const boundary = boundaries.get(skill.id) ?? [];
+        const skillKey = getSkillKey(skill.id, stackEvent.ownerKey);
+        const boundary = boundaries.get(skillKey) ?? [];
         boundary.push(...buildBoundary(skill.id));
-        boundaries.set(skill.id, boundary);
+        boundaries.set(skillKey, boundary);
       }
     }
 
-    stacksBuffer.set(stackEvent.resourceId, stack);
+    stacksBuffer.set(stackEvent.resourceKey, stack);
   }
 
   return boundaries;
@@ -168,14 +193,16 @@ function buildBoundaries(stackEvents: StackEvent[]): Map<string, CooldownEventBo
 function getInitialStack(stackEvent: StackEvent): number {
   if (!stackEvent.isGroup) return 1;
 
-  const cooldownGroupMeta = COOLDOWN_GROUP_MAP.get(stripGroupPrefix(stackEvent.resourceId));
+  const cooldownGroupMeta = COOLDOWN_GROUP_MAP.get(stripGroupPrefix(stackEvent.resourceKey));
   return cooldownGroupMeta?.stack ?? 1;
 }
 
 function buildCooldownEvents(boundaries: Map<string, CooldownEventBoundary[]>): CooldownEvent[] {
   const cooldowns: CooldownEvent[] = [];
 
-  for (const [skillId, bs] of boundaries) {
+  for (const bs of boundaries.values()) {
+    if (!bs.length) continue;
+    const skillId = bs[0].skillId;
     cooldowns.push(...buildCooldownEventsSingle(skillId, bs));
   }
 
@@ -271,5 +298,8 @@ function toGroupResourceId(groupId: string): string {
 }
 
 function stripGroupPrefix(resourceId: string): string {
-  return resourceId.startsWith(GROUP_PREFIX) ? resourceId.slice(GROUP_PREFIX.length) : resourceId;
+  const raw = resourceId.startsWith(GROUP_PREFIX)
+    ? resourceId.slice(GROUP_PREFIX.length)
+    : resourceId;
+  return raw.split(':')[0];
 }

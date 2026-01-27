@@ -1,12 +1,12 @@
-﻿import { DragOverlay } from '@dnd-kit/core';
-import type { MitEvent, Skill } from '../model/types';
+import { DragOverlay } from '@dnd-kit/core';
+import type { Job, MitEvent, Skill } from '../model/types';
 import { MitigationBar } from './Timeline/MitigationBar';
 import { SkillCard } from './Skill/SkillCard';
 import { MS_PER_SEC } from '../constants/time';
 import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './Timeline/timelineUtils';
 
 export type DragOverlayItem =
-  | { type: 'new-skill'; skill: Skill }
+  | { type: 'new-skill'; skill: Skill; ownerJob?: Job }
   | { type: 'existing-mit'; mit: MitEvent };
 
 interface Props {

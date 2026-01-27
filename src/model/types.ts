@@ -43,6 +43,8 @@ export interface MitEvent {
   tStartMs: number;
   durationMs: number;
   tEndMs: number;
+  ownerId?: number;
+  ownerJob?: Job;
 }
 
 export interface CooldownEvent {
