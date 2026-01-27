@@ -22,7 +22,7 @@ export function parseFFLogsUrl(url: string): { reportCode: string; fightId: stri
     }
 
     const reportCode = match[1];
-    const fightId = match[2] || '';
+    const fightId = match[2] || 'last';
 
     return { reportCode, fightId };
   } catch (error) {
