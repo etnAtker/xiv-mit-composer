@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { MitEvent } from '../../model/types';
 import { useStore } from '../../store';
 import { MS_PER_SEC } from '../../constants/time';
@@ -38,6 +38,8 @@ export function useBoxSelection({
   setContextMenu,
   setEditingMitId,
 }: UseBoxSelectionOptions) {
+  const activePointerIdRef = useRef<number | null>(null);
+  const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const [boxSelection, setBoxSelection] = useState<BoxSelectionState>({
     isActive: false,
     startX: 0,
@@ -46,8 +48,8 @@ export function useBoxSelection({
     endY: 0,
   });
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       if (
         e.target === e.currentTarget ||
         (e.target as HTMLElement).tagName === 'svg' ||
@@ -62,6 +64,15 @@ export function useBoxSelection({
         const startX = e.clientX - rect.left;
         const startY = e.clientY - rect.top;
 
+        activePointerIdRef.current = e.pointerId;
+        startPosRef.current = { x: startX, y: startY };
+
+        try {
+          containerEl.setPointerCapture(e.pointerId);
+        } catch {
+          // 捕获失败时依旧允许框选继续（不会中断逻辑）
+        }
+
         setBoxSelection({
           isActive: true,
           startX,
@@ -69,89 +80,117 @@ export function useBoxSelection({
           endX: startX,
           endY: startY,
         });
-
-        const handleWindowMouseMove = (wEvent: MouseEvent) => {
-          const currentRect = containerEl.getBoundingClientRect();
-          setBoxSelection((prev) => ({
-            ...prev,
-            endX: wEvent.clientX - currentRect.left,
-            endY: wEvent.clientY - currentRect.top,
-          }));
-        };
-
-        const handleWindowMouseUp = (wEvent: MouseEvent) => {
-          window.removeEventListener('mousemove', handleWindowMouseMove);
-          window.removeEventListener('mouseup', handleWindowMouseUp);
-
-          const currentRect = containerEl.getBoundingClientRect();
-          const endX = wEvent.clientX - currentRect.left;
-          const endY = wEvent.clientY - currentRect.top;
-
-          const selectionRect = {
-            left: Math.min(startX, endX),
-            top: Math.min(startY, endY),
-            right: Math.max(startX, endX),
-            bottom: Math.max(startY, endY),
-          };
-
-          const newlySelectedIds: string[] = [];
-          const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
-          mitEvents.forEach((mit) => {
-            const columnKey = getMitColumnKey(mit);
-            const columnIndex = columnMap[columnKey];
-            if (columnIndex === undefined) return;
-            const left = mitX + getMitColumnLeft(columnIndex) + MIT_COLUMN_PADDING;
-            const top = (mit.tStartMs / MS_PER_SEC) * zoom;
-            const width = barWidth;
-            const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
-            const skillDef = getSkillDefinition(mit.skillId);
-            const cooldownMs = (skillDef?.cooldownSec ?? 0) * MS_PER_SEC;
-            const cooldownHeight = (cooldownMs / MS_PER_SEC) * zoom;
-            const height = 40 + effectHeight + cooldownHeight;
-
-            if (
-              left >= selectionRect.left &&
-              left + width <= selectionRect.right &&
-              top >= selectionRect.top &&
-              top + height <= selectionRect.bottom
-            ) {
-              newlySelectedIds.push(mit.id);
-            }
-          });
-
-          if (wEvent.ctrlKey || wEvent.metaKey) {
-            const currentSelected = useStore.getState().selectedMitIds;
-            setSelectedMitIds([...new Set([...currentSelected, ...newlySelectedIds])]);
-          } else {
-            setSelectedMitIds(newlySelectedIds);
-          }
-
-          setBoxSelection({
-            isActive: false,
-            startX: 0,
-            startY: 0,
-            endX: 0,
-            endY: 0,
-          });
-        };
-
-        window.addEventListener('mousemove', handleWindowMouseMove);
-        window.addEventListener('mouseup', handleWindowMouseUp);
       }
     },
-    [
-      columnMap,
-      containerId,
-      getMitColumnKey,
-      getMitColumnLeft,
-      mitEvents,
-      mitX,
-      setContextMenu,
-      setEditingMitId,
-      setSelectedMitIds,
-      zoom,
-    ],
+    [containerId, setContextMenu, setEditingMitId],
   );
 
-  return { boxSelection, handleMouseDown };
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointerIdRef.current !== e.pointerId) return;
+    if (!startPosRef.current) return;
+
+    const containerEl = e.currentTarget;
+    const currentRect = containerEl.getBoundingClientRect();
+    setBoxSelection((prev) => ({
+      ...prev,
+      endX: e.clientX - currentRect.left,
+      endY: e.clientY - currentRect.top,
+    }));
+  }, []);
+
+  const handlePointerEnd = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, shouldCommit: boolean) => {
+      if (activePointerIdRef.current !== e.pointerId) return;
+
+      const containerEl = e.currentTarget;
+      if (containerEl.hasPointerCapture(e.pointerId)) {
+        containerEl.releasePointerCapture(e.pointerId);
+      }
+
+      activePointerIdRef.current = null;
+      const startPos = startPosRef.current;
+      startPosRef.current = null;
+
+      if (!shouldCommit || !startPos) {
+        setBoxSelection({
+          isActive: false,
+          startX: 0,
+          startY: 0,
+          endX: 0,
+          endY: 0,
+        });
+        return;
+      }
+
+      const currentRect = containerEl.getBoundingClientRect();
+      const endX = e.clientX - currentRect.left;
+      const endY = e.clientY - currentRect.top;
+
+      const selectionRect = {
+        left: Math.min(startPos.x, endX),
+        top: Math.min(startPos.y, endY),
+        right: Math.max(startPos.x, endX),
+        bottom: Math.max(startPos.y, endY),
+      };
+
+      const newlySelectedIds: string[] = [];
+      const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
+      mitEvents.forEach((mit) => {
+        const columnKey = getMitColumnKey(mit);
+        const columnIndex = columnMap[columnKey];
+        if (columnIndex === undefined) return;
+        const left = mitX + getMitColumnLeft(columnIndex) + MIT_COLUMN_PADDING;
+        const top = (mit.tStartMs / MS_PER_SEC) * zoom;
+        const width = barWidth;
+        const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
+        const skillDef = getSkillDefinition(mit.skillId);
+        const cooldownMs = (skillDef?.cooldownSec ?? 0) * MS_PER_SEC;
+        const cooldownHeight = (cooldownMs / MS_PER_SEC) * zoom;
+        const height = 40 + effectHeight + cooldownHeight;
+
+        if (
+          left >= selectionRect.left &&
+          left + width <= selectionRect.right &&
+          top >= selectionRect.top &&
+          top + height <= selectionRect.bottom
+        ) {
+          newlySelectedIds.push(mit.id);
+        }
+      });
+
+      if (e.ctrlKey || e.metaKey) {
+        const currentSelected = useStore.getState().selectedMitIds;
+        setSelectedMitIds([...new Set([...currentSelected, ...newlySelectedIds])]);
+      } else {
+        setSelectedMitIds(newlySelectedIds);
+      }
+
+      setBoxSelection({
+        isActive: false,
+        startX: 0,
+        startY: 0,
+        endX: 0,
+        endY: 0,
+      });
+    },
+    [columnMap, getMitColumnKey, getMitColumnLeft, mitEvents, mitX, setSelectedMitIds, zoom],
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => handlePointerEnd(e, true),
+    [handlePointerEnd],
+  );
+
+  const handlePointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => handlePointerEnd(e, false),
+    [handlePointerEnd],
+  );
+
+  return {
+    boxSelection,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
+  };
 }

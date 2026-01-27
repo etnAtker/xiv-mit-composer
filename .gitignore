@@ -25,3 +25,6 @@ dist-ssr
 
 # AGENT
 .codex/*
+
+# Icon by CI/CD
+public/xiv-icons/*

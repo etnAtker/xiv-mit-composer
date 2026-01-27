@@ -202,7 +202,13 @@ export function TimelineCanvas({
     return baseSkillId;
   };
 
-  const { boxSelection, handleMouseDown } = useBoxSelection({
+  const {
+    boxSelection,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
+  } = useBoxSelection({
     containerId,
     columnMap,
     mitEvents,
@@ -273,7 +279,10 @@ export function TimelineCanvas({
 
         <div
           style={{ width: totalWidth, height: totalHeight, position: 'relative' }}
-          onMouseDown={handleMouseDown}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
         >
           {boxSelection.isActive && (
             <div
