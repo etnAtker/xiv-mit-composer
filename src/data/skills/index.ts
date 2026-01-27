@@ -165,7 +165,7 @@ export const SKILLS: Skill[] = [
   {
     id: 'drk-dark-mind',
     name: '弃明投暗',
-    cooldownSec: 0.5,
+    cooldownSec: 60,
     durationSec: 10,
     job: 'DRK',
     color: 'bg-purple-500',
