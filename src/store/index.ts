@@ -9,6 +9,7 @@ import {
   type Job,
   type MitEvent,
 } from '../model/types';
+import type { BannerItem, BannerOptions } from '../model/banner';
 import { FFLogsClient } from '../lib/fflogs/client';
 import { FFLogsProcessor } from '../lib/fflogs/processor';
 import { SKILLS, withOwnerSkillId } from '../data/skills';
@@ -34,6 +35,7 @@ export interface AppState {
   castEvents: CastEvent[];
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
+  banners: BannerItem[];
 
   // UI 状态
   isLoading: boolean;
@@ -46,6 +48,8 @@ export interface AppState {
   setSelectedPlayerId: (id: number) => void;
   setSelectedMitIds: (ids: string[]) => void;
   setIsRendering: (is: boolean) => void;
+  pushBanner: (message: string, options?: BannerOptions) => number;
+  closeBanner: (id: number) => void;
 
   loadFightMetadata: () => Promise<void>;
   loadEvents: () => Promise<void>;
@@ -123,6 +127,24 @@ let fightAbortController: AbortController | null = null;
 let eventsRequestSeq = 0;
 let eventsAbortController: AbortController | null = null;
 
+const BANNER_DEFAULT_DURATION_MS = 3000;
+const BANNER_CLOSE_MS = 240;
+const BANNER_MAX = 4;
+let bannerSeq = 0;
+const bannerTimers = new Map<number, number>();
+
+const clearBannerTimer = (id: number) => {
+  const timer = bannerTimers.get(id);
+  if (timer !== undefined) {
+    if (typeof window !== 'undefined') {
+      window.clearTimeout(timer);
+    } else {
+      clearTimeout(timer);
+    }
+    bannerTimers.delete(id);
+  }
+};
+
 const beginFightRequest = () => {
   fightRequestSeq += 1;
   if (fightAbortController) fightAbortController.abort();
@@ -158,6 +180,7 @@ export const useStore = create<AppState>()(
       castEvents: [],
       mitEvents: [],
       cooldownEvents: [],
+      banners: [],
       isLoading: false,
       isRendering: false,
       error: null,
@@ -168,6 +191,79 @@ export const useStore = create<AppState>()(
       setSelectedPlayerId: (id) => set({ selectedPlayerId: id }),
       setSelectedMitIds: (ids) => set({ selectedMitIds: ids }),
       setIsRendering: (is) => set({ isRendering: is }),
+      pushBanner: (message, options) => {
+        const id = ++bannerSeq;
+        const durationMs = options?.durationMs ?? BANNER_DEFAULT_DURATION_MS;
+
+        set((state) => {
+          const next = [
+            ...state.banners,
+            {
+              id,
+              message,
+              tone: options?.tone ?? 'info',
+              closing: false,
+              durationMs,
+            },
+          ];
+
+          if (next.length > BANNER_MAX) {
+            const removalIndex = next.findIndex((item) => item.durationMs !== null);
+            const index = removalIndex === -1 ? 0 : removalIndex;
+            const removed = next[index];
+            if (removed) {
+              clearBannerTimer(removed.id);
+            }
+            return { banners: next.filter((_, i) => i !== index) };
+          }
+
+          return { banners: next };
+        });
+
+        if (durationMs !== null && typeof window !== 'undefined') {
+          const timer = window.setTimeout(() => {
+            set((state) => ({
+              banners: state.banners.map((item) =>
+                item.id === id ? { ...item, closing: true } : item,
+              ),
+            }));
+
+            const closeTimer = window.setTimeout(() => {
+              set((state) => ({
+                banners: state.banners.filter((item) => item.id !== id),
+              }));
+              clearBannerTimer(id);
+            }, BANNER_CLOSE_MS);
+            bannerTimers.set(id, closeTimer);
+          }, durationMs);
+          bannerTimers.set(id, timer);
+        }
+
+        return id;
+      },
+      closeBanner: (id) => {
+        clearBannerTimer(id);
+        set((state) => ({
+          banners: state.banners.map((item) =>
+            item.id === id ? { ...item, closing: true } : item,
+          ),
+        }));
+
+        if (typeof window === 'undefined') {
+          set((state) => ({
+            banners: state.banners.filter((item) => item.id !== id),
+          }));
+          return;
+        }
+
+        const timer = window.setTimeout(() => {
+          set((state) => ({
+            banners: state.banners.filter((item) => item.id !== id),
+          }));
+          clearBannerTimer(id);
+        }, BANNER_CLOSE_MS);
+        bannerTimers.set(id, timer);
+      },
 
       loadFightMetadata: async () => {
         const { requestId, signal } = beginFightRequest();
@@ -176,7 +272,9 @@ export const useStore = create<AppState>()(
 
         if (!apiKey || !reportCode) {
           if (requestId !== fightRequestSeq) return;
-          set({ error: 'FFLogs URL 不合法', isLoading: false });
+          const msg = 'FFLogs URL 不合法';
+          set({ error: msg, isLoading: false });
+          get().pushBanner(msg, { tone: 'error' });
           return;
         }
 
@@ -229,8 +327,10 @@ export const useStore = create<AppState>()(
         } catch (err: unknown) {
           if (requestId !== fightRequestSeq || isAbortError(err, signal)) return;
           console.error(err);
-          const msg = err instanceof Error ? err.message : String(err);
-          set({ error: msg || '加载战斗失败', isLoading: false });
+          const rawMsg = err instanceof Error ? err.message : String(err);
+          const msg = rawMsg || '加载战斗失败';
+          set({ error: msg, isLoading: false });
+          get().pushBanner(msg, { tone: 'error' });
         }
       },
 
@@ -355,8 +455,10 @@ export const useStore = create<AppState>()(
         } catch (err: unknown) {
           if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
           console.error(err);
-          const msg = err instanceof Error ? err.message : String(err);
-          set({ error: msg || '加载事件失败', isLoading: false, isRendering: false });
+          const rawMsg = err instanceof Error ? err.message : String(err);
+          const msg = rawMsg || '加载事件失败';
+          set({ error: msg, isLoading: false, isRendering: false });
+          get().pushBanner(msg, { tone: 'error' });
         }
       },
 
@@ -484,8 +586,10 @@ export const useStore = create<AppState>()(
         } catch (err: unknown) {
           if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
           console.error(err);
-          const msg = err instanceof Error ? err.message : String(err);
-          set({ error: msg || '加载事件失败', isLoading: false, isRendering: false });
+          const rawMsg = err instanceof Error ? err.message : String(err);
+          const msg = rawMsg || '加载事件失败';
+          set({ error: msg, isLoading: false, isRendering: false });
+          get().pushBanner(msg, { tone: 'error' });
         }
       },
 

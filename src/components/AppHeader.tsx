@@ -3,7 +3,6 @@ interface Props {
   fflogsUrl: string;
   isLoading: boolean;
   canExport: boolean;
-  error: string | null;
   theme: 'light' | 'dark';
   onApiKeyChange: (value: string) => void;
   onFflogsUrlChange: (value: string) => void;
@@ -17,7 +16,6 @@ export function AppHeader({
   fflogsUrl,
   isLoading,
   canExport,
-  error,
   theme,
   onApiKeyChange,
   onFflogsUrlChange,
@@ -108,12 +106,6 @@ export function AppHeader({
           </svg>
         </a>
       </div>
-
-      {error && (
-        <div className="absolute top-full left-0 w-full bg-(--color-danger)/90 text-white text-xs px-4 py-2 flex justify-center backdrop-blur-sm z-30">
-          {error}
-        </div>
-      )}
     </div>
   );
 }

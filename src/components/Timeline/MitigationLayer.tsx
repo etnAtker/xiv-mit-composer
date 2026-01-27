@@ -6,6 +6,7 @@ import { fetchJobIconUrl } from '../../lib/xivapi/icons';
 import { XivIcon } from '../XivIcon';
 import { DraggableMitigation } from './DraggableMitigation';
 import { EFFECT_BAR_COLOR, MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
+import { canInsertMitigation } from '../../utils/playerCast';
 
 interface ReprisalGhost {
   mit: MitEvent;
@@ -159,6 +160,16 @@ export function MitigationLayer({
               isEditing={isEditing}
               onEditChange={(val) => setEditingMitId(val ? mit.id : null)}
               editPosition={isEditing ? editPopoverPosition : null}
+              canUpdateStart={(nextStartMs) =>
+                canInsertMitigation(
+                  mit.skillId,
+                  nextStartMs,
+                  mitEvents,
+                  mit.ownerJob ?? undefined,
+                  mit.ownerId ?? undefined,
+                  new Set([mit.id]),
+                )
+              }
               isSelected={selectedMitIds.includes(mit.id)}
               onSelect={(selectedMit, e) => {
                 if (e.ctrlKey || e.metaKey) {
