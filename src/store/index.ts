@@ -212,6 +212,8 @@ export const useStore = create<AppState>()(
                 tStartMs: tStartMs,
                 durationMs: durationMs,
                 tEndMs: tStartMs + durationMs,
+                ownerId: selectedPlayerId ?? undefined,
+                ownerJob: selectedJob ?? undefined,
               };
             })
             .filter((e): e is MitEvent => !!e);
@@ -396,6 +398,8 @@ export const useStore = create<AppState>()(
                   return {
                     id: crypto.randomUUID(),
                     eventType: 'mit',
+                    ownerId: result.playerId,
+                    ownerJob: result.job,
                     skillId: skillDef.id,
                     tStartMs: tStartMs,
                     durationMs: durationMs,
@@ -483,8 +487,7 @@ export const useStore = create<AppState>()(
       updateMitEvent: (id: string, updates: Partial<MitEvent>) => {
         set((state) => {
           const newMits = state.mitEvents.map((e) => (e.id === id ? { ...e, ...updates } : e));
-          const cooldownEvents = tryBuildCooldowns(newMits);
-          if (!cooldownEvents) return {};
+          const cooldownEvents = tryBuildCooldowns(newMits) ?? [];
 
           newMits.sort((a, b) => a.tStartMs - b.tStartMs);
           return {
@@ -497,8 +500,7 @@ export const useStore = create<AppState>()(
       removeMitEvent: (id: string) =>
         set((state) => {
           const newMits = state.mitEvents.filter((e) => e.id !== id);
-          const cooldownEvents = tryBuildCooldowns(newMits);
-          if (!cooldownEvents) return {};
+          const cooldownEvents = tryBuildCooldowns(newMits) ?? [];
 
           return {
             mitEvents: newMits,
@@ -508,8 +510,7 @@ export const useStore = create<AppState>()(
 
       setMitEvents: (events) => {
         events.sort((a, b) => a.tStartMs - b.tStartMs);
-        const cooldownEvents = tryBuildCooldowns(events);
-        if (!cooldownEvents) return;
+        const cooldownEvents = tryBuildCooldowns(events) ?? [];
         set({ mitEvents: events, cooldownEvents });
       },
     }),

@@ -125,6 +125,14 @@ export default function App() {
   ]);
 
   const pixelsToMs = (pixels: number) => (pixels / zoom) * MS_PER_SEC;
+  const resolveOwnerContext = (job?: Job) => {
+    const resolvedJob = job ?? selectedJob ?? undefined;
+    if (loadMode === 'dual') {
+      const match = dualTankPlayers.find((player) => player.job === resolvedJob);
+      return { ownerJob: resolvedJob, ownerId: match?.id ?? undefined };
+    }
+    return { ownerJob: resolvedJob, ownerId: selectedPlayerId ?? undefined };
+  };
 
   const getEventsToExport = () => {
     const { castEvents, mitEvents } = useStore.getState();
@@ -145,7 +153,7 @@ export default function App() {
           actionId: skill?.actionId || 0,
           type: 'cast',
           isFriendly: true,
-          sourceId: selectedPlayerId || 0,
+          sourceId: m.ownerId ?? selectedPlayerId ?? 0,
         };
       }),
     ].sort((a, b) => a.time - b.time);
@@ -257,10 +265,13 @@ export default function App() {
     skillId: string,
     tStartMs: number,
     id = crypto.randomUUID(),
+    ownerJob?: Job,
+    ownerId?: number,
   ): MitEvent | null => {
     const skillDef = SKILLS.find((s) => s.id === skillId);
     if (!skillDef) return null;
     const durationMs = skillDef.durationSec * MS_PER_SEC;
+    const resolvedOwner = resolveOwnerContext(ownerJob);
     return {
       eventType: 'mit',
       id,
@@ -268,7 +279,33 @@ export default function App() {
       tStartMs,
       durationMs,
       tEndMs: tStartMs + durationMs,
+      ownerId: ownerId ?? resolvedOwner.ownerId,
+      ownerJob: resolvedOwner.ownerJob,
     };
+  };
+
+  const isInCooldownShadow = (
+    skillId: string,
+    startMs: number,
+    excludeIds: Set<string>,
+    allEvents: MitEvent[],
+    ownerJob?: Job,
+    ownerId?: number,
+  ) => {
+    const skillDef = SKILLS.find((s) => s.id === skillId);
+    if (!skillDef) return false;
+    const cooldownMs = skillDef.cooldownSec * MS_PER_SEC;
+
+    return allEvents.some((event) => {
+      if (excludeIds.has(event.id)) return false;
+      if (event.skillId !== skillId) return false;
+      if (ownerId && event.ownerId && event.ownerId !== ownerId) return false;
+      if (!ownerId && ownerJob && event.ownerJob && event.ownerJob !== ownerJob) return false;
+
+      const effectEnd = event.tStartMs + event.durationMs;
+      const cdEnd = effectEnd + cooldownMs;
+      return startMs >= effectEnd && startMs < cdEnd;
+    });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -287,7 +324,11 @@ export default function App() {
 
     if (type === 'new-skill') {
       const skill = active.data.current?.skill as Skill;
-      const newMit = buildMitEventFromSkill(skill.id, tStartMs);
+      const { ownerJob, ownerId } = resolveOwnerContext(active.data.current?.ownerJob);
+      if (isInCooldownShadow(skill.id, tStartMs, new Set(), mitEvents, ownerJob, ownerId)) {
+        return;
+      }
+      const newMit = buildMitEventFromSkill(skill.id, tStartMs, undefined, ownerJob, ownerId);
       if (!newMit) return;
 
       addMitEvent(newMit);
@@ -303,10 +344,23 @@ export default function App() {
         eventsToMove = [mit];
       }
 
+      const movingIds = new Set(eventsToMove.map((m) => m.id));
       const movedEvents = eventsToMove
         .map((m) => {
           const newStart = m.tStartMs + deltaMs;
           if (newStart < 0) return;
+          if (
+            isInCooldownShadow(
+              m.skillId,
+              newStart,
+              movingIds,
+              mitEvents,
+              m.ownerJob ?? undefined,
+              m.ownerId ?? undefined,
+            )
+          ) {
+            return;
+          }
 
           return {
             ...m,
