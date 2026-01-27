@@ -2,7 +2,6 @@ import type { Job } from '../../model/types';
 import type { TimelineSkillColumn } from './types';
 import { XivIcon } from '../XivIcon';
 import { JOB_ICON_LOCAL_SRC, getSkillIconLocalSrc } from '../../data/icons';
-import { fetchActionIconUrl, fetchJobIconUrl } from '../../lib/xivapi/icons';
 import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 import { MIT_COLUMN_WIDTH } from './timelineUtils';
 
@@ -86,7 +85,6 @@ export function TimelineHeader({
             {primaryJob ? (
               <XivIcon
                 localSrc={JOB_ICON_LOCAL_SRC[primaryJob]}
-                remoteSrc={() => fetchJobIconUrl(primaryJob)}
                 alt={`${primaryJob} icon`}
                 className="h-5 w-5 object-contain"
                 fallback={primaryJob}
@@ -113,7 +111,6 @@ export function TimelineHeader({
                 <div className="flex items-center gap-2">
                   <XivIcon
                     localSrc={JOB_ICON_LOCAL_SRC[job]}
-                    remoteSrc={() => fetchJobIconUrl(job)}
                     alt={`${job} icon`}
                     className="h-5 w-5 object-contain"
                     fallback={job}
@@ -130,9 +127,6 @@ export function TimelineHeader({
                   >
                     <XivIcon
                       localSrc={getSkillIconLocalSrc(skill.actionId)}
-                      remoteSrc={
-                        skill.actionId ? () => fetchActionIconUrl(skill.actionId) : undefined
-                      }
                       alt={skill.name}
                       className="h-full w-full object-cover"
                       fallback={skill.icon ?? skill.name.slice(0, 1)}
@@ -157,7 +151,6 @@ export function TimelineHeader({
                   {secondaryJob ? (
                     <XivIcon
                       localSrc={JOB_ICON_LOCAL_SRC[secondaryJob]}
-                      remoteSrc={() => fetchJobIconUrl(secondaryJob)}
                       alt={`${secondaryJob} icon`}
                       className="h-5 w-5 object-contain"
                       fallback={secondaryJob}
@@ -189,9 +182,6 @@ export function TimelineHeader({
                 >
                   <XivIcon
                     localSrc={getSkillIconLocalSrc(skill.actionId)}
-                    remoteSrc={
-                      skill.actionId ? () => fetchActionIconUrl(skill.actionId) : undefined
-                    }
                     alt={skill.name}
                     className="h-full w-full object-cover"
                     fallback={skill.icon ?? skill.name.slice(0, 1)}

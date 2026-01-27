@@ -3,7 +3,6 @@ import { cn } from '../../utils';
 import { XivIcon } from '../XivIcon';
 import { JOB_ICON_LOCAL_SRC, getSkillIconLocalSrc } from '../../data/icons';
 import { COOLDOWN_GROUP_MAP } from '../../data/skills';
-import { fetchActionIconUrl, fetchJobIconUrl } from '../../lib/xivapi/icons';
 
 interface Props {
   skill: Skill;
@@ -30,7 +29,6 @@ export function SkillCard({ skill, className, job }: Props) {
       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-[#0b1f3a]/40">
         <XivIcon
           localSrc={getSkillIconLocalSrc(skill.actionId)}
-          remoteSrc={skill.actionId ? () => fetchActionIconUrl(skill.actionId) : undefined}
           alt={skill.name}
           className="h-full w-full object-cover"
           fallback={skill.name.slice(0, 1)}
@@ -52,7 +50,6 @@ export function SkillCard({ skill, className, job }: Props) {
         <div className="absolute bottom-1 right-1 h-4 w-4 overflow-hidden rounded-sm bg-[#0b1f3a]/50">
           <XivIcon
             localSrc={JOB_ICON_LOCAL_SRC[displayJob]}
-            remoteSrc={() => fetchJobIconUrl(displayJob)}
             alt={`${displayJob} icon`}
             className="h-full w-full object-cover"
             fallback={displayJob}

@@ -4,7 +4,6 @@ import type { Job } from '../model/types';
 import { DraggableSkill } from './Skill/DraggableSkill';
 import { XivIcon } from './XivIcon';
 import { JOB_ICON_LOCAL_SRC } from '../data/icons';
-import { fetchJobIconUrl } from '../lib/xivapi/icons';
 
 interface Props {
   selectedJob: Job;
@@ -55,7 +54,6 @@ export function SkillSidebar({ selectedJob, selectedJobs }: Props) {
                   <span>{group.skills.length}</span>
                   <XivIcon
                     localSrc={JOB_ICON_LOCAL_SRC[group.job]}
-                    remoteSrc={() => fetchJobIconUrl(group.job)}
                     alt={`${group.job} icon`}
                     className="h-4 w-4 object-contain"
                     fallback={group.job}

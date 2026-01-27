@@ -6,7 +6,6 @@ import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
 import { getSkillDefinition } from '../../data/skills';
 import { XivIcon } from '../XivIcon';
 import { getSkillIconLocalSrc } from '../../data/icons';
-import { fetchActionIconUrl } from '../../lib/xivapi/icons';
 import { EFFECT_BAR_COLOR } from './timelineUtils';
 import { useTopBanner } from '../../hooks/useTopBanner';
 
@@ -153,7 +152,6 @@ export function DraggableMitigation({
           >
             <XivIcon
               localSrc={getSkillIconLocalSrc(skill?.actionId)}
-              remoteSrc={skill?.actionId ? () => fetchActionIconUrl(skill.actionId) : undefined}
               alt={skill?.name ?? 'skill icon'}
               className="h-full w-full object-cover"
               fallback={iconFallback}

@@ -2,7 +2,6 @@ import type { Job, MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
 import { getSkillDefinition, normalizeSkillId } from '../../data/skills';
 import { JOB_ICON_LOCAL_SRC } from '../../data/icons';
-import { fetchJobIconUrl } from '../../lib/xivapi/icons';
 import { XivIcon } from '../XivIcon';
 import { DraggableMitigation } from './DraggableMitigation';
 import { EFFECT_BAR_COLOR, MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
@@ -149,7 +148,6 @@ export function MitigationLayer({
               >
                 <XivIcon
                   localSrc={JOB_ICON_LOCAL_SRC[iconJob]}
-                  remoteSrc={() => fetchJobIconUrl(iconJob)}
                   alt={`${iconJob} icon`}
                   className="h-full w-full object-cover"
                   fallback={iconJob}

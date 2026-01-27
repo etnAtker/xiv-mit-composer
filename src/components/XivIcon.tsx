@@ -1,34 +1,19 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { cn } from '../utils';
 
 interface Props {
   localSrc?: string;
-  remoteSrc?: () => Promise<string | null>;
   alt: string;
   className?: string;
   fallback?: string;
 }
 
-function XivIconInner({ localSrc = '', remoteSrc, alt, className, fallback }: Props) {
-  const [src, setSrc] = useState(localSrc);
+function XivIconInner({ localSrc = '', alt, className, fallback }: Props) {
   const [failed, setFailed] = useState(false);
-  const triedRemote = useRef(false);
+  const src = localSrc;
 
   const handleError = () => {
-    if (!remoteSrc || triedRemote.current) {
-      setFailed(true);
-      return;
-    }
-    triedRemote.current = true;
-    remoteSrc()
-      .then((url) => {
-        if (url) {
-          setSrc(url);
-        } else {
-          setFailed(true);
-        }
-      })
-      .catch(() => setFailed(true));
+    setFailed(true);
   };
 
   if (!src || failed) {
