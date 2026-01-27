@@ -1,6 +1,9 @@
 import type { Actor, Fight, Job } from '../model/types';
 import { cn } from '../utils';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../constants/time';
+import { XivIcon } from './XivIcon';
+import { JOB_ICON_LOCAL_SRC } from '../data/icons';
+import { fetchJobIconUrl } from '../lib/xivapi/icons';
 
 interface Props {
   fight: Fight;
@@ -78,6 +81,13 @@ export function FightInfoBar({
                   : 'hover:bg-surface-4 text-muted hover:text-app',
               )}
             >
+              <XivIcon
+                localSrc={JOB_ICON_LOCAL_SRC[job]}
+                remoteSrc={() => fetchJobIconUrl(job)}
+                alt={`${job} icon`}
+                className="h-4 w-4 object-contain"
+                fallback={job}
+              />
               <span>{job}</span>
             </button>
           ))}
