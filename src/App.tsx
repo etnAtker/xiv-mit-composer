@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/shallow';
 import { type Actor, type Job, type MitEvent, type Skill } from './model/types';
 import { useStore } from './store';
 import { selectAppActions, selectAppState } from './store/selectors';
-import { getSkillDefinition, withOwnerSkillId } from './data/skills';
+import { getSkillDefinition, normalizeSkillId, withOwnerSkillId } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { AppHeader } from './components/AppHeader';
 import { DragOverlayLayer, type DragOverlayItem } from './components/DragOverlayLayer';
@@ -18,7 +18,7 @@ import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
-import { canUseSkillAt } from './utils/playerCast';
+import { tryBuildCooldowns } from './utils/playerCast';
 import { getStoredTheme, setStoredTheme } from './utils';
 
 export default function App() {
@@ -292,6 +292,12 @@ export default function App() {
     };
   };
 
+  const buildOwnerKey = (ownerId?: number, ownerJob?: Job) => {
+    if (typeof ownerId === 'number') return `id:${ownerId}`;
+    if (ownerJob) return `job:${ownerJob}`;
+    return undefined;
+  };
+
   const canInsertMitigation = (
     skillId: string,
     startMs: number,
@@ -299,15 +305,32 @@ export default function App() {
     allEvents: MitEvent[],
     ownerJob?: Job,
     ownerId?: number,
-  ) =>
-    canUseSkillAt({
-      skillId,
-      tStartMs: startMs,
-      events: allEvents,
-      excludeIds,
-      ownerJob,
-      ownerId,
-    });
+  ) => {
+    const baseSkillId = normalizeSkillId(skillId);
+    const skillMeta = getSkillDefinition(baseSkillId);
+    if (!skillMeta) {
+      console.error(`错误：未找到技能 ${baseSkillId} 的定义。`);
+      return false;
+    }
+
+    const filteredEvents = excludeIds.size
+      ? allEvents.filter((event) => !excludeIds.has(event.id))
+      : allEvents;
+    const cooldownEvents = tryBuildCooldowns(filteredEvents) ?? [];
+    const ownerKey = buildOwnerKey(ownerId, ownerJob);
+
+    for (const cooldown of cooldownEvents) {
+      if (cooldown.skillId !== baseSkillId) continue;
+      const matchesOwner =
+        !ownerKey || !cooldown.ownerKey || (ownerKey && cooldown.ownerKey === ownerKey);
+      if (!matchesOwner) continue;
+      if (startMs >= cooldown.tStartMs && startMs < cooldown.tEndMs) {
+        return false;
+      }
+    }
+
+    return true;
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveItem(null);
