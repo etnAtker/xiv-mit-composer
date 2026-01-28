@@ -7,13 +7,19 @@ import type { DragItemData } from '../dnd/types';
 interface Props {
   activeItem: DragItemData | null;
   zoom: number;
+  isInvalid?: boolean;
 }
 
-export function DragOverlayLayer({ activeItem, zoom }: Props) {
+export function DragOverlayLayer({ activeItem, zoom, isInvalid }: Props) {
   return (
     <DragOverlay>
       {activeItem?.type === 'new-skill' && (
-        <SkillCard skill={activeItem.skill} className="opacity-90 shadow-2xl scale-105" />
+        <SkillCard
+          skill={activeItem.skill}
+          className={`opacity-90 shadow-2xl scale-105 ${
+            isInvalid ? 'border-red-500 bg-red-500/20' : ''
+          }`}
+        />
       )}
       {activeItem?.type === 'existing-mit' && (
         <MitigationBar
@@ -21,6 +27,7 @@ export function DragOverlayLayer({ activeItem, zoom }: Props) {
           width={MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2}
           zoom={zoom}
           isOverlay
+          isInvalid={isInvalid}
         />
       )}
     </DragOverlay>
