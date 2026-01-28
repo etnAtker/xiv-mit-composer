@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
 import { getSkillDefinition } from '../../data/skills';
-import { getMitigationBarHeights } from './mitigationBarUtils';
+import { getMitigationBarHeights, MITIGATION_HEADER_HEIGHT } from './mitigationBarUtils';
 import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
 
 interface BoxSelectionState {
@@ -51,6 +51,8 @@ export function useBoxSelection({
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-box-select-ignore="true"]')) return;
       if (e.currentTarget.contains(e.target as Node)) {
         e.preventDefault();
         setContextMenu(null);
@@ -130,6 +132,11 @@ export function useBoxSelection({
         bottom: Math.max(startPos.y, endY),
       };
 
+      const rectsIntersect = (
+        a: { left: number; top: number; right: number; bottom: number },
+        b: { left: number; top: number; right: number; bottom: number },
+      ) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+
       const newlySelectedIds: string[] = [];
       const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
       mitEvents.forEach((mit) => {
@@ -141,14 +148,14 @@ export function useBoxSelection({
         const width = barWidth;
         const skillDef = getSkillDefinition(mit.skillId);
         const { totalHeight } = getMitigationBarHeights(mit, zoom, skillDef);
-        const height = totalHeight;
+        const iconRect = {
+          left,
+          top,
+          right: left + width,
+          bottom: top + Math.min(totalHeight, MITIGATION_HEADER_HEIGHT),
+        };
 
-        if (
-          left >= selectionRect.left &&
-          left + width <= selectionRect.right &&
-          top >= selectionRect.top &&
-          top + height <= selectionRect.bottom
-        ) {
+        if (rectsIntersect(selectionRect, iconRect)) {
           newlySelectedIds.push(mit.id);
         }
       });
