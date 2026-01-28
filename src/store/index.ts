@@ -67,6 +67,113 @@ export interface AppState {
 const SKILL_BY_ACTION_ID = new Map(SKILLS.map((skill) => [skill.actionId, skill]));
 const getSkillByActionId = (actionId: number) => SKILL_BY_ACTION_ID.get(actionId);
 
+interface LoadEventsPlayer {
+  id: number;
+  job?: Job;
+}
+
+interface LoadEventsCoreResult {
+  damageEvents: DamageEvent[];
+  damageEventsByJob: Partial<Record<Job, DamageEvent[]>>;
+  castEvents: CastEvent[];
+  mitEvents: MitEvent[];
+  cooldownEvents: CooldownEvent[];
+}
+
+const loadEventsCore = async ({
+  client,
+  reportCode,
+  fight,
+  bossIds,
+  players,
+  signal,
+}: {
+  client: FFLogsClient;
+  reportCode: string;
+  fight: Fight;
+  bossIds: number[];
+  players: LoadEventsPlayer[];
+  signal: AbortSignal;
+}): Promise<LoadEventsCoreResult> => {
+  const friendlyCastsPromises = players.map(async (player) => {
+    const allowedActionIds = new Set(
+      SKILLS.filter((s) => s.job === player.job || s.job === 'ALL')
+        .map((s) => s.actionId)
+        .filter((id): id is number => !!id),
+    );
+
+    const events = await client.fetchEvents(
+      reportCode,
+      fight.start,
+      fight.end,
+      player.id,
+      false,
+      'casts',
+      signal,
+    );
+    const casts = FFLogsProcessor.processFriendlyEvents(events, fight.start, allowedActionIds);
+    return { casts, job: player.job, playerId: player.id };
+  });
+
+  const enemyCastsPromises = bossIds.map((bossId) =>
+    client.fetchEvents(reportCode, fight.start, fight.end, bossId, true, 'casts', signal),
+  );
+
+  const damagePromises = players.map(async (player) => ({
+    job: player.job,
+    playerId: player.id,
+    events: await client.fetchEvents<DamageEvent>(
+      reportCode,
+      fight.start,
+      fight.end,
+      player.id,
+      false,
+      'damage-taken',
+      signal,
+    ),
+  }));
+
+  const [damagesByPlayer, friendlyResults, enemyCastsMatrix] = await Promise.all([
+    Promise.all(damagePromises),
+    Promise.all(friendlyCastsPromises),
+    Promise.all(enemyCastsPromises),
+  ]);
+
+  const flatEnemyEvents = enemyCastsMatrix.flat();
+  const processedEnemyCasts = FFLogsProcessor.processEnemyEvents(flatEnemyEvents, fight.start);
+  const castEvents = buildCastEvents(processedEnemyCasts, fight.start);
+
+  const mitEvents = buildMitEvents(
+    friendlyResults.map((result) => ({
+      casts: result.casts,
+      ownerJob: result.job,
+      ownerId: result.playerId,
+    })),
+    getSkillByActionId,
+    withOwnerSkillId,
+  );
+
+  const cooldownEvents = tryBuildCooldowns(mitEvents) ?? [];
+  const primaryDamageEvents = damagesByPlayer[0]
+    ? mergeDamageEvents(damagesByPlayer[0].events, fight.start)
+    : [];
+
+  const jobBatches = damagesByPlayer
+    .filter((entry): entry is { job: Job; playerId: number; events: DamageEvent[] } => !!entry.job)
+    .map((entry) => ({ job: entry.job, events: entry.events }));
+  const damageEventsByJob = jobBatches.length
+    ? buildDamageEventsByJob(jobBatches, fight.start)
+    : {};
+
+  return {
+    damageEvents: primaryDamageEvents,
+    damageEventsByJob,
+    castEvents,
+    mitEvents,
+    cooldownEvents,
+  };
+};
+
 let fightRequestSeq = 0;
 let fightAbortController: AbortController | null = null;
 let eventsRequestSeq = 0;
@@ -292,80 +399,23 @@ export const useStore = create<AppState>()(
         const client = new FFLogsClient(apiKey);
 
         try {
-          // 获取承伤事件
-          const damagePromise = client.fetchEvents<DamageEvent>(
-            reportCode,
-            fight.start,
-            fight.end,
-            selectedPlayerId,
-            false,
-            'damage-taken',
-            signal,
-          );
-
-          // 获取友方施法事件并按技能表过滤
-          const allowedActionIds = new Set(
-            SKILLS.filter((s) => s.job === selectedJob || s.job === 'ALL')
-              .map((s) => s.actionId)
-              .filter((id): id is number => !!id),
-          );
-
-          const friendlyCastsPromise = client
-            .fetchEvents(
+          const { damageEvents, damageEventsByJob, castEvents, mitEvents, cooldownEvents } =
+            await loadEventsCore({
+              client,
               reportCode,
-              fight.start,
-              fight.end,
-              selectedPlayerId,
-              false,
-              'casts',
+              fight,
+              bossIds,
+              players: [{ id: selectedPlayerId, job: selectedJob ?? undefined }],
               signal,
-            )
-            .then((events) =>
-              FFLogsProcessor.processFriendlyEvents(events, fight.start, allowedActionIds),
-            );
-
-          // 获取敌方施法事件（覆盖所有检测到的 Boss）
-          const enemyCastsPromises = bossIds.map((bossId) =>
-            client.fetchEvents(reportCode, fight.start, fight.end, bossId, true, 'casts', signal),
-          );
-
-          const [damages, friendlyCasts, enemyCastsMatrix] = await Promise.all([
-            damagePromise,
-            friendlyCastsPromise,
-            Promise.all(enemyCastsPromises),
-          ]);
+            });
           if (requestId !== eventsRequestSeq || signal.aborted) return;
 
-          const flatEnemyEvents = enemyCastsMatrix.flat();
-          const processedEnemyCasts = FFLogsProcessor.processEnemyEvents(
-            flatEnemyEvents,
-            fight.start,
-          );
-
-          const newMitEvents = buildMitEvents(
-            [
-              {
-                casts: friendlyCasts,
-                ownerJob: selectedJob ?? undefined,
-                ownerId: selectedPlayerId ?? undefined,
-              },
-            ],
-            getSkillByActionId,
-            withOwnerSkillId,
-          );
-
-          const finalCasts = buildCastEvents(processedEnemyCasts, fight.start);
-
-          // 按 packetID 合并同一条伤害记录
-          const cooldowns = tryBuildCooldowns(newMitEvents) ?? [];
-          const mergedDamages = mergeDamageEvents(damages, fight.start);
-          const damageEventsByJob = selectedJob ? { [selectedJob]: mergedDamages } : {};
           set({
-            damageEvents: mergedDamages,
+            damageEvents,
             damageEventsByJob,
-            castEvents: finalCasts,
-            mitEvents: newMitEvents,
-            cooldownEvents: cooldowns,
+            castEvents,
+            mitEvents,
+            cooldownEvents,
             isLoading: false,
             // 等待 Timeline 通知渲染完成后再取消遮罩
           });
@@ -389,82 +439,25 @@ export const useStore = create<AppState>()(
         const client = new FFLogsClient(apiKey);
 
         try {
-          const friendlyCastsPromises = players.map(async (player) => {
-            const allowedActionIds = new Set(
-              SKILLS.filter((s) => s.job === player.job || s.job === 'ALL')
-                .map((s) => s.actionId)
-                .filter((id): id is number => !!id),
-            );
-
-            const events = await client.fetchEvents(
+          const { damageEvents, damageEventsByJob, castEvents, mitEvents, cooldownEvents } =
+            await loadEventsCore({
+              client,
               reportCode,
-              fight.start,
-              fight.end,
-              player.id,
-              false,
-              'casts',
+              fight,
+              bossIds,
+              players,
               signal,
-            );
-            const casts = FFLogsProcessor.processFriendlyEvents(
-              events,
-              fight.start,
-              allowedActionIds,
-            );
-            return { casts, job: player.job, playerId: player.id };
-          });
-
-          const enemyCastsPromises = bossIds.map((bossId) =>
-            client.fetchEvents(reportCode, fight.start, fight.end, bossId, true, 'casts', signal),
-          );
-
-          const damagePromises = players.map(async (player) => ({
-            job: player.job,
-            events: await client.fetchEvents<DamageEvent>(
-              reportCode,
-              fight.start,
-              fight.end,
-              player.id,
-              false,
-              'damage-taken',
-              signal,
-            ),
-          }));
-
-          const [damagesByJob, friendlyResults, enemyCastsMatrix] = await Promise.all([
-            Promise.all(damagePromises),
-            Promise.all(friendlyCastsPromises),
-            Promise.all(enemyCastsPromises),
-          ]);
+            });
           if (requestId !== eventsRequestSeq || signal.aborted) return;
 
-          const flatEnemyEvents = enemyCastsMatrix.flat();
-          const processedEnemyCasts = FFLogsProcessor.processEnemyEvents(
-            flatEnemyEvents,
-            fight.start,
-          );
-
-          const finalCasts = buildCastEvents(processedEnemyCasts, fight.start);
-
-          const newMitEvents = buildMitEvents(
-            friendlyResults.map((result) => ({
-              casts: result.casts,
-              ownerJob: result.job,
-              ownerId: result.playerId,
-            })),
-            getSkillByActionId,
-            withOwnerSkillId,
-          );
-
-          const cooldowns = tryBuildCooldowns(newMitEvents) ?? [];
-          const damageEventsByJob = buildDamageEventsByJob(damagesByJob, fight.start);
           const primaryJob = players[0]?.job;
-          const primaryDamages = primaryJob ? (damageEventsByJob[primaryJob] ?? []) : [];
+          const primaryDamages = primaryJob ? (damageEventsByJob[primaryJob] ?? []) : damageEvents;
           set({
             damageEvents: primaryDamages,
             damageEventsByJob,
-            castEvents: finalCasts,
-            mitEvents: newMitEvents,
-            cooldownEvents: cooldowns,
+            castEvents,
+            mitEvents,
+            cooldownEvents,
             isLoading: false,
           });
         } catch (err: unknown) {

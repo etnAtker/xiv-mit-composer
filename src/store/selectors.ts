@@ -8,6 +8,7 @@ export const selectAppState = (state: AppState) => ({
   selectedJob: state.selectedJob,
   selectedPlayerId: state.selectedPlayerId,
   mitEvents: state.mitEvents,
+  cooldownEvents: state.cooldownEvents,
   castEvents: state.castEvents,
   isLoading: state.isLoading,
   isRendering: state.isRendering,

@@ -35,6 +35,7 @@ export function canInsertMitigation(
   ownerJob?: Job,
   ownerId?: number,
   excludeIds?: Set<string>,
+  cooldownEvents?: CooldownEvent[],
 ): boolean {
   const baseSkillId = normalizeSkillId(skillId);
   const skillMeta = getSkillDefinition(baseSkillId);
@@ -43,14 +44,18 @@ export function canInsertMitigation(
     return false;
   }
 
-  const filteredEvents =
-    excludeIds && excludeIds.size
-      ? allEvents.filter((event) => !excludeIds.has(event.id))
-      : allEvents;
-  const cooldownEvents = tryBuildCooldowns(filteredEvents) ?? [];
+  const resolvedCooldownEvents =
+    cooldownEvents ??
+    (() => {
+      const filteredEvents =
+        excludeIds && excludeIds.size
+          ? allEvents.filter((event) => !excludeIds.has(event.id))
+          : allEvents;
+      return tryBuildCooldowns(filteredEvents) ?? [];
+    })();
   const ownerKey = buildOwnerKey(ownerId, ownerJob);
 
-  for (const cooldown of cooldownEvents) {
+  for (const cooldown of resolvedCooldownEvents) {
     if (cooldown.skillId !== baseSkillId) continue;
     const matchesOwner =
       !ownerKey || !cooldown.ownerKey || (ownerKey && cooldown.ownerKey === ownerKey);
