@@ -185,6 +185,7 @@ export function MitigationLayer({
         return (
           <div
             key={mit.id}
+            data-box-select-ignore="true"
             style={{
               position: 'absolute',
               top,
