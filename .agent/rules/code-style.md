@@ -6,3 +6,6 @@ trigger: always_on
 2. 注释应仅有说明代码目的的文本，不应该有注释掉的代码、猜测性、思考性文本；
 3. 在实现完需求后，应使用eslint和build验证语法错误。
 4. commit格式按照类似`fix: 修复了一些BUG`的形式。
+
+- 提交类型需要贴切表示commit类型，常见的有`refactor`、`chore`、`style`、`docs`、`feat`、`ci`等。
+- 如果修改了多个文件，需要在commit详情里详细列举主要的变更点。
