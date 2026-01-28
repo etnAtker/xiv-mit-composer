@@ -21,7 +21,7 @@ import { TrashDropZone } from './components/TrashDropZone';
 import { useTopBanner } from './hooks/useTopBanner';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
-import { canInsertMitigation } from './utils/playerCast';
+import { canInsertMitigation, tryBuildCooldowns } from './utils/playerCast';
 import { getStoredTheme, setStoredTheme } from './utils';
 import type { DragItemData, DropZoneData } from './dnd/types';
 
@@ -34,6 +34,7 @@ export default function App() {
     selectedJob,
     selectedPlayerId,
     mitEvents,
+    cooldownEvents,
     castEvents,
     isLoading,
     isRendering,
@@ -333,7 +334,17 @@ export default function App() {
 
     if (item.type === 'new-skill') {
       const { ownerJob, ownerId } = resolveOwnerContext(item.ownerJob);
-      if (!canInsertMitigation(item.skill.id, tStartMs, mitEvents, ownerJob, ownerId)) {
+      if (
+        !canInsertMitigation(
+          item.skill.id,
+          tStartMs,
+          mitEvents,
+          ownerJob,
+          ownerId,
+          undefined,
+          cooldownEvents,
+        )
+      ) {
         push('冷却中，无法放置该技能。', { tone: 'error' });
         return;
       }
@@ -357,6 +368,8 @@ export default function App() {
     }
 
     const movingIds = new Set(eventsToMove.map((m) => m.id));
+    const cooldownEventsForMove =
+      tryBuildCooldowns(mitEvents.filter((m) => !movingIds.has(m.id))) ?? [];
     const movedEvents = eventsToMove
       .map((m) => {
         const newStart = m.tStartMs + deltaMs;
@@ -368,7 +381,8 @@ export default function App() {
             mitEvents,
             m.ownerJob ?? undefined,
             m.ownerId ?? undefined,
-            movingIds,
+            undefined,
+            cooldownEventsForMove,
           )
         ) {
           return;
