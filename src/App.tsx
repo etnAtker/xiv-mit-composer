@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useShallow } from 'zustand/shallow';
-import { type Actor, type Job, type MitEvent } from './model/types';
+import { type Actor, type CooldownEvent, type Job, type MitEvent } from './model/types';
 import { useStore } from './store';
 import { selectAppActions, selectAppState } from './store/selectors';
 import { getSkillDefinition, withOwnerSkillId } from './data/skills';
@@ -59,8 +59,12 @@ export default function App() {
   const [enableTTS, setEnableTTS] = useState(false);
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const [dragPreviewPx, setDragPreviewPx] = useState(0);
+  const [dragInvalid, setDragInvalid] = useState(false);
   const dragPreviewRef = useRef(0);
   const dragPreviewRafRef = useRef<number | null>(null);
+  const dragInvalidRef = useRef(false);
+  const dragMovingEventsRef = useRef<MitEvent[]>([]);
+  const dragCooldownEventsRef = useRef<CooldownEvent[]>([]);
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [loadMode, setLoadMode] = useState<'single' | 'dual'>('single');
   const [dualTankPlayers, setDualTankPlayers] = useState<{ id: number | null; job: Job }[]>([]);
@@ -254,6 +258,21 @@ export default function App() {
     if (currentItem?.type === 'new-skill') {
       setSelectedMitIds([]);
     }
+    dragInvalidRef.current = false;
+    setDragInvalid(false);
+    if (currentItem?.type === 'existing-mit') {
+      const selectedMitIds = useStore.getState().selectedMitIds;
+      const eventsToMove = selectedMitIds.includes(currentItem.mit.id)
+        ? mitEvents.filter((m) => selectedMitIds.includes(m.id))
+        : [currentItem.mit];
+      dragMovingEventsRef.current = eventsToMove;
+      const movingIds = new Set(eventsToMove.map((m) => m.id));
+      dragCooldownEventsRef.current =
+        tryBuildCooldowns(mitEvents.filter((m) => !movingIds.has(m.id))) ?? [];
+    } else {
+      dragMovingEventsRef.current = [];
+      dragCooldownEventsRef.current = [];
+    }
     dragPreviewRef.current = 0;
     if (dragPreviewRafRef.current !== null) {
       cancelAnimationFrame(dragPreviewRafRef.current);
@@ -270,6 +289,57 @@ export default function App() {
       dragPreviewRafRef.current = null;
       setDragPreviewPx(dragPreviewRef.current);
     });
+
+    const translated = event.active.rect.current?.translated;
+    const over = event.over;
+    const zone = over?.data.current as DropZoneData | undefined;
+    if (!translated || !over || !zone || zone.kind !== 'mit-lane') {
+      if (dragInvalidRef.current) {
+        dragInvalidRef.current = false;
+        setDragInvalid(false);
+      }
+      return;
+    }
+
+    const offsetY = Math.max(0, translated.top - over.rect.top);
+    const tStartMs = offsetY * zone.msPerPx;
+    let isValid = true;
+
+    if (activeItem?.type === 'new-skill') {
+      const { ownerJob, ownerId } = resolveOwnerContext(activeItem.ownerJob);
+      isValid = canInsertMitigation(
+        activeItem.skill.id,
+        tStartMs,
+        mitEvents,
+        ownerJob,
+        ownerId,
+        undefined,
+        cooldownEvents,
+      );
+    } else if (activeItem?.type === 'existing-mit') {
+      const deltaMs = tStartMs - activeItem.mit.tStartMs;
+      const eventsToMove = dragMovingEventsRef.current.length
+        ? dragMovingEventsRef.current
+        : [activeItem.mit];
+      const cooldowns = dragCooldownEventsRef.current;
+      isValid = eventsToMove.every((m) => {
+        const newStart = m.tStartMs + deltaMs;
+        if (newStart < 0) return false;
+        return canInsertMitigation(
+          m.skillId,
+          newStart,
+          mitEvents,
+          m.ownerJob ?? undefined,
+          m.ownerId ?? undefined,
+          undefined,
+          cooldowns,
+        );
+      });
+    }
+
+    if (dragInvalidRef.current === !isValid) return;
+    dragInvalidRef.current = !isValid;
+    setDragInvalid(!isValid);
   };
 
   const buildMitEventFromSkill = (
@@ -298,6 +368,10 @@ export default function App() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveItem(null);
+    dragInvalidRef.current = false;
+    setDragInvalid(false);
+    dragMovingEventsRef.current = [];
+    dragCooldownEventsRef.current = [];
     dragPreviewRef.current = 0;
     if (dragPreviewRafRef.current !== null) {
       cancelAnimationFrame(dragPreviewRafRef.current);
@@ -429,6 +503,10 @@ export default function App() {
           cancelAnimationFrame(dragPreviewRafRef.current);
           dragPreviewRafRef.current = null;
         }
+        dragInvalidRef.current = false;
+        setDragInvalid(false);
+        dragMovingEventsRef.current = [];
+        dragCooldownEventsRef.current = [];
         setDragPreviewPx(0);
       }}
     >
@@ -487,7 +565,7 @@ export default function App() {
         </div>
       </div>
 
-      <DragOverlayLayer activeItem={activeItem} zoom={zoom} />
+      <DragOverlayLayer activeItem={activeItem} zoom={zoom} isInvalid={dragInvalid} />
       <TrashDropZone isActive={activeItem?.type === 'existing-mit'} />
 
       <ExportModal

@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import type { MitEvent } from '../../model/types';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
 import { getSkillDefinition } from '../../data/skills';
@@ -44,6 +44,7 @@ export function DraggableMitigation({
   onRightClick,
 }: Props) {
   const { push } = useTopBanner();
+  const [isEditInvalid, setIsEditInvalid] = useState(false);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: mit.id,
     // 为以后跨时间轴（移动/复制）准备；当前单时间轴行为不变。
@@ -85,6 +86,15 @@ export function DraggableMitigation({
     }
   };
 
+  const handleEditBlur = () => {
+    if (!canUpdateStart) return;
+    const rawValue = editInputRef.current?.value ?? '';
+    const val = parseFloat(rawValue);
+    if (isNaN(val)) return;
+    const nextStartMs = val * MS_PER_SEC;
+    setIsEditInvalid(!canUpdateStart(nextStartMs));
+  };
+
   const editForm = (
     <div
       className={`${
@@ -99,14 +109,30 @@ export function DraggableMitigation({
 
       <div className="flex items-center gap-2">
         <label className="whitespace-nowrap text-[10px] text-muted font-mono">开始(s):</label>
-        <input
-          autoFocus
-          className="w-16 rounded-md border border-app bg-surface px-2 py-1 text-[11px] font-mono text-app focus:outline-none focus:ring-2 focus:ring-(--color-focus)"
-          ref={editInputRef}
-          defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
-          aria-label="开始时间（秒）"
-          onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
-        />
+        <div className="relative">
+          <input
+            autoFocus
+            className={`w-16 rounded-md border bg-surface px-2 py-1 text-[11px] font-mono text-app focus:outline-none focus:ring-2 ${
+              isEditInvalid
+                ? 'border-red-500 focus:ring-red-500/40'
+                : 'border-app focus:ring-(--color-focus)'
+            }`}
+            ref={editInputRef}
+            defaultValue={(mit.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)}
+            aria-label="开始时间（秒）"
+            onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
+            onBlur={handleEditBlur}
+            onFocus={() => setIsEditInvalid(false)}
+          />
+          {isEditInvalid && (
+            <span
+              className="absolute -right-5 top-1/2 -translate-y-1/2 text-red-500 text-[20px] font-bold cursor-help"
+              title="CD 冲突，无法应用"
+            >
+              ×
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mt-1 flex items-center justify-between border-t border-app pt-2">

@@ -78,6 +78,7 @@ interface Props {
   onRightClick?: (e: React.MouseEvent, mit: MitEvent) => void;
   // 仅用于展示，无需拖拽处理
   isOverlay?: boolean;
+  isInvalid?: boolean;
 }
 
 export function MitigationBar({
@@ -89,6 +90,7 @@ export function MitigationBar({
   onClick,
   onRightClick,
   isOverlay,
+  isInvalid,
 }: Props) {
   const skill = getSkillDefinition(mit.skillId);
   const iconFallback = skill?.icon ?? skill?.name?.slice(0, 1) ?? '';
@@ -102,6 +104,7 @@ export function MitigationBar({
         className,
         isOverlay && 'opacity-90 ring-2 ring-[#6366f1]/70 z-30 shadow-2xl',
         isSelected && 'ring-2 ring-[#1f6feb]/80 z-30',
+        isInvalid && 'ring-2 ring-red-500/80',
       )}
       onClick={(e) => onClick && onClick(mit, e)}
       onContextMenu={(e) => {
@@ -114,7 +117,7 @@ export function MitigationBar({
       <MitigationBarContent
         headerClassName={cn(
           'relative z-10 shadow-[0_6px_12px_var(--color-skill-shadow)]',
-          skill?.color || 'bg-slate-600',
+          isInvalid ? 'bg-red-600' : skill?.color || 'bg-slate-600',
         )}
         iconSrc={getSkillIconLocalSrc(skill?.actionId)}
         iconAlt={skill?.name ?? 'skill icon'}
