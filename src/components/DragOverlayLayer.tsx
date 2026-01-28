@@ -1,15 +1,11 @@
 import { DragOverlay } from '@dnd-kit/core';
-import type { Job, MitEvent, Skill } from '../model/types';
 import { MitigationBar } from './Timeline/MitigationBar';
 import { SkillCard } from './Skill/SkillCard';
 import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './Timeline/timelineUtils';
-
-export type DragOverlayItem =
-  | { type: 'new-skill'; skill: Skill; ownerJob?: Job }
-  | { type: 'existing-mit'; mit: MitEvent };
+import type { DragItemData } from '../dnd/types';
 
 interface Props {
-  activeItem: DragOverlayItem | null;
+  activeItem: DragItemData | null;
   zoom: number;
 }
 

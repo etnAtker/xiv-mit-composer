@@ -8,6 +8,7 @@ import { PinnedTimelineLanes } from './PinnedTimelineLanes';
 import type { TimelineSkillColumn, TooltipData } from './types';
 import { buildSkillZIndexMap, MIT_COLUMN_WIDTH } from './timelineUtils';
 import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
+import { MS_PER_SEC } from '../../constants/time';
 import { SKILLS, normalizeSkillId } from '../../data/skills';
 import { TimelineHeader } from './TimelineHeader';
 import { TimelineBackground } from './TimelineBackground';
@@ -17,6 +18,7 @@ import { DamageLayers } from './DamageLayers';
 import { TimelineTooltip } from './TimelineTooltip';
 import { useTimelineScroll } from './useTimelineScroll';
 import { useBoxSelection } from './useBoxSelection';
+import { buildDropZoneId, type DropZoneData } from '../../dnd/types';
 
 const VISIBLE_RANGE_BUFFER_MS = 5000;
 const ZOOM_WHEEL_STEP = 5;
@@ -100,9 +102,17 @@ export function TimelineCanvas({
     }
   }, []);
 
+  // dnd-kit 的 lane 投放区 (drop target) 元数据：id 保持稳定，`msPerPx` 用于时间换算。
+  const mitLaneDropZone: DropZoneData = {
+    kind: 'mit-lane',
+    timelineId: containerId,
+    laneId: 'default',
+    msPerPx: MS_PER_SEC / zoom,
+  };
+
   const { setNodeRef: setMitLaneRef } = useDroppable({
-    id: 'mit-lane',
-    data: { type: 'lane' },
+    id: buildDropZoneId(mitLaneDropZone),
+    data: mitLaneDropZone,
   });
 
   const { scrollRef, visibleRange, isScrolled, handleScroll } = useTimelineScroll({

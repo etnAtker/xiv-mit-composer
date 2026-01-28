@@ -199,6 +199,7 @@ export function MitigationLayer({
           >
             <DraggableMitigation
               mit={mit}
+              timelineId={containerId}
               left={MIT_COLUMN_PADDING}
               width={barWidth}
               effectHeight={effectHeight}

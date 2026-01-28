@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useShallow } from 'zustand/shallow';
-import { type Actor, type Job, type MitEvent, type Skill } from './model/types';
+import { type Actor, type Job, type MitEvent } from './model/types';
 import { useStore } from './store';
 import { selectAppActions, selectAppState } from './store/selectors';
 import { getSkillDefinition, withOwnerSkillId } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { AppHeader } from './components/AppHeader';
-import { DragOverlayLayer, type DragOverlayItem } from './components/DragOverlayLayer';
+import { DragOverlayLayer } from './components/DragOverlayLayer';
 import { EmptyState } from './components/EmptyState';
 import { ExportModal } from './components/ExportModal';
 import { FightInfoBar } from './components/FightInfoBar';
@@ -17,11 +17,13 @@ import { LoadingOverlay } from './components/LoadingOverlay';
 import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
 import { TopBannerStack } from './components/TopBanner';
+import { TrashDropZone } from './components/TrashDropZone';
 import { useTopBanner } from './hooks/useTopBanner';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
 import { canInsertMitigation } from './utils/playerCast';
 import { getStoredTheme, setStoredTheme } from './utils';
+import type { DragItemData, DropZoneData } from './dnd/types';
 
 export default function App() {
   const {
@@ -54,7 +56,7 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportContent, setExportContent] = useState('');
   const [enableTTS, setEnableTTS] = useState(false);
-  const [activeItem, setActiveItem] = useState<DragOverlayItem | null>(null);
+  const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const [dragPreviewPx, setDragPreviewPx] = useState(0);
   const dragPreviewRef = useRef(0);
   const dragPreviewRafRef = useRef<number | null>(null);
@@ -137,7 +139,6 @@ export default function App() {
     loadEventsForPlayers,
   ]);
 
-  const pixelsToMs = (pixels: number) => (pixels / zoom) * MS_PER_SEC;
   const resolveOwnerContext = (job?: Job) => {
     const resolvedJob = job ?? selectedJob ?? undefined;
     if (loadMode === 'dual') {
@@ -247,7 +248,7 @@ export default function App() {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    const currentItem = event.active.data.current as DragOverlayItem;
+    const currentItem = event.active.data.current as DragItemData;
     setActiveItem(currentItem);
     if (currentItem?.type === 'new-skill') {
       setSelectedMitIds([]);
@@ -268,20 +269,6 @@ export default function App() {
       dragPreviewRafRef.current = null;
       setDragPreviewPx(dragPreviewRef.current);
     });
-  };
-
-  const getDropStartMs = (event: DragEndEvent) => {
-    const laneEl = document.getElementById('mit-lane-container');
-    if (!laneEl) return null;
-
-    const rect = laneEl.getBoundingClientRect();
-    const initial = event.active.rect.current?.initial;
-    const translated = event.active.rect.current?.translated;
-
-    if (!initial || !translated) return null;
-
-    const offsetY = Math.max(0, translated.top - rect.top);
-    return pixelsToMs(offsetY);
   };
 
   const buildMitEventFromSkill = (
@@ -319,71 +306,89 @@ export default function App() {
     const { active, over } = event;
     if (!over) return;
 
-    if (over.id !== 'mit-lane') {
+    // 用 dnd-kit 的 droppable data + 测量信息来路由：不查 DOM id，多实例更安全。
+    const zone = over.data.current as DropZoneData | undefined;
+    if (!zone) return;
+    const item = active.data.current as DragItemData | undefined;
+    if (!item) return;
+
+    const translated = active.rect.current?.translated;
+    if (!translated) return;
+
+    if (zone.kind === 'trash') {
+      if (item.type !== 'existing-mit') return;
+
+      const selectedMitIds = useStore.getState().selectedMitIds;
+      const idsToRemove = selectedMitIds.includes(item.mit.id) ? selectedMitIds : [item.mit.id];
+      const removeSet = new Set(idsToRemove);
+      setMitEvents(mitEvents.filter((m) => !removeSet.has(m.id)));
+      setSelectedMitIds([]);
       return;
     }
 
-    const type = active.data.current?.type;
-    const tStartMs = getDropStartMs(event);
-    if (tStartMs === null) return;
+    if (zone.kind !== 'mit-lane') return;
 
-    if (type === 'new-skill') {
-      const skill = active.data.current?.skill as Skill;
-      const { ownerJob, ownerId } = resolveOwnerContext(active.data.current?.ownerJob);
-      if (!canInsertMitigation(skill.id, tStartMs, mitEvents, ownerJob, ownerId)) {
+    const offsetY = Math.max(0, translated.top - over.rect.top);
+    const tStartMs = offsetY * zone.msPerPx;
+
+    if (item.type === 'new-skill') {
+      const { ownerJob, ownerId } = resolveOwnerContext(item.ownerJob);
+      if (!canInsertMitigation(item.skill.id, tStartMs, mitEvents, ownerJob, ownerId)) {
         push('冷却中，无法放置该技能。', { tone: 'error' });
         return;
       }
-      const newMit = buildMitEventFromSkill(skill.id, tStartMs, undefined, ownerJob, ownerId);
+      const newMit = buildMitEventFromSkill(item.skill.id, tStartMs, undefined, ownerJob, ownerId);
       if (!newMit) return;
-
       addMitEvent(newMit);
-    } else if (type === 'existing-mit') {
-      const mit = active.data.current?.mit as MitEvent;
-      const deltaMs = pixelsToMs(event.delta.y);
-      let eventsToMove: MitEvent[] = [];
-
-      const selectedMitIds = useStore.getState().selectedMitIds;
-      if (selectedMitIds.includes(mit.id)) {
-        eventsToMove = mitEvents.filter((m) => selectedMitIds.includes(m.id));
-      } else {
-        eventsToMove = [mit];
-      }
-
-      const movingIds = new Set(eventsToMove.map((m) => m.id));
-      const movedEvents = eventsToMove
-        .map((m) => {
-          const newStart = m.tStartMs + deltaMs;
-          if (newStart < 0) return;
-          if (
-            !canInsertMitigation(
-              m.skillId,
-              newStart,
-              mitEvents,
-              m.ownerJob ?? undefined,
-              m.ownerId ?? undefined,
-              movingIds,
-            )
-          ) {
-            return;
-          }
-
-          return {
-            ...m,
-            tStartMs: newStart,
-            tEndMs: newStart + m.durationMs,
-          };
-        })
-        .filter((m) => m !== undefined);
-
-      if (movedEvents.length !== eventsToMove.length) {
-        push('冷却冲突或时间无效，已取消移动。', { tone: 'error' });
-        return;
-      }
-
-      const movedIds = movedEvents.map((m) => m.id);
-      setMitEvents([...movedEvents, ...mitEvents.filter((m) => !movedIds.includes(m.id))]);
+      return;
     }
+
+    if (item.type !== 'existing-mit') return;
+
+    // 用“绝对落点时间”而不是原始指针 delta (delta) 来算移动量，缩放/测量变化时更稳定。
+    const deltaMs = tStartMs - item.mit.tStartMs;
+    let eventsToMove: MitEvent[] = [];
+
+    const selectedMitIds = useStore.getState().selectedMitIds;
+    if (selectedMitIds.includes(item.mit.id)) {
+      eventsToMove = mitEvents.filter((m) => selectedMitIds.includes(m.id));
+    } else {
+      eventsToMove = [item.mit];
+    }
+
+    const movingIds = new Set(eventsToMove.map((m) => m.id));
+    const movedEvents = eventsToMove
+      .map((m) => {
+        const newStart = m.tStartMs + deltaMs;
+        if (newStart < 0) return;
+        if (
+          !canInsertMitigation(
+            m.skillId,
+            newStart,
+            mitEvents,
+            m.ownerJob ?? undefined,
+            m.ownerId ?? undefined,
+            movingIds,
+          )
+        ) {
+          return;
+        }
+
+        return {
+          ...m,
+          tStartMs: newStart,
+          tEndMs: newStart + m.durationMs,
+        };
+      })
+      .filter((m) => m !== undefined);
+
+    if (movedEvents.length !== eventsToMove.length) {
+      push('冷却冲突或时间无效，已取消移动。', { tone: 'error' });
+      return;
+    }
+
+    const movedIds = movedEvents.map((m) => m.id);
+    setMitEvents([...movedEvents, ...mitEvents.filter((m) => !movedIds.includes(m.id))]);
   };
 
   const selectedJobs =
@@ -469,6 +474,7 @@ export default function App() {
       </div>
 
       <DragOverlayLayer activeItem={activeItem} zoom={zoom} />
+      <TrashDropZone isActive={activeItem?.type === 'existing-mit'} />
 
       <ExportModal
         isOpen={isExportModalOpen}

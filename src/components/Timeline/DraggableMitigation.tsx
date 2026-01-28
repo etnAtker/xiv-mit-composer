@@ -10,6 +10,7 @@ import { useTopBanner } from '../../hooks/useTopBanner';
 
 interface Props {
   mit: MitEvent;
+  timelineId: string;
   left: number;
   width: number;
   effectHeight: number;
@@ -27,6 +28,7 @@ interface Props {
 
 export function DraggableMitigation({
   mit,
+  timelineId,
   left,
   width,
   effectHeight,
@@ -44,7 +46,8 @@ export function DraggableMitigation({
   const { push } = useTopBanner();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: mit.id,
-    data: { type: 'existing-mit', mit },
+    // 为以后跨时间轴（移动/复制）准备；当前单时间轴行为不变。
+    data: { type: 'existing-mit', mit, sourceTimelineId: timelineId },
   });
 
   const skill = getSkillDefinition(mit.skillId);
