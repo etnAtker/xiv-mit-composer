@@ -5,9 +5,8 @@ import { useStore } from '../../store';
 import { useShallow } from 'zustand/shallow';
 import { ContextMenu } from './ContextMenu';
 import { PinnedTimelineLanes } from './PinnedTimelineLanes';
-import type { TimelineSkillColumn, TooltipData } from './types';
+import type { TooltipData } from './types';
 import { buildSkillZIndexMap, MIT_COLUMN_WIDTH } from './timelineUtils';
-import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 import { MS_PER_SEC } from '../../constants/time';
 import { SKILLS, normalizeSkillId } from '../../data/skills';
 import { TimelineHeader } from './TimelineHeader';
@@ -19,6 +18,7 @@ import { TimelineTooltip } from './TimelineTooltip';
 import { useTimelineScroll } from './useTimelineScroll';
 import { useBoxSelection } from './useBoxSelection';
 import { buildDropZoneId, type DropZoneData } from '../../dnd/types';
+import type { TimelineLayout } from './timelineLayout';
 
 const VISIBLE_RANGE_BUFFER_MS = 5000;
 const ZOOM_WHEEL_STEP = 5;
@@ -39,16 +39,13 @@ interface Props {
   dmgWidth: number;
   dmgX: number;
   mitX: number;
-  mitAreaWidth: number;
-  skillColumns: TimelineSkillColumn[];
+  layout: TimelineLayout;
   castEvents: CastEvent[];
   damageEvents: DamageEvent[];
   secondaryDamageEvents?: DamageEvent[];
   mitEvents: MitEvent[];
-  columnMap: Record<string, number>;
   activeDragId?: string | null;
   dragPreviewPx?: number;
-  selectedJobs?: Job[];
 }
 
 export function TimelineCanvas({
@@ -65,16 +62,13 @@ export function TimelineCanvas({
   dmgWidth,
   dmgX,
   mitX,
-  mitAreaWidth,
-  skillColumns,
+  layout,
   castEvents,
   damageEvents,
   secondaryDamageEvents = [],
   mitEvents,
-  columnMap,
   activeDragId,
   dragPreviewPx = 0,
-  selectedJobs,
 }: Props) {
   const { updateMitEvent, removeMitEvent, selectedMitIds, setSelectedMitIds } = useStore(
     useShallow((state) => ({
@@ -149,43 +143,20 @@ export function TimelineCanvas({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleEditingChange, removeMitEvent, selectedMitIds, setContextMenu, setSelectedMitIds]);
 
-  const headerSkillColumns =
-    skillColumns.length > 0
-      ? skillColumns
-      : [
-          {
-            id: 'mit-placeholder',
-            columnId: 'mit-placeholder',
-            name: '减伤',
-            color: 'bg-surface-4',
-            job: 'ALL',
-          },
-        ];
+  const headerSkillColumns = layout.headerSkillColumns;
+  const jobGroups = layout.jobGroups;
+  const utilitySkills = layout.utilitySkills;
+  const hasSecondaryDamageLane = layout.hasSecondaryDamageLane;
+  const primaryJob = layout.primaryJob;
+  const secondaryJob = layout.secondaryJob;
+  const secondaryDamageLaneLeft = mitX + layout.secondaryDamageLaneOffset;
 
-  const jobOrder = selectedJobs && selectedJobs.length > 0 ? selectedJobs : [];
-  const jobGroups = jobOrder.map((job) => ({
-    job,
-    skills: headerSkillColumns.filter((skill) => skill.job === job),
-  }));
-  const utilitySkills = headerSkillColumns.filter((skill) => skill.job === 'ALL');
-  const hasSecondaryDamageLane = jobOrder.length > 1;
-  const primaryJob = jobOrder[0];
-  const secondaryJob = jobOrder[1];
-  const firstGroupCount = jobGroups[0]?.skills.length ?? 0;
-  const secondaryDamageLaneLeft = mitX + firstGroupCount * MIT_COLUMN_WIDTH;
-
-  const getMitColumnLeft = (columnIndex: number) => {
-    const baseLeft = columnIndex * MIT_COLUMN_WIDTH;
-    if (!hasSecondaryDamageLane || firstGroupCount === 0) return baseLeft;
-    return columnIndex >= firstGroupCount ? baseLeft + DAMAGE_LANE_WIDTH : baseLeft;
-  };
+  const getMitColumnLeft = (columnIndex: number) =>
+    layout.columnLefts[columnIndex] ?? columnIndex * MIT_COLUMN_WIDTH;
   const getLaneLineWidth = (job: Job | undefined, laneLeft: number) => {
-    const fullWidth = mitX + mitAreaWidth - laneLeft;
+    const fullWidth = mitX + layout.mitAreaWidth - laneLeft;
     if (!job) return Math.max(dmgWidth, fullWidth);
-    let lastIndex = -1;
-    headerSkillColumns.forEach((skill, idx) => {
-      if (skill.job === job) lastIndex = idx;
-    });
+    const lastIndex = layout.lastColumnIndexByJob[job] ?? -1;
     if (lastIndex < 0) return Math.max(dmgWidth, fullWidth);
     const rightEdge = mitX + getMitColumnLeft(lastIndex) + MIT_COLUMN_WIDTH;
     return Math.max(dmgWidth, rightEdge - laneLeft);
@@ -201,11 +172,11 @@ export function TimelineCanvas({
       : [];
 
   const getMitColumnKey = (mit: MitEvent) => {
-    const ownerJob = mit.ownerJob ?? selectedJobs?.[0];
+    const ownerJob = mit.ownerJob ?? layout.defaultOwnerJob;
     const baseSkillId = normalizeSkillId(mit.skillId);
     if (ownerJob) {
       const jobKey = `${baseSkillId}:${ownerJob}`;
-      if (Object.prototype.hasOwnProperty.call(columnMap, jobKey)) {
+      if (Object.prototype.hasOwnProperty.call(layout.columnMap, jobKey)) {
         return jobKey;
       }
     }
@@ -219,7 +190,7 @@ export function TimelineCanvas({
     handlePointerUp,
     handlePointerCancel,
   } = useBoxSelection({
-    columnMap,
+    columnMap: layout.columnMap,
     mitEvents,
     selectedMitIds,
     zoom,
@@ -248,19 +219,18 @@ export function TimelineCanvas({
     () => buildSkillZIndexMap(mitEvents, 'role-reprisal', getEffectiveStartMs),
     [mitEvents, getEffectiveStartMs],
   );
-  const reprisalGhosts =
-    selectedJobs && selectedJobs.length > 1
-      ? mitEvents.flatMap((mit) => {
-          if (normalizeSkillId(mit.skillId) !== 'role-reprisal') return [];
-          if (!mit.ownerJob) return [];
-          return selectedJobs
-            .filter((job) => job !== mit.ownerJob)
-            .map((job) => ({
-              mit,
-              targetJob: job,
-            }));
-        })
-      : [];
+  const reprisalGhosts = hasSecondaryDamageLane
+    ? mitEvents.flatMap((mit) => {
+        if (normalizeSkillId(mit.skillId) !== 'role-reprisal') return [];
+        if (!mit.ownerJob) return [];
+        return layout.jobOrder
+          .filter((job) => job !== mit.ownerJob)
+          .map((job) => ({
+            mit,
+            targetJob: job,
+          }));
+      })
+    : [];
   const primaryLineWidth = getLaneLineWidth(primaryJob, dmgX);
   const secondaryLineWidth = hasSecondaryDamageLane
     ? getLaneLineWidth(secondaryJob, secondaryDamageLaneLeft)
@@ -326,12 +296,12 @@ export function TimelineCanvas({
               rulerWidth={rulerWidth}
               castWidth={castWidth}
               dmgWidth={dmgWidth}
-              mitAreaWidth={mitAreaWidth}
+              mitAreaWidth={layout.mitAreaWidth}
               dmgX={dmgX}
               secondaryDamageLaneLeft={secondaryDamageLaneLeft}
               headerSkillColumns={headerSkillColumns}
               hasSecondaryDamageLane={hasSecondaryDamageLane}
-              firstGroupCount={firstGroupCount}
+              firstGroupCount={layout.firstGroupCount}
               timelineHeight={timelineHeight}
             />
 
@@ -344,7 +314,7 @@ export function TimelineCanvas({
               dmgX={dmgX}
               dmgWidth={dmgWidth}
               mitX={mitX}
-              mitAreaWidth={mitAreaWidth}
+              mitAreaWidth={layout.mitAreaWidth}
               durationSec={durationSec}
               zoom={zoom}
               visibleRange={visibleRange}
@@ -356,7 +326,7 @@ export function TimelineCanvas({
               containerId={containerId}
               setMitLaneRef={setMitLaneRef}
               mitX={mitX}
-              mitAreaWidth={mitAreaWidth}
+              mitAreaWidth={layout.mitAreaWidth}
               timelineHeight={timelineHeight}
               reprisalGhosts={reprisalGhosts}
               reprisalSkillColor={reprisalSkill?.color}
@@ -364,7 +334,7 @@ export function TimelineCanvas({
               getEffectiveStartMs={getEffectiveStartMs}
               getMitColumnLeft={getMitColumnLeft}
               getMitColumnKey={getMitColumnKey}
-              columnMap={columnMap}
+              columnMap={layout.columnMap}
               mitEvents={mitEvents}
               zoom={zoom}
               editingMitId={editingMitId}
