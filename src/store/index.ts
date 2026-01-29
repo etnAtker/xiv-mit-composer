@@ -47,8 +47,8 @@ export interface AppState {
 
   setApiKey: (key: string) => void;
   setFflogsUrl: (url: string) => void;
-  setSelectedJob: (job: Job) => void;
-  setSelectedPlayerId: (id: number) => void;
+  setSelectedJob: (job: Job | null) => void;
+  setSelectedPlayerId: (id: number | null) => void;
   setSelectedMitIds: (ids: string[]) => void;
   setIsRendering: (is: boolean) => void;
   pushBanner: (message: string, options?: BannerOptions) => number;
