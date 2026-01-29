@@ -216,15 +216,16 @@ export default function App() {
 
   useEffect(() => {
     if (loadMode !== 'dual') return;
-    const primary = dualTankPlayers.find(
-      (player): player is { id: number; job: Job } => typeof player.id === 'number',
-    );
-    if (!primary) return;
-    if (selectedJob !== primary.job) {
-      setSelectedJob(primary.job);
+    const primaryJob = dualTankPlayers[0]?.job ?? null;
+    const primaryId = primaryJob
+      ? (dualTankPlayers.find((player) => player.job === primaryJob)?.id ?? null)
+      : null;
+
+    if (selectedJob !== primaryJob) {
+      setSelectedJob(primaryJob);
     }
-    if (selectedPlayerId !== primary.id) {
-      setSelectedPlayerId(primary.id);
+    if (selectedPlayerId !== primaryId) {
+      setSelectedPlayerId(primaryId);
     }
   }, [
     dualTankPlayers,
