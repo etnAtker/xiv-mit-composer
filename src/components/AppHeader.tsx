@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 interface Props {
   apiKey: string;
   fflogsUrl: string;
@@ -23,6 +25,8 @@ export function AppHeader({
   onExportTimeline,
   onToggleTheme,
 }: Props) {
+  const [showApiKey, setShowApiKey] = useState(false);
+
   return (
     <div className="p-4 bg-surface-2 border-b border-app flex flex-wrap gap-4 items-center z-20 relative shadow-md">
       <div className="mr-4 font-bold text-xl bg-clip-text text-transparent bg-linear-to-r from-[#0969da] via-[#1f6feb] to-[#2f81f7]">
@@ -30,14 +34,56 @@ export function AppHeader({
       </div>
 
       <div className="flex gap-2 items-center bg-surface-1 p-1.5 rounded-lg border border-app shadow-inner">
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => onApiKeyChange(e.target.value)}
-          aria-label="FFLogs API Key"
-          className="bg-transparent border-none focus:ring-0 text-sm w-64 px-2 text-app placeholder:text-muted outline-none"
-          placeholder="API Key"
-        />
+        <div className="relative flex items-center">
+          <input
+            type={showApiKey ? 'text' : 'password'}
+            value={apiKey}
+            onChange={(e) => onApiKeyChange(e.target.value)}
+            aria-label="FFLogs API Key"
+            className="bg-transparent border-none focus:ring-0 text-sm w-64 pl-2 pr-8 text-app placeholder:text-muted outline-none"
+            placeholder="API Key"
+          />
+          <button
+            type="button"
+            onClick={() => setShowApiKey(!showApiKey)}
+            className="absolute right-2 text-muted hover:text-app transition-colors"
+            aria-label={showApiKey ? 'Hide API Key' : 'Show API Key'}
+          >
+            {showApiKey ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7c.44 0 .87-.03 1.28-.09" />
+                <line x1="2" x2="22" y1="2" y2="22" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+          </button>
+        </div>
         <div className="w-px h-4 bg-(--color-border)"></div>
         <input
           type="text"
