@@ -337,13 +337,14 @@ function buildCooldownEventsSingle(
         cooldownOpenCount--;
         if (cooldownOpenCount === 0) {
           closeLastCooldown(boundary.tMs);
-        }
 
-        if (unusableOpenCount !== 0) {
-          startNewCooldown('unusable', boundary.tMs);
+          if (unusableOpenCount !== 0) {
+            startNewCooldown('unusable', boundary.tMs);
+          }
         }
         break;
     }
+    boundary.skillId = boundary.skillId ?? skillId;
   }
 
   return cooldowns;
