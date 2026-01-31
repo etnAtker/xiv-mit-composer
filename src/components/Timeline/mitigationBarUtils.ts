@@ -14,9 +14,10 @@ export function getMitigationBarHeights(
   zoom: number,
   skill?: Skill,
 ): MitigationBarHeights {
-  const effectHeight = (mit.durationMs / MS_PER_SEC) * zoom;
-  const cooldownMs = (skill?.cooldownSec ?? 0) * MS_PER_SEC;
-  const cooldownHeight = (cooldownMs / MS_PER_SEC) * zoom;
-  const totalHeight = MITIGATION_HEADER_HEIGHT + effectHeight + cooldownHeight;
+  const effectSec = mit.durationMs / MS_PER_SEC;
+  const effectHeight = effectSec * zoom - MITIGATION_HEADER_HEIGHT;
+  const cooldownSec = skill?.cooldownSec ?? 0;
+  const cooldownHeight = Math.max(cooldownSec - effectSec, 0) * zoom;
+  const totalHeight = effectHeight + cooldownHeight;
   return { effectHeight, cooldownHeight, totalHeight };
 }
