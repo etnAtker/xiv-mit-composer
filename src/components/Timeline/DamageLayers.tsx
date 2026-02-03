@@ -51,7 +51,6 @@ export function DamageLayers({
           width={dmgWidth}
           left={dmgX}
           visibleRange={visibleRange}
-          onHover={onHover}
           lineWidth={primaryLineWidth}
         />
         {hasSecondaryDamageLane && (
@@ -62,7 +61,6 @@ export function DamageLayers({
             width={dmgWidth}
             left={secondaryDamageLaneLeft}
             visibleRange={visibleRange}
-            onHover={onHover}
             lineWidth={secondaryLineWidth}
           />
         )}
