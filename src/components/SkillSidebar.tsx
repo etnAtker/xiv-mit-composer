@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { SKILLS } from '../data/skills';
+import { isSkillAvailableForJob, SKILLS } from '../data/skills';
 import type { Job } from '../model/types';
 import { DraggableSkill } from './Skill/DraggableSkill';
 import { XivIcon } from './XivIcon';
@@ -27,7 +27,7 @@ export function SkillSidebar({ selectedJob, selectedJobs }: Props) {
     () =>
       jobs.map((job) => ({
         job,
-        skills: SKILLS.filter((skill) => skill.job === job || skill.job === 'ALL'),
+        skills: SKILLS.filter((skill) => isSkillAvailableForJob(skill, job)),
       })),
     [jobs],
   );

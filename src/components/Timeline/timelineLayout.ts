@@ -1,5 +1,6 @@
 import type { Job, Skill } from '../../model/types';
 import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
+import { isRoleSkillAvailableForJob } from '../../data/skills';
 import { MIT_COLUMN_WIDTH } from './timelineUtils';
 import type { TimelineSkillColumn } from './types';
 
@@ -60,7 +61,9 @@ export function buildTimelineLayout({
 
   const jobColumns = jobs.flatMap((job) =>
     skills
-      .filter((s) => s.job === job || roleSkillIds.has(s.id))
+      .filter(
+        (s) => s.job === job || (roleSkillIds.has(s.id) && isRoleSkillAvailableForJob(s.id, job)),
+      )
       .map((skill) => ({
         id: skill.id,
         columnId: skill.job === 'ALL' ? `${skill.id}:${job}` : skill.id,
