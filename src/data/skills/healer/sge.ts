@@ -147,4 +147,4 @@ export const SGE_SKILLS: Skill[] = [
     color: 'bg-cyan-950',
     actionId: 37035,
   },
-] as unknown as Skill[];
+];

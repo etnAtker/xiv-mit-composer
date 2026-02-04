@@ -24,4 +24,4 @@ export const RDM_SKILLS: Skill[] = [
     color: 'bg-red-700',
     actionId: 25857,
   },
-] as unknown as Skill[];
+];

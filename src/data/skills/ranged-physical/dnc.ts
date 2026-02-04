@@ -24,4 +24,4 @@ export const DNC_SKILLS: Skill[] = [
     color: 'bg-fuchsia-700',
     actionId: 16012,
   },
-] as unknown as Skill[];
+];

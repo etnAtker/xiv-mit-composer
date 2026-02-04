@@ -16,4 +16,4 @@ export const SMN_SKILLS: Skill[] = [
     actionId: 25799,
     cooldownGroup: 'smn-grp-radiant-aegis',
   },
-] as unknown as Skill[];
+];

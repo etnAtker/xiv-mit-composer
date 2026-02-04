@@ -77,4 +77,4 @@ export const SCH_SKILLS: Skill[] = [
     color: 'bg-emerald-900',
     actionId: 25868,
   },
-] as unknown as Skill[];
+];

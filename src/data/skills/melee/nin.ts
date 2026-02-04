@@ -15,4 +15,4 @@ export const NIN_SKILLS: Skill[] = [
     color: 'bg-gray-700',
     actionId: 2241,
   },
-] as unknown as Skill[];
+];

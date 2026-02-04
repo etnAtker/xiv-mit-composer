@@ -37,4 +37,4 @@ export const MNK_SKILLS: Skill[] = [
     color: 'bg-yellow-800',
     actionId: 7394,
   },
-] as unknown as Skill[];
+];

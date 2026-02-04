@@ -15,4 +15,4 @@ export const BLM_SKILLS: Skill[] = [
     color: 'bg-indigo-900',
     actionId: 157,
   },
-] as unknown as Skill[];
+];
