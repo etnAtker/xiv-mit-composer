@@ -31,7 +31,6 @@ export function SkillCard({ skill, className, job }: Props) {
           localSrc={getSkillIconLocalSrc(skill.actionId)}
           alt={skill.name}
           className="h-full w-full object-cover"
-          fallback={skill.name.slice(0, 1)}
         />
       </div>
 
@@ -52,7 +51,6 @@ export function SkillCard({ skill, className, job }: Props) {
             localSrc={JOB_ICON_LOCAL_SRC[displayJob]}
             alt={`${displayJob} icon`}
             className="h-full w-full object-cover"
-            fallback={displayJob}
           />
         </div>
       )}

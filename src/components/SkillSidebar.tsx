@@ -21,6 +21,23 @@ export function SkillSidebar({ selectedJob, selectedJobs }: Props) {
     WAR: false,
     DRK: false,
     GNB: false,
+    WHM: false,
+    SCH: false,
+    AST: false,
+    SGE: false,
+    MNK: false,
+    DRG: false,
+    NIN: false,
+    SAM: false,
+    RPR: false,
+    VPR: false,
+    BRD: false,
+    MCH: false,
+    DNC: false,
+    BLM: false,
+    SMN: false,
+    RDM: false,
+    PCT: false,
   });
 
   const skillGroups = useMemo(
@@ -56,7 +73,6 @@ export function SkillSidebar({ selectedJob, selectedJobs }: Props) {
                     localSrc={JOB_ICON_LOCAL_SRC[group.job]}
                     alt={`${group.job} icon`}
                     className="h-4 w-4 object-contain"
-                    fallback={group.job}
                   />
                   <span className={isOpen ? 'rotate-90' : ''}>{'>'}</span>
                 </div>

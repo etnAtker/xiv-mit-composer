@@ -52,7 +52,6 @@ export function DraggableMitigation({
   });
 
   const skill = getSkillDefinition(mit.skillId);
-  const iconFallback = skill?.icon ?? skill?.name?.slice(0, 1) ?? '';
 
   const style = {
     left: left,
@@ -182,9 +181,8 @@ export function DraggableMitigation({
           headerClassName={`relative z-10 shadow-[0_6px_12px_var(--color-skill-shadow)] ${
             skill?.color || 'bg-slate-600'
           }`}
-          iconSrc={getSkillIconLocalSrc(skill?.actionId)}
+          iconSrc={skill ? getSkillIconLocalSrc(skill.actionId) : undefined}
           iconAlt={skill?.name ?? 'skill icon'}
-          iconFallback={iconFallback}
           effectHeight={effectHeight}
           cooldownHeight={cooldownHeight}
         />

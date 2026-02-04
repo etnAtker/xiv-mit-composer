@@ -101,6 +101,23 @@ export default function App() {
     WAR: ['Warrior'],
     DRK: ['DarkKnight', 'Dark Knight'],
     GNB: ['Gunbreaker'],
+    WHM: [],
+    SCH: [],
+    AST: [],
+    SGE: [],
+    MNK: [],
+    DRG: [],
+    NIN: [],
+    SAM: [],
+    RPR: [],
+    VPR: [],
+    BRD: [],
+    MCH: [],
+    DNC: [],
+    BLM: [],
+    SMN: [],
+    RDM: [],
+    PCT: [],
   };
 
   const detectTankPlayers = (list: Actor[]) => {
@@ -483,7 +500,29 @@ export default function App() {
   const selectedJobs =
     loadMode === 'dual' ? Array.from(new Set(dualTankPlayers.map((p) => p.job))) : null;
   const dualPlayerMap = useMemo(() => {
-    const map: Record<Job, number | null> = { PLD: null, WAR: null, DRK: null, GNB: null };
+    const map: Record<Job, number | null> = {
+      PLD: null,
+      WAR: null,
+      DRK: null,
+      GNB: null,
+      WHM: null,
+      SCH: null,
+      AST: null,
+      SGE: null,
+      MNK: null,
+      DRG: null,
+      NIN: null,
+      SAM: null,
+      RPR: null,
+      VPR: null,
+      BRD: null,
+      MCH: null,
+      DNC: null,
+      BLM: null,
+      SMN: null,
+      RDM: null,
+      PCT: null,
+    };
     dualTankPlayers.forEach((player) => {
       map[player.job] = player.id ?? null;
     });

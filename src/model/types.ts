@@ -1,4 +1,25 @@
-export type Job = 'PLD' | 'WAR' | 'DRK' | 'GNB';
+export type Job =
+  | 'PLD'
+  | 'WAR'
+  | 'DRK'
+  | 'GNB'
+  | 'WHM'
+  | 'SCH'
+  | 'AST'
+  | 'SGE'
+  | 'MNK'
+  | 'DRG'
+  | 'NIN'
+  | 'SAM'
+  | 'RPR'
+  | 'VPR'
+  | 'BRD'
+  | 'MCH'
+  | 'DNC'
+  | 'BLM'
+  | 'SMN'
+  | 'RDM'
+  | 'PCT';
 
 export type MitigationDamageType = 'all' | 'physical' | 'magical';
 export type MitigationTarget = 'boss' | 'player';

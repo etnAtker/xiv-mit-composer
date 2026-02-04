@@ -39,6 +39,23 @@ export function FightInfoBar({
     WAR: ['Warrior'],
     DRK: ['DarkKnight', 'Dark Knight'],
     GNB: ['Gunbreaker'],
+    WHM: ['WhiteMage', 'White Mage'],
+    SCH: ['Scholar'],
+    AST: ['Astrologian'],
+    SGE: ['Sage'],
+    MNK: ['Monk'],
+    DRG: ['Dragoon'],
+    NIN: ['Ninja'],
+    SAM: ['Samurai'],
+    RPR: ['Reaper'],
+    VPR: ['Viper'],
+    BRD: ['Bard'],
+    MCH: ['Machinist'],
+    DNC: ['Dancer'],
+    BLM: ['BlackMage', 'Black Mage'],
+    SMN: ['Summoner'],
+    RDM: ['RedMage', 'Red Mage'],
+    PCT: ['Pictomancer'],
   };
   const filteredActors = (job: Job | null) =>
     actors.filter((actor) => {
@@ -84,7 +101,6 @@ export function FightInfoBar({
                 localSrc={JOB_ICON_LOCAL_SRC[job]}
                 alt={`${job} icon`}
                 className="h-4 w-4 object-contain"
-                fallback={job}
               />
               <span>{job}</span>
             </button>

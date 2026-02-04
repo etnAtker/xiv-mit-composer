@@ -87,7 +87,6 @@ export function TimelineHeader({
                 localSrc={JOB_ICON_LOCAL_SRC[primaryJob]}
                 alt={`${primaryJob} icon`}
                 className="h-5 w-5 object-contain"
-                fallback={primaryJob}
               />
             ) : (
               <span className="text-[10px] font-mono text-muted">T1</span>
@@ -113,7 +112,6 @@ export function TimelineHeader({
                     localSrc={JOB_ICON_LOCAL_SRC[job]}
                     alt={`${job} icon`}
                     className="h-5 w-5 object-contain"
-                    fallback={job}
                   />
                   <span>{job}</span>
                 </div>
@@ -125,12 +123,13 @@ export function TimelineHeader({
                     className="flex h-10 w-10 items-center justify-center"
                     title={skill.name}
                   >
-                    <XivIcon
-                      localSrc={getSkillIconLocalSrc(skill.actionId)}
-                      alt={skill.name}
-                      className="h-full w-full object-cover"
-                      fallback={skill.icon ?? skill.name.slice(0, 1)}
-                    />
+                    {skill.actionId ? (
+                      <XivIcon
+                        localSrc={getSkillIconLocalSrc(skill.actionId)}
+                        alt={skill.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -153,7 +152,6 @@ export function TimelineHeader({
                       localSrc={JOB_ICON_LOCAL_SRC[secondaryJob]}
                       alt={`${secondaryJob} icon`}
                       className="h-5 w-5 object-contain"
-                      fallback={secondaryJob}
                     />
                   ) : (
                     <span className="text-[10px] font-mono text-muted">T2</span>
@@ -180,12 +178,13 @@ export function TimelineHeader({
                   className="flex h-10 w-10 items-center justify-center"
                   title={skill.name}
                 >
-                  <XivIcon
-                    localSrc={getSkillIconLocalSrc(skill.actionId)}
-                    alt={skill.name}
-                    className="h-full w-full object-cover"
-                    fallback={skill.icon ?? skill.name.slice(0, 1)}
-                  />
+                  {skill.actionId ? (
+                    <XivIcon
+                      localSrc={getSkillIconLocalSrc(skill.actionId)}
+                      alt={skill.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
                 </div>
               ))}
             </div>
