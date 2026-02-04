@@ -51,9 +51,6 @@ export function SkillSidebar({ selectedJob, selectedJobs }: Props) {
 
   return (
     <div className="w-64 bg-surface-2 border-r border-app flex flex-col z-10 shadow-lg">
-      <div className="p-4 border-b border-app bg-surface-2">
-        <h3 className="font-bold text-muted text-sm uppercase tracking-wide">可用技能</h3>
-      </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
         {skillGroups.map((group) => {
           const isOpen = openJobs[group.job];

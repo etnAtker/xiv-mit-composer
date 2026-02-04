@@ -26,7 +26,7 @@ export function TimelineToolbar({ zoom, setZoom, onClear }: Props) {
   };
 
   return (
-    <div className="relative z-20 flex flex-wrap items-center gap-3 border-b border-app bg-surface-2 px-4 py-2 text-app">
+    <div className="relative z-20 flex flex-wrap items-center gap-3 bg-surface-2 px-4 py-2 text-app">
       <span className="mr-2 text-[10px] font-mono uppercase tracking-widest text-muted">
         Timeline Scale
       </span>

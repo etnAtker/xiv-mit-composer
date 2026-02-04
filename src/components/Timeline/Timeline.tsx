@@ -3,7 +3,6 @@ import { useShallow } from 'zustand/shallow';
 import { useStore } from '../../store';
 import { ROLE_SKILL_IDS, SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
-import { TimelineToolbar } from './TimelineToolbar';
 import { MS_PER_SEC } from '../../constants/time';
 import { CAST_LANE_WIDTH, DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 import type { Job } from '../../model/types';
@@ -30,7 +29,7 @@ export function Timeline({
   const { fight, selectedJob, mitEvents, damageEvents, damageEventsByJob, castEvents } = useStore(
     useShallow(selectTimelineState),
   );
-  const { setMitEvents, setIsRendering } = useStore(useShallow(selectTimelineActions));
+  const { setIsRendering } = useStore(useShallow(selectTimelineActions));
 
   const resolvedJobs = useMemo(() => {
     if (selectedJobs && selectedJobs.length > 0) {
@@ -103,7 +102,6 @@ export function Timeline({
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-app text-app font-['Space_Grotesk']">
-      <TimelineToolbar zoom={zoom} setZoom={setZoom} onClear={() => setMitEvents([])} />
       <TimelineCanvas
         containerId={containerId}
         zoom={zoom}

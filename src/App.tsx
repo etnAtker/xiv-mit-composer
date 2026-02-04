@@ -16,6 +16,7 @@ import { LoadFightModal } from './components/LoadFightModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
+import { TimelineToolbar } from './components/Timeline/TimelineToolbar';
 import { TopBannerStack } from './components/TopBanner';
 import { TrashDropZone } from './components/TrashDropZone';
 import { useTopBanner } from './hooks/useTopBanner';
@@ -584,21 +585,30 @@ export default function App() {
           <EmptyState hasFight={!!fight} hasSelection={isReady} />
 
           {isReady && (selectedJob || selectedJobs?.length) && (
-            <>
-              <SkillSidebar
-                selectedJob={(selectedJob ?? selectedJobs?.[0]) as Job}
-                selectedJobs={selectedJobs && selectedJobs.length ? selectedJobs : undefined}
-              />
-              <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-app text-app">
-                <Timeline
-                  zoom={zoom}
-                  setZoom={setZoom}
-                  activeDragId={activeItem?.type === 'existing-mit' ? activeItem.mit.id : null}
-                  dragPreviewPx={dragPreviewPx}
-                  selectedJobs={selectedJobs ?? undefined}
-                />
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex border-b border-app bg-surface-2 text-app">
+                <div className="w-64 border-r border-app bg-surface-2 p-4">
+                  <h3 className="font-bold text-muted text-sm uppercase tracking-wide">可用技能</h3>
+                </div>
+                <TimelineToolbar zoom={zoom} setZoom={setZoom} onClear={() => setMitEvents([])} />
               </div>
-            </>
+
+              <div className="flex min-h-0 flex-1 overflow-hidden">
+                <SkillSidebar
+                  selectedJob={(selectedJob ?? selectedJobs?.[0]) as Job}
+                  selectedJobs={selectedJobs && selectedJobs.length ? selectedJobs : undefined}
+                />
+                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-app text-app">
+                  <Timeline
+                    zoom={zoom}
+                    setZoom={setZoom}
+                    activeDragId={activeItem?.type === 'existing-mit' ? activeItem.mit.id : null}
+                    dragPreviewPx={dragPreviewPx}
+                    selectedJobs={selectedJobs ?? undefined}
+                  />
+                </div>
+              </div>
+            </div>
           )}
 
           <LoadingOverlay isLoading={isLoading} isRendering={isRendering} />
