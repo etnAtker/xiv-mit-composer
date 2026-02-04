@@ -1,6 +1,6 @@
 import type { Job } from '../model/types';
 
-export const ICON_BASE_PATH = '/xiv-icons';
+export const ICON_BASE_PATH = 'xiv-icons';
 
 export const getSkillIconLocalSrc = (actionId?: number | null) =>
   actionId ? `${ICON_BASE_PATH}/actions/${actionId}.png` : '';
