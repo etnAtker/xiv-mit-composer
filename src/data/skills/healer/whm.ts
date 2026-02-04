@@ -119,4 +119,4 @@ export const WHM_SKILLS: Skill[] = [
     color: 'bg-green-900',
     actionId: 25862,
   },
-] as unknown as Skill[];
+];

@@ -154,7 +154,6 @@ export function MitigationLayer({
               headerClassName={`border border-white/10 ${ghostColor}`}
               iconSrc={JOB_ICON_LOCAL_SRC[iconJob]}
               iconAlt={`${iconJob} icon`}
-              iconFallback={iconJob}
               effectHeight={effectHeight}
               cooldownHeight={cooldownHeight}
               showCooldown={showCooldown}

@@ -83,4 +83,4 @@ export const AST_SKILLS: Skill[] = [
     color: 'bg-yellow-800',
     actionId: 25873,
   },
-] as unknown as Skill[];
+];

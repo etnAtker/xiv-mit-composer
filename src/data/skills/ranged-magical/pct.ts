@@ -15,4 +15,4 @@ export const PCT_SKILLS: Skill[] = [
     color: 'bg-rose-700',
     actionId: 34685,
   },
-] as unknown as Skill[];
+];

@@ -37,4 +37,4 @@ export const BRD_SKILLS: Skill[] = [
     color: 'bg-pink-600',
     actionId: 7408,
   },
-] as unknown as Skill[];
+];

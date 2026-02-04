@@ -25,4 +25,4 @@ export const SAM_SKILLS: Skill[] = [
     color: 'bg-sky-700',
     actionId: 36962,
   },
-] as unknown as Skill[];
+];

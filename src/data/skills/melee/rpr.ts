@@ -18,4 +18,4 @@ export const RPR_SKILLS: Skill[] = [
     color: 'bg-violet-700',
     actionId: 24404,
   },
-] as unknown as Skill[];
+];

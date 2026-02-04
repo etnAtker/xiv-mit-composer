@@ -14,7 +14,6 @@ interface MitigationBarContentProps {
   showIcon?: boolean;
   iconSrc?: string;
   iconAlt?: string;
-  iconFallback?: string;
   iconClassName?: string;
 }
 
@@ -26,7 +25,6 @@ export function MitigationBarContent({
   showIcon = true,
   iconSrc,
   iconAlt = 'skill icon',
-  iconFallback,
   iconClassName = 'h-full w-full object-cover',
 }: MitigationBarContentProps) {
   return (
@@ -37,14 +35,9 @@ export function MitigationBarContent({
           headerClassName,
         )}
       >
-        {showIcon && (
-          <XivIcon
-            localSrc={iconSrc}
-            alt={iconAlt}
-            className={iconClassName}
-            fallback={iconFallback}
-          />
-        )}
+        {showIcon && iconSrc ? (
+          <XivIcon localSrc={iconSrc} alt={iconAlt} className={iconClassName} />
+        ) : null}
       </div>
       <div
         className="relative z-0 w-full border-x border-white/10 shadow-inner"
@@ -93,7 +86,6 @@ export function MitigationBar({
   isInvalid,
 }: Props) {
   const skill = getSkillDefinition(mit.skillId);
-  const iconFallback = skill?.icon ?? skill?.name?.slice(0, 1) ?? '';
   const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(mit, zoom, skill);
 
   return (
@@ -119,9 +111,8 @@ export function MitigationBar({
           'relative z-10 shadow-[0_6px_12px_var(--color-skill-shadow)]',
           isInvalid ? 'bg-red-600' : skill?.color || 'bg-slate-600',
         )}
-        iconSrc={getSkillIconLocalSrc(skill?.actionId)}
+        iconSrc={skill ? getSkillIconLocalSrc(skill.actionId) : undefined}
         iconAlt={skill?.name ?? 'skill icon'}
-        iconFallback={iconFallback}
         effectHeight={effectHeight}
         cooldownHeight={cooldownHeight}
       />
