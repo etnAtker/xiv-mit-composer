@@ -42,8 +42,6 @@ jobs:
         with:
           path: public/xiv-icons
           key: xiv-icons-${{ runner.os }}-${{ hashFiles('src/data/skills/**/*.ts', 'scripts/fetch-xiv-icons.ts') }}
-          restore-keys: |
-            xiv-icons-${{ runner.os }}-
 
       - name: Install dependencies
         run: bun install
