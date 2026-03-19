@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
-import { getSkillDefinition } from '../../data/skills';
 import { getMitigationBarHeights, MITIGATION_HEADER_HEIGHT } from './mitigationBarUtils';
 import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
 
@@ -146,8 +145,7 @@ export function useBoxSelection({
         const left = mitX + getMitColumnLeft(columnIndex) + MIT_COLUMN_PADDING;
         const top = (mit.tStartMs / MS_PER_SEC) * zoom;
         const width = barWidth;
-        const skillDef = getSkillDefinition(mit.skillId);
-        const { totalHeight } = getMitigationBarHeights(mit, zoom, skillDef);
+        const { totalHeight } = getMitigationBarHeights(mit, zoom);
         const iconRect = {
           left,
           top,

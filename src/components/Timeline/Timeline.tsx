@@ -26,9 +26,15 @@ export function Timeline({
   dragPreviewPx = 0,
   selectedJobs,
 }: TimelineProps) {
-  const { fight, selectedJob, mitEvents, damageEvents, damageEventsByJob, castEvents } = useStore(
-    useShallow(selectTimelineState),
-  );
+  const {
+    fight,
+    selectedJob,
+    mitEvents,
+    cooldownEvents,
+    damageEvents,
+    damageEventsByJob,
+    castEvents,
+  } = useStore(useShallow(selectTimelineState));
   const { setIsRendering } = useStore(useShallow(selectTimelineActions));
 
   const resolvedJobs = useMemo(() => {
@@ -121,6 +127,7 @@ export function Timeline({
         damageEvents={primaryDamageEvents}
         secondaryDamageEvents={secondaryDamageEvents}
         mitEvents={mitEvents}
+        cooldownEvents={cooldownEvents}
         activeDragId={activeDragId}
         dragPreviewPx={dragPreviewPx}
       />

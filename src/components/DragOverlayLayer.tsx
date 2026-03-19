@@ -1,3 +1,4 @@
+import type { CooldownEvent } from '../model/types';
 import { DragOverlay } from '@dnd-kit/core';
 import { MitigationBar } from './Timeline/MitigationBar';
 import { SkillCard } from './Skill/SkillCard';
@@ -7,10 +8,11 @@ import type { DragItemData } from '../dnd/types';
 interface Props {
   activeItem: DragItemData | null;
   zoom: number;
+  cooldownEvents?: CooldownEvent[];
   isInvalid?: boolean;
 }
 
-export function DragOverlayLayer({ activeItem, zoom, isInvalid }: Props) {
+export function DragOverlayLayer({ activeItem, zoom, cooldownEvents, isInvalid }: Props) {
   return (
     <DragOverlay>
       {activeItem?.type === 'new-skill' && (
@@ -26,6 +28,7 @@ export function DragOverlayLayer({ activeItem, zoom, isInvalid }: Props) {
           mit={activeItem.mit}
           width={MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2}
           zoom={zoom}
+          cooldownEvents={cooldownEvents}
           isOverlay
           isInvalid={isInvalid}
         />

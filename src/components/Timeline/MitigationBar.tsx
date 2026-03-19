@@ -1,4 +1,4 @@
-import type { MitEvent } from '../../model/types';
+import type { CooldownEvent, MitEvent } from '../../model/types';
 import { cn } from '../../utils';
 import { EFFECT_BAR_COLOR } from './timelineUtils';
 import { getSkillDefinition } from '../../data/skills';
@@ -65,6 +65,7 @@ interface Props {
   mit: MitEvent;
   width: number; // 精确像素宽度
   zoom: number;
+  cooldownEvents?: CooldownEvent[];
   className?: string;
   isSelected?: boolean;
   onClick?: (mit: MitEvent, e: React.MouseEvent) => void;
@@ -78,6 +79,7 @@ export function MitigationBar({
   mit,
   width,
   zoom,
+  cooldownEvents,
   className,
   isSelected,
   onClick,
@@ -86,7 +88,11 @@ export function MitigationBar({
   isInvalid,
 }: Props) {
   const skill = getSkillDefinition(mit.skillId);
-  const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(mit, zoom, skill);
+  const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(
+    mit,
+    zoom,
+    cooldownEvents,
+  );
 
   return (
     <div

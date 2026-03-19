@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import type { CastEvent, DamageEvent, Job, MitEvent } from '../../model/types';
+import type { CastEvent, CooldownEvent, DamageEvent, Job, MitEvent } from '../../model/types';
 import { useStore } from '../../store';
 import { useShallow } from 'zustand/shallow';
+import { CooldownConstraintLayer } from './CooldownConstraintLayer';
 import { ContextMenu } from './ContextMenu';
 import { PinnedTimelineLanes } from './PinnedTimelineLanes';
 import type { TooltipData } from './types';
@@ -45,6 +46,7 @@ interface Props {
   damageEvents: DamageEvent[];
   secondaryDamageEvents?: DamageEvent[];
   mitEvents: MitEvent[];
+  cooldownEvents: CooldownEvent[];
   activeDragId?: string | null;
   dragPreviewPx?: number;
 }
@@ -68,6 +70,7 @@ export function TimelineCanvas({
   damageEvents,
   secondaryDamageEvents = [],
   mitEvents,
+  cooldownEvents,
   activeDragId,
   dragPreviewPx = 0,
 }: Props) {
@@ -311,6 +314,19 @@ export function TimelineCanvas({
               rulerStepSec={RULER_STEP_SEC}
             />
 
+            <div
+              className="absolute top-0"
+              style={{ left: mitX, width: layout.mitAreaWidth, height: timelineHeight }}
+            >
+              <CooldownConstraintLayer
+                cooldownEvents={cooldownEvents}
+                layout={layout}
+                timelineHeight={timelineHeight}
+                zoom={zoom}
+                getMitColumnLeft={getMitColumnLeft}
+              />
+            </div>
+
             <MitigationLayer
               containerId={containerId}
               setMitLaneRef={setMitLaneRef}
@@ -325,6 +341,7 @@ export function TimelineCanvas({
               getMitColumnKey={(mit) => getMitColumnKey(mit, layout)}
               columnMap={layout.columnMap}
               mitEvents={mitEvents}
+              cooldownEvents={cooldownEvents}
               zoom={zoom}
               editingMitId={editingMitId}
               setEditingMitId={handleEditingChange}
