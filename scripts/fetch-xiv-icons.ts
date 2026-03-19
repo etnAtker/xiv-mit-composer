@@ -98,13 +98,22 @@ const downloadTexAsPng = async (texPath: string, outputPath: string) => {
   );
 };
 
+const logProgress = (label: string, index: number, total: number, detail: string) => {
+  const percent = Math.round((index / total) * 100);
+  console.log(`[${label}] ${index}/${total} (${percent}%) ${detail}`);
+};
+
 const run = async () => {
+  console.log('Preparing output directories...');
   await mkdir(ACTION_DIR, { recursive: true });
   await mkdir(JOB_DIR, { recursive: true });
 
+  console.log('Resolving ClassJob ids...');
   const classJobIdMap = await resolveClassJobIdMap();
 
-  for (const job of JOBS) {
+  for (let i = 0; i < JOBS.length; i += 1) {
+    const job = JOBS[i];
+    logProgress('Job', i + 1, JOBS.length, job);
     const outputPath = join(JOB_DIR, `${job}.png`);
     const classJobId = classJobIdMap[job];
     if (!classJobId) {
@@ -116,8 +125,10 @@ const run = async () => {
     await downloadTexAsPng(`ui/icon/${JOB_ICON_GROUP}/${iconName}.tex`, outputPath);
   }
 
-  for (const skill of SKILLS) {
-    if (!skill.actionId) continue;
+  const skillsWithAction = SKILLS.filter((skill) => skill.actionId);
+  for (let i = 0; i < skillsWithAction.length; i += 1) {
+    const skill = skillsWithAction[i];
+    logProgress('Action', i + 1, skillsWithAction.length, `${skill.name} (${skill.actionId})`);
     const iconTexPath = await resolveActionIconTexPath(skill.actionId);
     if (!iconTexPath) {
       throw new Error(`Action icon missing: ${skill.name} (${skill.actionId})`);

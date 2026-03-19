@@ -63,6 +63,12 @@ yarn
 pnpm install
 ```
 
+获取 XIV 图标资源：
+
+```bash
+bun fetch:icons
+```
+
 ### 2. 构建
 
 启动开发服务器：
