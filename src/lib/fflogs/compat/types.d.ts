@@ -146,6 +146,8 @@ export interface FFLogsFight {
   start_time: number;
   end_time: number;
   name: string;
+  zoneID?: number;
+  boss?: number;
 }
 
 export interface ReportResponse {

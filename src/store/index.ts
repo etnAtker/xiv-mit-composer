@@ -357,6 +357,8 @@ export const useStore = create<AppState>()(
             end: fightMeta.end_time,
             durationMs: fightMeta.end_time - fightMeta.start_time,
             name: fightMeta.name,
+            zoneID: fightMeta.zoneID,
+            fflogsBoss: fightMeta.boss,
           };
 
           const actors: Actor[] = report.friendlies

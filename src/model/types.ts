@@ -74,6 +74,8 @@ export interface Fight {
   end: number;
   durationMs: number;
   name: string;
+  zoneID?: number;
+  fflogsBoss?: number;
 }
 
 export interface Actor {

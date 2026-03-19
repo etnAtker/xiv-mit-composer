@@ -23,7 +23,7 @@ import { useTopBanner } from './hooks/useTopBanner';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
 import { canInsertMitigation, tryBuildCooldowns } from './utils/playerCast';
-import { getStoredTheme, setStoredTheme } from './utils';
+import { getStoredTheme, parseFFLogsUrl, setStoredTheme } from './utils';
 import type { DragItemData, DropZoneData } from './dnd/types';
 
 export default function App() {
@@ -57,6 +57,7 @@ export default function App() {
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportContent, setExportContent] = useState('');
+  const [exportCreatedAt, setExportCreatedAt] = useState('');
   const [enableTTS, setEnableTTS] = useState(false);
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const [dragPreviewPx, setDragPreviewPx] = useState(0);
@@ -196,18 +197,59 @@ export default function App() {
     ].sort((a, b) => a.time - b.time);
   };
 
+  const buildExportContent = (
+    eventsToExport: ReturnType<typeof getEventsToExport>,
+    ttsEnabled: boolean,
+    createdAt: string,
+  ) => {
+    const timeline = FFLogsExporter.generateTimeline(eventsToExport, ttsEnabled);
+    const parsed = parseFFLogsUrl(fflogsUrl);
+    const source =
+      parsed?.reportCode && fight ? `${parsed.reportCode}?fight=${fight.id}` : '来自XMC';
+
+    const rawJobs =
+      loadMode === 'dual'
+        ? dualTankPlayers.filter((player) => player.id).map((player) => player.job)
+        : selectedJob
+          ? [selectedJob]
+          : [];
+    const jobs = Array.from(new Set(rawJobs));
+
+    const condition: { zoneID?: string; jobs: string[]; fflogsBoss?: number } = {
+      jobs,
+    };
+    if (fight?.zoneID !== undefined) {
+      condition.zoneID = String(fight.zoneID);
+    }
+    if (fight?.fflogsBoss !== undefined) {
+      condition.fflogsBoss = fight.fflogsBoss;
+    }
+
+    const payload = {
+      name: fight?.name ?? '时间轴',
+      condition,
+      timeline,
+      source,
+      createdAt,
+    };
+
+    return JSON.stringify(payload, null, 2);
+  };
+
   const handleExportTimeline = () => {
     const eventsToExport = getEventsToExport();
-    const txt = FFLogsExporter.generateTimeline(eventsToExport, enableTTS);
-    setExportContent(txt);
+    const createdAt = new Date().toLocaleString();
+    setExportCreatedAt(createdAt);
+    const content = buildExportContent(eventsToExport, enableTTS, createdAt);
+    setExportContent(content);
     setIsExportModalOpen(true);
   };
 
   const handleTtsChange = (enabled: boolean) => {
     setEnableTTS(enabled);
     const eventsToExport = getEventsToExport();
-    const txt = FFLogsExporter.generateTimeline(eventsToExport, enabled);
-    setExportContent(txt);
+    const content = buildExportContent(eventsToExport, enabled, exportCreatedAt);
+    setExportContent(content);
   };
 
   const handleOpenLoadModal = () => {
