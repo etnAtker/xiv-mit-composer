@@ -320,6 +320,7 @@ export function TimelineCanvas({
             >
               <CooldownConstraintLayer
                 cooldownEvents={cooldownEvents}
+                mitEvents={mitEvents}
                 layout={layout}
                 timelineHeight={timelineHeight}
                 zoom={zoom}
