@@ -14,7 +14,6 @@ interface Props {
   left: number;
   width: number;
   effectHeight: number;
-  cooldownHeight: number;
   onUpdate: (id: string, updates: Partial<MitEvent>) => void;
   onRemove: (id: string) => void;
   isEditing: boolean;
@@ -32,7 +31,6 @@ export function DraggableMitigation({
   left,
   width,
   effectHeight,
-  cooldownHeight,
   onUpdate,
   onRemove,
   isEditing,
@@ -184,7 +182,6 @@ export function DraggableMitigation({
           iconSrc={skill ? getSkillIconLocalSrc(skill.actionId) : undefined}
           iconAlt={skill?.name ?? 'skill icon'}
           effectHeight={effectHeight}
-          cooldownHeight={cooldownHeight}
         />
       </div>
 

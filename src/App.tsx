@@ -657,12 +657,7 @@ export default function App() {
         </div>
       </div>
 
-      <DragOverlayLayer
-        activeItem={activeItem}
-        zoom={zoom}
-        cooldownEvents={cooldownEvents}
-        isInvalid={dragInvalid}
-      />
+      <DragOverlayLayer activeItem={activeItem} zoom={zoom} isInvalid={dragInvalid} />
       <TrashDropZone isActive={activeItem?.type === 'existing-mit'} />
 
       <ExportModal
