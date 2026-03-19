@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { useShallow } from 'zustand/shallow';
-import { type Actor, type CooldownEvent, type Job, type MitEvent } from './model/types';
+import { type Actor, type Job } from './model/types';
 import { useStore } from './store';
 import { selectAppActions, selectAppState } from './store/selectors';
-import { getSkillDefinition, withOwnerSkillId } from './data/skills';
+import { getSkillDefinition } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { AppHeader } from './components/AppHeader';
 import { DragOverlayLayer } from './components/DragOverlayLayer';
@@ -20,11 +19,10 @@ import { TimelineToolbar } from './components/Timeline/TimelineToolbar';
 import { TopBannerStack } from './components/TopBanner';
 import { TrashDropZone } from './components/TrashDropZone';
 import { useTopBanner } from './hooks/useTopBanner';
+import { useMitigationDragController } from './hooks/useMitigationDragController';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
-import { canInsertMitigation, tryBuildCooldowns } from './utils/playerCast';
 import { getStoredTheme, parseFFLogsUrl, setStoredTheme } from './utils';
-import type { DragItemData, DropZoneData } from './dnd/types';
 
 export default function App() {
   const {
@@ -59,14 +57,6 @@ export default function App() {
   const [exportContent, setExportContent] = useState('');
   const [exportCreatedAt, setExportCreatedAt] = useState('');
   const [enableTTS, setEnableTTS] = useState(false);
-  const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
-  const [dragPreviewPx, setDragPreviewPx] = useState(0);
-  const [dragInvalid, setDragInvalid] = useState(false);
-  const dragPreviewRef = useRef(0);
-  const dragPreviewRafRef = useRef<number | null>(null);
-  const dragInvalidRef = useRef(false);
-  const dragMovingEventsRef = useRef<MitEvent[]>([]);
-  const dragCooldownEventsRef = useRef<CooldownEvent[]>([]);
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [loadMode, setLoadMode] = useState<'single' | 'dual'>('single');
   const [dualTankPlayers, setDualTankPlayers] = useState<{ id: number | null; job: Job }[]>([]);
@@ -162,15 +152,6 @@ export default function App() {
     loadEvents,
     loadEventsForPlayers,
   ]);
-
-  const resolveOwnerContext = (job?: Job) => {
-    const resolvedJob = job ?? selectedJob ?? undefined;
-    if (loadMode === 'dual') {
-      const match = dualTankPlayers.find((player) => player.job === resolvedJob);
-      return { ownerJob: resolvedJob, ownerId: match?.id ?? undefined };
-    }
-    return { ownerJob: resolvedJob, ownerId: selectedPlayerId ?? undefined };
-  };
 
   const getEventsToExport = () => {
     const { castEvents, mitEvents } = useStore.getState();
@@ -313,232 +294,26 @@ export default function App() {
     );
   };
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const currentItem = event.active.data.current as DragItemData;
-    setActiveItem(currentItem);
-    if (currentItem?.type === 'new-skill') {
-      setSelectedMitIds([]);
-    }
-    dragInvalidRef.current = false;
-    setDragInvalid(false);
-    if (currentItem?.type === 'existing-mit') {
-      const selectedMitIds = useStore.getState().selectedMitIds;
-      const eventsToMove = selectedMitIds.includes(currentItem.mit.id)
-        ? mitEvents.filter((m) => selectedMitIds.includes(m.id))
-        : [currentItem.mit];
-      dragMovingEventsRef.current = eventsToMove;
-      const movingIds = new Set(eventsToMove.map((m) => m.id));
-      dragCooldownEventsRef.current =
-        tryBuildCooldowns(mitEvents.filter((m) => !movingIds.has(m.id))) ?? [];
-    } else {
-      dragMovingEventsRef.current = [];
-      dragCooldownEventsRef.current = [];
-    }
-    dragPreviewRef.current = 0;
-    if (dragPreviewRafRef.current !== null) {
-      cancelAnimationFrame(dragPreviewRafRef.current);
-      dragPreviewRafRef.current = null;
-    }
-    setDragPreviewPx(0);
-  };
-
-  const handleDragMove = (event: DragEndEvent) => {
-    const { delta } = event;
-    dragPreviewRef.current = delta.y;
-    if (dragPreviewRafRef.current !== null) return;
-    dragPreviewRafRef.current = requestAnimationFrame(() => {
-      dragPreviewRafRef.current = null;
-      setDragPreviewPx(dragPreviewRef.current);
-    });
-
-    const translated = event.active.rect.current?.translated;
-    const over = event.over;
-    const zone = over?.data.current as DropZoneData | undefined;
-    if (!translated || !over || !zone || zone.kind !== 'mit-lane') {
-      if (dragInvalidRef.current) {
-        dragInvalidRef.current = false;
-        setDragInvalid(false);
-      }
-      return;
-    }
-
-    const offsetY = Math.max(0, translated.top - over.rect.top);
-    const tStartMs = offsetY * zone.msPerPx;
-    let isValid = true;
-
-    if (activeItem?.type === 'new-skill') {
-      const { ownerJob, ownerId } = resolveOwnerContext(activeItem.ownerJob);
-      isValid = canInsertMitigation(
-        activeItem.skill.id,
-        tStartMs,
-        mitEvents,
-        ownerJob,
-        ownerId,
-        undefined,
-        cooldownEvents,
-      );
-    } else if (activeItem?.type === 'existing-mit') {
-      const deltaMs = tStartMs - activeItem.mit.tStartMs;
-      const eventsToMove = dragMovingEventsRef.current.length
-        ? dragMovingEventsRef.current
-        : [activeItem.mit];
-      const cooldowns = dragCooldownEventsRef.current;
-      isValid = eventsToMove.every((m) => {
-        const newStart = m.tStartMs + deltaMs;
-        if (newStart < 0) return false;
-        return canInsertMitigation(
-          m.skillId,
-          newStart,
-          mitEvents,
-          m.ownerJob ?? undefined,
-          m.ownerId ?? undefined,
-          undefined,
-          cooldowns,
-        );
-      });
-    }
-
-    if (dragInvalidRef.current === !isValid) return;
-    dragInvalidRef.current = !isValid;
-    setDragInvalid(!isValid);
-  };
-
-  const buildMitEventFromSkill = (
-    skillId: string,
-    tStartMs: number,
-    id = crypto.randomUUID(),
-    ownerJob?: Job,
-    ownerId?: number,
-  ): MitEvent | null => {
-    const skillDef = getSkillDefinition(skillId);
-    if (!skillDef) return null;
-    const durationMs = skillDef.durationSec * MS_PER_SEC;
-    const resolvedOwner = resolveOwnerContext(ownerJob);
-    const resolvedSkillId = withOwnerSkillId(skillDef.id, resolvedOwner.ownerJob);
-    return {
-      eventType: 'mit',
-      id,
-      skillId: resolvedSkillId,
-      tStartMs,
-      durationMs,
-      tEndMs: tStartMs + durationMs,
-      ownerId: ownerId ?? resolvedOwner.ownerId,
-      ownerJob: resolvedOwner.ownerJob,
-    };
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveItem(null);
-    dragInvalidRef.current = false;
-    setDragInvalid(false);
-    dragMovingEventsRef.current = [];
-    dragCooldownEventsRef.current = [];
-    dragPreviewRef.current = 0;
-    if (dragPreviewRafRef.current !== null) {
-      cancelAnimationFrame(dragPreviewRafRef.current);
-      dragPreviewRafRef.current = null;
-    }
-    setDragPreviewPx(0);
-    const { active, over } = event;
-    if (!over) return;
-
-    // 用 dnd-kit 的 droppable data + 测量信息来路由：不查 DOM id，多实例更安全。
-    const zone = over.data.current as DropZoneData | undefined;
-    if (!zone) return;
-    const item = active.data.current as DragItemData | undefined;
-    if (!item) return;
-
-    const translated = active.rect.current?.translated;
-    if (!translated) return;
-
-    if (zone.kind === 'trash') {
-      if (item.type !== 'existing-mit') return;
-
-      const selectedMitIds = useStore.getState().selectedMitIds;
-      const idsToRemove = selectedMitIds.includes(item.mit.id) ? selectedMitIds : [item.mit.id];
-      const removeSet = new Set(idsToRemove);
-      setMitEvents(mitEvents.filter((m) => !removeSet.has(m.id)));
-      setSelectedMitIds([]);
-      return;
-    }
-
-    if (zone.kind !== 'mit-lane') return;
-
-    const offsetY = Math.max(0, translated.top - over.rect.top);
-    const tStartMs = offsetY * zone.msPerPx;
-
-    if (item.type === 'new-skill') {
-      const { ownerJob, ownerId } = resolveOwnerContext(item.ownerJob);
-      if (
-        !canInsertMitigation(
-          item.skill.id,
-          tStartMs,
-          mitEvents,
-          ownerJob,
-          ownerId,
-          undefined,
-          cooldownEvents,
-        )
-      ) {
-        push('冷却中，无法放置该技能。', { tone: 'error' });
-        return;
-      }
-      const newMit = buildMitEventFromSkill(item.skill.id, tStartMs, undefined, ownerJob, ownerId);
-      if (!newMit) return;
-      addMitEvent(newMit);
-      return;
-    }
-
-    if (item.type !== 'existing-mit') return;
-
-    // 用“绝对落点时间”而不是原始指针 delta (delta) 来算移动量，缩放/测量变化时更稳定。
-    const deltaMs = tStartMs - item.mit.tStartMs;
-    let eventsToMove: MitEvent[] = [];
-
-    const selectedMitIds = useStore.getState().selectedMitIds;
-    if (selectedMitIds.includes(item.mit.id)) {
-      eventsToMove = mitEvents.filter((m) => selectedMitIds.includes(m.id));
-    } else {
-      eventsToMove = [item.mit];
-    }
-
-    const movingIds = new Set(eventsToMove.map((m) => m.id));
-    const cooldownEventsForMove =
-      tryBuildCooldowns(mitEvents.filter((m) => !movingIds.has(m.id))) ?? [];
-    const movedEvents = eventsToMove
-      .map((m) => {
-        const newStart = m.tStartMs + deltaMs;
-        if (newStart < 0) return;
-        if (
-          !canInsertMitigation(
-            m.skillId,
-            newStart,
-            mitEvents,
-            m.ownerJob ?? undefined,
-            m.ownerId ?? undefined,
-            undefined,
-            cooldownEventsForMove,
-          )
-        ) {
-          return;
-        }
-
-        return {
-          ...m,
-          tStartMs: newStart,
-          tEndMs: newStart + m.durationMs,
-        };
-      })
-      .filter((m) => m !== undefined);
-
-    if (movedEvents.length !== eventsToMove.length) {
-      push('冷却冲突或时间无效，已取消移动。', { tone: 'error' });
-      return;
-    }
-
-    const movedIds = movedEvents.map((m) => m.id);
-    setMitEvents([...movedEvents, ...mitEvents.filter((m) => !movedIds.includes(m.id))]);
-  };
+  const {
+    activeItem,
+    dragPreviewPx,
+    dragInvalid,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+    handleDragCancel,
+  } = useMitigationDragController({
+    selectedJob,
+    selectedPlayerId,
+    loadMode,
+    dualTankPlayers,
+    mitEvents,
+    cooldownEvents,
+    addMitEvent,
+    setMitEvents,
+    setSelectedMitIds,
+    push,
+  });
 
   const selectedJobs =
     loadMode === 'dual' ? Array.from(new Set(dualTankPlayers.map((p) => p.job))) : null;
@@ -580,18 +355,7 @@ export default function App() {
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => {
-        dragPreviewRef.current = 0;
-        if (dragPreviewRafRef.current !== null) {
-          cancelAnimationFrame(dragPreviewRafRef.current);
-          dragPreviewRafRef.current = null;
-        }
-        dragInvalidRef.current = false;
-        setDragInvalid(false);
-        dragMovingEventsRef.current = [];
-        dragCooldownEventsRef.current = [];
-        setDragPreviewPx(0);
-      }}
+      onDragCancel={handleDragCancel}
     >
       <div className="h-screen overflow-hidden bg-app text-app flex flex-col font-sans">
         <AppHeader
