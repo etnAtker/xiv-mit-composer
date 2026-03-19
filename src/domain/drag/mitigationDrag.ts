@@ -1,7 +1,7 @@
 import { withOwnerSkillId, getSkillDefinition } from '../../data/skills';
 import type { CooldownEvent, Job, MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
-import { canInsertMitigation } from '../../utils/playerCast';
+import { canInsertMitigation, evaluateMitigationSetStrict } from '../../utils/playerCast';
 
 export interface OwnerContext {
   ownerJob?: Job;
@@ -111,18 +111,8 @@ export function canDropExistingMitigations({
 
   const movingIds = new Set(eventsToMove.map((mit) => mit.id));
   const staticEvents = mitEvents.filter((mit) => !movingIds.has(mit.id));
-  const candidateEvents = [...staticEvents, ...movedEvents];
-
-  return movedEvents.every((mit) =>
-    canInsertMitigation(
-      mit.skillId,
-      mit.tStartMs,
-      candidateEvents,
-      mit.ownerJob ?? undefined,
-      mit.ownerId ?? undefined,
-      new Set([mit.id]),
-    ),
-  );
+  const candidateResult = evaluateMitigationSetStrict([...staticEvents, ...movedEvents]);
+  return candidateResult.ok;
 }
 
 export function buildMovedMitEvents(input: ExistingMitDropValidationInput): MitEvent[] | null {

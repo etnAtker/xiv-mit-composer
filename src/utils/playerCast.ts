@@ -9,21 +9,93 @@ import type { CooldownEvent, Job, MitEvent } from '../model/types';
 import { BinaryHeap } from './BinaryHeap';
 
 const GROUP_PREFIX = 'grp:';
+
+type BuildMode = 'strict' | 'tolerant';
+
+export interface CooldownBuildFailure {
+  ok: false;
+  code:
+    | 'UNKNOWN_SKILL'
+    | 'UNKNOWN_GROUP'
+    | 'NEGATIVE_STACK'
+    | 'MISSING_OPEN_COOLDOWN'
+    | 'DUPLICATE_OPEN_COOLDOWN'
+    | 'UNCLOSED_COOLDOWN';
+  message: string;
+}
+
+export interface CooldownBuildSuccess {
+  ok: true;
+  cooldownEvents: CooldownEvent[];
+}
+
+export type CooldownBuildResult = CooldownBuildSuccess | CooldownBuildFailure;
+
+export type MitigationStateFailure = CooldownBuildFailure;
+
+export interface MitigationStateSuccess {
+  ok: true;
+  mitEvents: MitEvent[];
+  cooldownEvents: CooldownEvent[];
+}
+
+export type MitigationStateResult = MitigationStateSuccess | MitigationStateFailure;
+
+class CooldownBuildError extends Error {
+  code: CooldownBuildFailure['code'];
+
+  constructor(code: CooldownBuildFailure['code'], message: string) {
+    super(message);
+    this.name = 'CooldownBuildError';
+    this.code = code;
+  }
+}
+
 const buildOwnerKey = (ownerId?: number, ownerJob?: Job) => {
   if (typeof ownerId === 'number') return `id:${ownerId}`;
   if (ownerJob) return `job:${ownerJob}`;
   return undefined;
 };
 
+function sortMitEvents(events: MitEvent[]) {
+  return [...events].sort((a, b) => a.tStartMs - b.tStartMs);
+}
+
+export function buildCooldownsStrict(events: MitEvent[]): CooldownBuildResult {
+  try {
+    return { ok: true, cooldownEvents: buildCooldownEventsInternal(events, 'strict') };
+  } catch (error) {
+    if (error instanceof CooldownBuildError) {
+      return {
+        ok: false,
+        code: error.code,
+        message: error.message,
+      };
+    }
+    throw error;
+  }
+}
+
+export function buildCooldownsTolerant(events: MitEvent[]): CooldownEvent[] {
+  return buildCooldownEventsInternal(events, 'tolerant');
+}
+
+export function evaluateMitigationSetStrict(events: MitEvent[]): MitigationStateResult {
+  const mitEvents = sortMitEvents(events);
+  const cooldownResult = buildCooldownsStrict(mitEvents);
+  if (!cooldownResult.ok) {
+    return cooldownResult;
+  }
+
+  return {
+    ok: true,
+    mitEvents,
+    cooldownEvents: cooldownResult.cooldownEvents,
+  };
+}
+
 export function tryBuildCooldowns(events: MitEvent[]): CooldownEvent[] | void {
-  const stackEvents = buildStackEvents(events);
-
-  const skillStacksCounts = buildBoundaries(stackEvents);
-  if (!skillStacksCounts) return;
-
-  const newEvents = buildCooldownEvents(skillStacksCounts);
-  newEvents.sort((a, b) => a.tStartMs - b.tStartMs);
-  return newEvents;
+  return buildCooldownsTolerant(events);
 }
 
 export function canInsertMitigation(
@@ -42,15 +114,19 @@ export function canInsertMitigation(
     return false;
   }
 
-  const resolvedCooldownEvents =
-    cooldownEvents ??
-    (() => {
-      const filteredEvents =
-        excludeIds && excludeIds.size
-          ? allEvents.filter((event) => !excludeIds.has(event.id))
-          : allEvents;
-      return tryBuildCooldowns(filteredEvents) ?? [];
-    })();
+  let resolvedCooldownEvents = cooldownEvents;
+  if (!resolvedCooldownEvents) {
+    const filteredEvents =
+      excludeIds && excludeIds.size
+        ? allEvents.filter((event) => !excludeIds.has(event.id))
+        : allEvents;
+    const result = buildCooldownsStrict(filteredEvents);
+    if (!result.ok) {
+      return false;
+    }
+    resolvedCooldownEvents = result.cooldownEvents;
+  }
+
   const ownerKey = buildOwnerKey(ownerId, ownerJob);
 
   for (const cooldown of resolvedCooldownEvents) {
@@ -77,63 +153,6 @@ interface StackEvent {
   tMs: number;
 }
 
-const stackEventOrder: Record<StackEvent['type'], number> = { recover: 0, consume: 1 };
-
-function buildStackEvents(mitEvents: MitEvent[]): BinaryHeap<StackEvent> {
-  const stackEvents: BinaryHeap<StackEvent> = new BinaryHeap<StackEvent>(
-    (a, b) => a.tMs - b.tMs || stackEventOrder[a.type] - stackEventOrder[b.type],
-  );
-
-  for (const event of mitEvents) {
-    const baseSkillId = normalizeSkillId(event.skillId);
-    const skillMeta = getSkillDefinition(baseSkillId);
-
-    if (!skillMeta) {
-      console.error(`致命错误：未找到技能 ${baseSkillId} 的定义。`);
-      continue;
-    }
-
-    const ownerKey = buildOwnerKey(event.ownerId, event.ownerJob);
-    const skillResourceKey = ownerKey ? `${baseSkillId}:${ownerKey}` : baseSkillId;
-    const skillCooldownMs = skillMeta.cooldownSec * MS_PER_SEC;
-    stackEvents.push({
-      resourceKey: skillResourceKey,
-      ownerKey: ownerKey,
-      ownerJob: event.ownerJob,
-      skillId: baseSkillId,
-      isGroup: false,
-      type: 'consume',
-      cooldownMs: skillCooldownMs,
-      tMs: event.tStartMs,
-    });
-
-    const skillGroupId = skillMeta.cooldownGroup;
-    if (skillGroupId) {
-      const cooldownGroupMeta = COOLDOWN_GROUP_MAP.get(skillGroupId);
-      if (!cooldownGroupMeta) {
-        console.error(`致命错误：未找到技能组 ${skillGroupId} 的定义。`);
-        continue;
-      }
-
-      const groupCooldownMs = cooldownGroupMeta.cooldownSec * MS_PER_SEC;
-      const groupResourceBase = toGroupResourceId(skillGroupId);
-      const groupResourceKey = ownerKey ? `${groupResourceBase}:${ownerKey}` : groupResourceBase;
-      stackEvents.push({
-        resourceKey: groupResourceKey,
-        ownerKey: ownerKey,
-        ownerJob: event.ownerJob,
-        skillId: baseSkillId,
-        isGroup: true,
-        type: 'consume',
-        cooldownMs: groupCooldownMs,
-        tMs: event.tStartMs,
-      });
-    }
-  }
-
-  return stackEvents;
-}
-
 interface CooldownEventBoundary {
   skillId: string;
   resourceId: string;
@@ -143,9 +162,75 @@ interface CooldownEventBoundary {
   boundaryType: 'unusedStart' | 'unusedEnd' | 'cooldownStart' | 'cooldownEnd';
 }
 
+const stackEventOrder: Record<StackEvent['type'], number> = { recover: 0, consume: 1 };
+
+function buildCooldownEventsInternal(events: MitEvent[], mode: BuildMode): CooldownEvent[] {
+  const stackEvents = buildStackEvents(events, mode);
+  const boundaries = buildBoundaries(stackEvents, mode);
+  const cooldownEvents = buildCooldownEvents(boundaries, mode);
+  cooldownEvents.sort((a, b) => a.tStartMs - b.tStartMs);
+  return cooldownEvents;
+}
+
+function buildStackEvents(mitEvents: MitEvent[], mode: BuildMode): BinaryHeap<StackEvent> {
+  const stackEvents: BinaryHeap<StackEvent> = new BinaryHeap<StackEvent>(
+    (a, b) => a.tMs - b.tMs || stackEventOrder[a.type] - stackEventOrder[b.type],
+  );
+
+  for (const event of mitEvents) {
+    const baseSkillId = normalizeSkillId(event.skillId);
+    const skillMeta = getSkillDefinition(baseSkillId);
+
+    if (!skillMeta) {
+      handleBuildFailure(mode, 'UNKNOWN_SKILL', `致命错误：未找到技能 ${baseSkillId} 的定义。`);
+      continue;
+    }
+
+    const ownerKey = buildOwnerKey(event.ownerId, event.ownerJob);
+    const skillResourceKey = ownerKey ? `${baseSkillId}:${ownerKey}` : baseSkillId;
+    const skillCooldownMs = skillMeta.cooldownSec * MS_PER_SEC;
+    stackEvents.push({
+      resourceKey: skillResourceKey,
+      ownerKey,
+      ownerJob: event.ownerJob,
+      skillId: baseSkillId,
+      isGroup: false,
+      type: 'consume',
+      cooldownMs: skillCooldownMs,
+      tMs: event.tStartMs,
+    });
+
+    const skillGroupId = skillMeta.cooldownGroup;
+    if (!skillGroupId) continue;
+
+    const cooldownGroupMeta = COOLDOWN_GROUP_MAP.get(skillGroupId);
+    if (!cooldownGroupMeta) {
+      handleBuildFailure(mode, 'UNKNOWN_GROUP', `致命错误：未找到技能组 ${skillGroupId} 的定义。`);
+      continue;
+    }
+
+    const groupCooldownMs = cooldownGroupMeta.cooldownSec * MS_PER_SEC;
+    const groupResourceBase = toGroupResourceId(skillGroupId);
+    const groupResourceKey = ownerKey ? `${groupResourceBase}:${ownerKey}` : groupResourceBase;
+    stackEvents.push({
+      resourceKey: groupResourceKey,
+      ownerKey,
+      ownerJob: event.ownerJob,
+      skillId: baseSkillId,
+      isGroup: true,
+      type: 'consume',
+      cooldownMs: groupCooldownMs,
+      tMs: event.tStartMs,
+    });
+  }
+
+  return stackEvents;
+}
+
 function buildBoundaries(
   stackEvents: BinaryHeap<StackEvent>,
-): Map<string, CooldownEventBoundary[]> | void {
+  mode: BuildMode,
+): Map<string, CooldownEventBoundary[]> {
   const stacksBuffer = new Map<string, number>();
   const boundaries = new Map<string, CooldownEventBoundary[]>();
   const getSkillKey = (skillId: string, ownerKey?: string) =>
@@ -156,7 +241,6 @@ function buildBoundaries(
     let stack = stacksBuffer.get(stackEvent.resourceKey) ?? initialStack;
 
     if (stackEvent.type === 'consume') {
-      // 消耗事件：若是从满层向下消耗，则需要生成一个恢复事件
       if (stack === initialStack) {
         stackEvents.push({
           ...stackEvent,
@@ -167,7 +251,6 @@ function buildBoundaries(
       stack -= 1;
     } else {
       stack += 1;
-      // 恢复事件：若是还没回满，则生成一个恢复事件
       if (stack !== initialStack) {
         stackEvents.push({
           ...stackEvent,
@@ -178,8 +261,11 @@ function buildBoundaries(
     }
 
     if (stack < 0) {
-      // 容错：异常数据导致负数时重置为 0，保证后续边界可继续生成。
-      console.error(`错误：${stackEvent.resourceKey} 冷却层数为负，已重置为 0。`);
+      handleBuildFailure(
+        mode,
+        'NEGATIVE_STACK',
+        `错误：${stackEvent.resourceKey} 冷却层数为负，无法构建合法的冷却状态。`,
+      );
       stack = 0;
     }
 
@@ -259,13 +345,16 @@ function getInitialStack(stackEvent: StackEvent): number {
   return cooldownGroupMeta?.stack ?? 1;
 }
 
-function buildCooldownEvents(boundaries: Map<string, CooldownEventBoundary[]>): CooldownEvent[] {
+function buildCooldownEvents(
+  boundaries: Map<string, CooldownEventBoundary[]>,
+  mode: BuildMode,
+): CooldownEvent[] {
   const cooldowns: CooldownEvent[] = [];
 
   for (const bs of boundaries.values()) {
     if (!bs.length) continue;
     const skillId = bs[0].skillId;
-    cooldowns.push(...buildCooldownEventsSingle(skillId, bs));
+    cooldowns.push(...buildCooldownEventsSingle(skillId, bs, mode));
   }
 
   return cooldowns;
@@ -274,10 +363,11 @@ function buildCooldownEvents(boundaries: Map<string, CooldownEventBoundary[]>): 
 function buildCooldownEventsSingle(
   skillId: string,
   boundaries: CooldownEventBoundary[],
+  mode: BuildMode,
 ): CooldownEvent[] {
   const skill = getSkillDefinition(skillId);
   if (!skill) {
-    console.error(`致命错误：技能 ${normalizeSkillId(skillId)} 不存在`);
+    handleBuildFailure(mode, 'UNKNOWN_SKILL', `致命错误：技能 ${normalizeSkillId(skillId)} 不存在`);
     return [];
   }
 
@@ -293,7 +383,7 @@ function buildCooldownEventsSingle(
 
   const closeLastCooldown = (tMs: number) => {
     if (lastCooldown === undefined) {
-      console.error(`错误：没有找到未闭合的cooldown`);
+      handleBuildFailure(mode, 'MISSING_OPEN_COOLDOWN', '错误：没有找到未闭合的cooldown。');
       return;
     }
     lastCooldown.tEndMs = tMs;
@@ -304,7 +394,7 @@ function buildCooldownEventsSingle(
 
   const startNewCooldown = (type: CooldownEvent['cdType'], tMs: number) => {
     if (lastCooldown) {
-      console.error(`错误：有未闭合的cooldown`);
+      handleBuildFailure(mode, 'DUPLICATE_OPEN_COOLDOWN', '错误：有未闭合的cooldown。');
       return;
     }
     lastCooldown = {
@@ -354,10 +444,24 @@ function buildCooldownEventsSingle(
         }
         break;
     }
-    boundary.skillId = boundary.skillId ?? skillId;
+  }
+
+  if (lastCooldown || unusableOpenCount !== 0 || cooldownOpenCount !== 0) {
+    handleBuildFailure(mode, 'UNCLOSED_COOLDOWN', `错误：技能 ${skillId} 存在未闭合的冷却区间。`);
   }
 
   return cooldowns;
+}
+
+function handleBuildFailure(
+  mode: BuildMode,
+  code: CooldownBuildFailure['code'],
+  message: string,
+): never | void {
+  if (mode === 'strict') {
+    throw new CooldownBuildError(code, message);
+  }
+  console.error(message);
 }
 
 function toGroupResourceId(groupId: string): string {
@@ -365,7 +469,6 @@ function toGroupResourceId(groupId: string): string {
 }
 
 function stripGroupPrefix(resourceId: string): string {
-  // 约定 resourceId 格式为 baseId:ownerKey，且 baseId 不包含冒号。
   const raw = resourceId.startsWith(GROUP_PREFIX)
     ? resourceId.slice(GROUP_PREFIX.length)
     : resourceId;

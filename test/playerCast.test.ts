@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { Job, MitEvent } from '../src/model/types';
-import { canInsertMitigation, tryBuildCooldowns } from '../src/utils/playerCast';
+import {
+  buildCooldownsStrict,
+  buildCooldownsTolerant,
+  canInsertMitigation,
+  evaluateMitigationSetStrict,
+  tryBuildCooldowns,
+} from '../src/utils/playerCast';
 
 function createMitEvent(
   skillId: string,
@@ -151,5 +157,48 @@ test('同技能不同 owner 不会互相阻塞', () => {
   assert.equal(
     canInsertMitigation('role-rampart', 20_000, events, 'WAR', 2, undefined, cooldowns),
     true,
+  );
+});
+
+test('strict 模式会拒绝非法的单资源重复占用', () => {
+  const invalidEvents = [
+    createMitEvent('role-rampart', 10_000, 'PLD', 1),
+    createMitEvent('role-rampart', 20_000, 'PLD', 1),
+  ];
+
+  const strictResult = buildCooldownsStrict(invalidEvents);
+  assert.equal(strictResult.ok, false);
+
+  const tolerantCooldowns = buildCooldownsTolerant(invalidEvents);
+  assert.ok(tolerantCooldowns.length > 0);
+});
+
+test('evaluateMitigationSetStrict 会返回排序后的事件与 cooldowns', () => {
+  const later = createMitEvent('role-reprisal@PLD', 30_000, 'PLD', 1);
+  const earlier = createMitEvent('role-rampart', 10_000, 'PLD', 1);
+
+  const result = evaluateMitigationSetStrict([later, earlier]);
+
+  assert.equal(result.ok, true);
+  if (!result.ok) {
+    throw new Error('期望得到合法的减伤状态');
+  }
+
+  assert.deepEqual(
+    result.mitEvents.map((mit) => mit.id),
+    [earlier.id, later.id],
+  );
+  assert.ok(result.cooldownEvents.length > 0);
+});
+
+test('canInsertMitigation 在 strict 兜底构建失败时会直接拒绝', () => {
+  const invalidEvents = [
+    createMitEvent('role-rampart', 10_000, 'PLD', 1),
+    createMitEvent('role-rampart', 20_000, 'PLD', 1),
+  ];
+
+  assert.equal(
+    canInsertMitigation('role-rampart', 150_000, invalidEvents, 'PLD', 1, new Set()),
+    false,
   );
 });

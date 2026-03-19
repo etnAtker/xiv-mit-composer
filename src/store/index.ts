@@ -17,7 +17,7 @@ import { buildCastEvents } from '../domain/fflogs/buildCastEvents';
 import { buildMitEvents } from '../domain/fflogs/buildMitEvents';
 import { buildDamageEventsByJob } from '../domain/fflogs/buildDamageEventsByJob';
 import { mergeDamageEvents } from '../domain/fflogs/mergeDamageEvents';
-import { tryBuildCooldowns } from '../utils/playerCast';
+import { buildCooldownsTolerant, evaluateMitigationSetStrict } from '../utils/playerCast';
 import { parseFFLogsUrl } from '../utils';
 
 export interface AppState {
@@ -153,7 +153,7 @@ const loadEventsCore = async ({
     withOwnerSkillId,
   );
 
-  const cooldownEvents = tryBuildCooldowns(mitEvents) ?? [];
+  const cooldownEvents = buildCooldownsTolerant(mitEvents);
   const primaryDamageEvents = damagesByPlayer[0]
     ? mergeDamageEvents(damagesByPlayer[0].events, fight.start)
     : [];
@@ -218,303 +218,293 @@ const isAbortError = (error: unknown, signal: AbortSignal) => {
 
 export const useStore = create<AppState>()(
   persist(
-    (set, get) => ({
-      apiKey: '',
-      fflogsUrl: '',
-      fight: null,
-      actors: [],
-      bossIds: [],
-      selectedJob: 'GNB',
-      selectedPlayerId: null,
-      selectedMitIds: [],
-      damageEvents: [],
-      damageEventsByJob: {},
-      castEvents: [],
-      mitEvents: [],
-      cooldownEvents: [],
-      banners: [],
-      isLoading: false,
-      isRendering: false,
-      error: null,
+    (set, get) => {
+      const commitMitigationSet = (events: MitEvent[]) => {
+        const result = evaluateMitigationSetStrict(events);
+        if (!result.ok) {
+          return result;
+        }
 
-      setApiKey: (key) => set({ apiKey: key }),
-      setFflogsUrl: (url) => set({ fflogsUrl: url }),
-      setSelectedJob: (job) => set({ selectedJob: job }),
-      setSelectedPlayerId: (id) => set({ selectedPlayerId: id }),
-      setSelectedMitIds: (ids) => set({ selectedMitIds: ids }),
-      setIsRendering: (is) => set({ isRendering: is }),
-      pushBanner: (message, options) => {
-        const id = ++bannerSeq;
-        const durationMs = options?.durationMs ?? BANNER_DEFAULT_DURATION_MS;
+        set({ mitEvents: result.mitEvents, cooldownEvents: result.cooldownEvents });
+        return result;
+      };
 
-        set((state) => {
-          const next = [
-            ...state.banners,
-            {
-              id,
-              message,
-              tone: options?.tone ?? 'info',
-              closing: false,
-              durationMs,
-            },
-          ];
+      return {
+        apiKey: '',
+        fflogsUrl: '',
+        fight: null,
+        actors: [],
+        bossIds: [],
+        selectedJob: 'GNB',
+        selectedPlayerId: null,
+        selectedMitIds: [],
+        damageEvents: [],
+        damageEventsByJob: {},
+        castEvents: [],
+        mitEvents: [],
+        cooldownEvents: [],
+        banners: [],
+        isLoading: false,
+        isRendering: false,
+        error: null,
 
-          if (next.length > BANNER_MAX) {
-            const removalIndex = next.findIndex((item) => item.durationMs !== null);
-            const index = removalIndex === -1 ? 0 : removalIndex;
-            const removed = next[index];
-            if (removed) {
-              clearBannerTimer(removed.id);
+        setApiKey: (key) => set({ apiKey: key }),
+        setFflogsUrl: (url) => set({ fflogsUrl: url }),
+        setSelectedJob: (job) => set({ selectedJob: job }),
+        setSelectedPlayerId: (id) => set({ selectedPlayerId: id }),
+        setSelectedMitIds: (ids) => set({ selectedMitIds: ids }),
+        setIsRendering: (is) => set({ isRendering: is }),
+        pushBanner: (message, options) => {
+          const id = ++bannerSeq;
+          const durationMs = options?.durationMs ?? BANNER_DEFAULT_DURATION_MS;
+
+          set((state) => {
+            const next = [
+              ...state.banners,
+              {
+                id,
+                message,
+                tone: options?.tone ?? 'info',
+                closing: false,
+                durationMs,
+              },
+            ];
+
+            if (next.length > BANNER_MAX) {
+              const removalIndex = next.findIndex((item) => item.durationMs !== null);
+              const index = removalIndex === -1 ? 0 : removalIndex;
+              const removed = next[index];
+              if (removed) {
+                clearBannerTimer(removed.id);
+              }
+              return { banners: next.filter((_, i) => i !== index) };
             }
-            return { banners: next.filter((_, i) => i !== index) };
+
+            return { banners: next };
+          });
+
+          if (durationMs !== null && typeof window !== 'undefined') {
+            const timer = window.setTimeout(() => {
+              set((state) => ({
+                banners: state.banners.map((item) =>
+                  item.id === id ? { ...item, closing: true } : item,
+                ),
+              }));
+
+              const closeTimer = window.setTimeout(() => {
+                set((state) => ({
+                  banners: state.banners.filter((item) => item.id !== id),
+                }));
+                clearBannerTimer(id);
+              }, BANNER_CLOSE_MS);
+              bannerTimers.set(id, closeTimer);
+            }, durationMs);
+            bannerTimers.set(id, timer);
           }
 
-          return { banners: next };
-        });
+          return id;
+        },
+        closeBanner: (id) => {
+          clearBannerTimer(id);
+          set((state) => ({
+            banners: state.banners.map((item) =>
+              item.id === id ? { ...item, closing: true } : item,
+            ),
+          }));
 
-        if (durationMs !== null && typeof window !== 'undefined') {
+          if (typeof window === 'undefined') {
+            set((state) => ({
+              banners: state.banners.filter((item) => item.id !== id),
+            }));
+            return;
+          }
+
           const timer = window.setTimeout(() => {
             set((state) => ({
-              banners: state.banners.map((item) =>
-                item.id === id ? { ...item, closing: true } : item,
-              ),
+              banners: state.banners.filter((item) => item.id !== id),
             }));
-
-            const closeTimer = window.setTimeout(() => {
-              set((state) => ({
-                banners: state.banners.filter((item) => item.id !== id),
-              }));
-              clearBannerTimer(id);
-            }, BANNER_CLOSE_MS);
-            bannerTimers.set(id, closeTimer);
-          }, durationMs);
+            clearBannerTimer(id);
+          }, BANNER_CLOSE_MS);
           bannerTimers.set(id, timer);
-        }
+        },
 
-        return id;
-      },
-      closeBanner: (id) => {
-        clearBannerTimer(id);
-        set((state) => ({
-          banners: state.banners.map((item) =>
-            item.id === id ? { ...item, closing: true } : item,
-          ),
-        }));
+        loadFightMetadata: async () => {
+          const { requestId, signal } = beginFightRequest();
+          const { apiKey, fflogsUrl } = get();
+          const parsed = parseFFLogsUrl(fflogsUrl);
+          const reportCode = parsed?.reportCode;
+          const fightId = parsed?.fightId;
 
-        if (typeof window === 'undefined') {
-          set((state) => ({
-            banners: state.banners.filter((item) => item.id !== id),
-          }));
-          return;
-        }
-
-        const timer = window.setTimeout(() => {
-          set((state) => ({
-            banners: state.banners.filter((item) => item.id !== id),
-          }));
-          clearBannerTimer(id);
-        }, BANNER_CLOSE_MS);
-        bannerTimers.set(id, timer);
-      },
-
-      loadFightMetadata: async () => {
-        const { requestId, signal } = beginFightRequest();
-        const { apiKey, fflogsUrl } = get();
-        const parsed = parseFFLogsUrl(fflogsUrl);
-        const reportCode = parsed?.reportCode;
-        const fightId = parsed?.fightId;
-
-        if (!apiKey || !reportCode) {
-          if (requestId !== fightRequestSeq) return;
-          const msg = !apiKey ? '未输入 API Key' : 'FFLogs URL 不合法';
-          set({ error: msg, isLoading: false });
-          get().pushBanner(msg, { tone: 'error' });
-          return;
-        }
-
-        set({ isLoading: true, error: null });
-        try {
-          const client = new FFLogsClient(apiKey);
-          const report = await client.fetchReport(reportCode, signal);
-          if (requestId !== fightRequestSeq || signal.aborted) return;
-
-          let fightMeta;
-          if (fightId === 'last') {
-            // 选择报告中最后一场战斗
-            fightMeta = report.fights[report.fights.length - 1];
-          } else {
-            // 按战斗 ID 查找战斗
-            fightMeta = report.fights.find((f) => f.id === Number(fightId));
+          if (!apiKey || !reportCode) {
+            if (requestId !== fightRequestSeq) return;
+            const msg = !apiKey ? '未输入 API Key' : 'FFLogs URL 不合法';
+            set({ error: msg, isLoading: false });
+            get().pushBanner(msg, { tone: 'error' });
+            return;
           }
 
-          if (!fightMeta) {
-            throw new Error('报告中未找到该 Fight ID');
-          }
+          set({ isLoading: true, error: null });
+          try {
+            const client = new FFLogsClient(apiKey);
+            const report = await client.fetchReport(reportCode, signal);
+            if (requestId !== fightRequestSeq || signal.aborted) return;
 
-          const fight: Fight = {
-            id: fightMeta.id,
-            start: fightMeta.start_time,
-            end: fightMeta.end_time,
-            durationMs: fightMeta.end_time - fightMeta.start_time,
-            name: fightMeta.name,
-            zoneID: fightMeta.zoneID,
-            fflogsBoss: fightMeta.boss,
-          };
-
-          const actors: Actor[] = report.friendlies
-            .filter((f) => f.type !== 'LimitBreak' && f.type !== 'Environment') // 过滤非战斗单位
-            .filter((f) => f.fights?.some((fightRef) => fightRef.id === fightMeta.id))
-            .map((f) => ({
-              id: f.id,
-              name: f.name,
-              type: f.type,
-              subType: f.type, // 兼容旧字段
-            }));
-
-          // 记录当前战斗中的 Boss
-          const bossIds: number[] = [];
-          report.enemies.forEach((e) => {
-            if (e.type === 'Boss' && e.fights.some((f) => f.id === fight.id)) {
-              bossIds.push(e.id);
+            let fightMeta;
+            if (fightId === 'last') {
+              // 选择报告中最后一场战斗
+              fightMeta = report.fights[report.fights.length - 1];
+            } else {
+              // 按战斗 ID 查找战斗
+              fightMeta = report.fights.find((f) => f.id === Number(fightId));
             }
-          });
 
-          set({ fight, actors, bossIds, isLoading: false });
-        } catch (err: unknown) {
-          if (requestId !== fightRequestSeq || isAbortError(err, signal)) return;
-          console.error(err);
-          const rawMsg = err instanceof Error ? err.message : String(err);
-          const msg = rawMsg || '加载战斗失败';
-          set({ error: msg, isLoading: false });
-          get().pushBanner(msg, { tone: 'error' });
-        }
-      },
+            if (!fightMeta) {
+              throw new Error('报告中未找到该 Fight ID');
+            }
 
-      loadEvents: async () => {
-        const { apiKey, fflogsUrl, fight, selectedPlayerId, selectedJob, bossIds } = get();
-        const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
-        if (!apiKey || !reportCode || !fight || !selectedPlayerId) return;
+            const fight: Fight = {
+              id: fightMeta.id,
+              start: fightMeta.start_time,
+              end: fightMeta.end_time,
+              durationMs: fightMeta.end_time - fightMeta.start_time,
+              name: fightMeta.name,
+              zoneID: fightMeta.zoneID,
+              fflogsBoss: fightMeta.boss,
+            };
 
-        // 标记渲染中，等待 Timeline 通知完成
-        const { requestId, signal } = beginEventsRequest();
-        set({ isLoading: true, isRendering: true, error: null });
-        const client = new FFLogsClient(apiKey);
+            const actors: Actor[] = report.friendlies
+              .filter((f) => f.type !== 'LimitBreak' && f.type !== 'Environment') // 过滤非战斗单位
+              .filter((f) => f.fights?.some((fightRef) => fightRef.id === fightMeta.id))
+              .map((f) => ({
+                id: f.id,
+                name: f.name,
+                type: f.type,
+                subType: f.type, // 兼容旧字段
+              }));
 
-        try {
-          const { damageEvents, damageEventsByJob, castEvents, mitEvents, cooldownEvents } =
-            await loadEventsCore({
-              client,
-              reportCode,
-              fight,
-              bossIds,
-              players: [{ id: selectedPlayerId, job: selectedJob ?? undefined }],
-              signal,
+            // 记录当前战斗中的 Boss
+            const bossIds: number[] = [];
+            report.enemies.forEach((e) => {
+              if (e.type === 'Boss' && e.fights.some((f) => f.id === fight.id)) {
+                bossIds.push(e.id);
+              }
             });
-          if (requestId !== eventsRequestSeq || signal.aborted) return;
 
-          set({
-            damageEvents,
-            damageEventsByJob,
-            castEvents,
-            mitEvents,
-            cooldownEvents,
-            isLoading: false,
-            // 等待 Timeline 通知渲染完成后再取消遮罩
-          });
-        } catch (err: unknown) {
-          if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
-          console.error(err);
-          const rawMsg = err instanceof Error ? err.message : String(err);
-          const msg = rawMsg || '加载事件失败';
-          set({ error: msg, isLoading: false, isRendering: false });
-          get().pushBanner(msg, { tone: 'error' });
-        }
-      },
+            set({ fight, actors, bossIds, isLoading: false });
+          } catch (err: unknown) {
+            if (requestId !== fightRequestSeq || isAbortError(err, signal)) return;
+            console.error(err);
+            const rawMsg = err instanceof Error ? err.message : String(err);
+            const msg = rawMsg || '加载战斗失败';
+            set({ error: msg, isLoading: false });
+            get().pushBanner(msg, { tone: 'error' });
+          }
+        },
 
-      loadEventsForPlayers: async (players) => {
-        const { apiKey, fflogsUrl, fight, bossIds } = get();
-        const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
-        if (!apiKey || !reportCode || !fight || players.length === 0) return;
+        loadEvents: async () => {
+          const { apiKey, fflogsUrl, fight, selectedPlayerId, selectedJob, bossIds } = get();
+          const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
+          if (!apiKey || !reportCode || !fight || !selectedPlayerId) return;
 
-        const { requestId, signal } = beginEventsRequest();
-        set({ isLoading: true, isRendering: true, error: null });
-        const client = new FFLogsClient(apiKey);
+          // 标记渲染中，等待 Timeline 通知完成
+          const { requestId, signal } = beginEventsRequest();
+          set({ isLoading: true, isRendering: true, error: null });
+          const client = new FFLogsClient(apiKey);
 
-        try {
-          const { damageEvents, damageEventsByJob, castEvents, mitEvents, cooldownEvents } =
-            await loadEventsCore({
-              client,
-              reportCode,
-              fight,
-              bossIds,
-              players,
-              signal,
+          try {
+            const { damageEvents, damageEventsByJob, castEvents, mitEvents, cooldownEvents } =
+              await loadEventsCore({
+                client,
+                reportCode,
+                fight,
+                bossIds,
+                players: [{ id: selectedPlayerId, job: selectedJob ?? undefined }],
+                signal,
+              });
+            if (requestId !== eventsRequestSeq || signal.aborted) return;
+
+            set({
+              damageEvents,
+              damageEventsByJob,
+              castEvents,
+              mitEvents,
+              cooldownEvents,
+              isLoading: false,
+              // 等待 Timeline 通知渲染完成后再取消遮罩
             });
-          if (requestId !== eventsRequestSeq || signal.aborted) return;
+          } catch (err: unknown) {
+            if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
+            console.error(err);
+            const rawMsg = err instanceof Error ? err.message : String(err);
+            const msg = rawMsg || '加载事件失败';
+            set({ error: msg, isLoading: false, isRendering: false });
+            get().pushBanner(msg, { tone: 'error' });
+          }
+        },
 
-          const primaryJob = players[0]?.job;
-          const primaryDamages = primaryJob ? (damageEventsByJob[primaryJob] ?? []) : damageEvents;
-          set({
-            damageEvents: primaryDamages,
-            damageEventsByJob,
-            castEvents,
-            mitEvents,
-            cooldownEvents,
-            isLoading: false,
-          });
-        } catch (err: unknown) {
-          if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
-          console.error(err);
-          const rawMsg = err instanceof Error ? err.message : String(err);
-          const msg = rawMsg || '加载事件失败';
-          set({ error: msg, isLoading: false, isRendering: false });
-          get().pushBanner(msg, { tone: 'error' });
-        }
-      },
+        loadEventsForPlayers: async (players) => {
+          const { apiKey, fflogsUrl, fight, bossIds } = get();
+          const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
+          if (!apiKey || !reportCode || !fight || players.length === 0) return;
 
-      addMitEvent: (event: MitEvent) => {
-        set((state) => {
-          const newMits = [...state.mitEvents, event];
-          const cooldownEvents = tryBuildCooldowns(newMits) ?? [];
+          const { requestId, signal } = beginEventsRequest();
+          set({ isLoading: true, isRendering: true, error: null });
+          const client = new FFLogsClient(apiKey);
 
-          newMits.sort((a, b) => a.tStartMs - b.tStartMs);
-          return {
-            mitEvents: newMits,
-            cooldownEvents,
-          };
-        });
-      },
+          try {
+            const { damageEvents, damageEventsByJob, castEvents, mitEvents, cooldownEvents } =
+              await loadEventsCore({
+                client,
+                reportCode,
+                fight,
+                bossIds,
+                players,
+                signal,
+              });
+            if (requestId !== eventsRequestSeq || signal.aborted) return;
 
-      updateMitEvent: (id: string, updates: Partial<MitEvent>) => {
-        set((state) => {
-          const newMits = state.mitEvents.map((e) => (e.id === id ? { ...e, ...updates } : e));
-          const cooldownEvents = tryBuildCooldowns(newMits) ?? [];
+            const primaryJob = players[0]?.job;
+            const primaryDamages = primaryJob
+              ? (damageEventsByJob[primaryJob] ?? [])
+              : damageEvents;
+            set({
+              damageEvents: primaryDamages,
+              damageEventsByJob,
+              castEvents,
+              mitEvents,
+              cooldownEvents,
+              isLoading: false,
+            });
+          } catch (err: unknown) {
+            if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
+            console.error(err);
+            const rawMsg = err instanceof Error ? err.message : String(err);
+            const msg = rawMsg || '加载事件失败';
+            set({ error: msg, isLoading: false, isRendering: false });
+            get().pushBanner(msg, { tone: 'error' });
+          }
+        },
 
-          newMits.sort((a, b) => a.tStartMs - b.tStartMs);
-          return {
-            mitEvents: newMits,
-            cooldownEvents,
-          };
-        });
-      },
+        addMitEvent: (event: MitEvent) => {
+          const state = get();
+          commitMitigationSet([...state.mitEvents, event]);
+        },
 
-      removeMitEvent: (id: string) =>
-        set((state) => {
-          const newMits = state.mitEvents.filter((e) => e.id !== id);
-          const cooldownEvents = tryBuildCooldowns(newMits) ?? [];
+        updateMitEvent: (id: string, updates: Partial<MitEvent>) => {
+          const state = get();
+          commitMitigationSet(state.mitEvents.map((e) => (e.id === id ? { ...e, ...updates } : e)));
+        },
 
-          return {
-            mitEvents: newMits,
-            cooldownEvents,
-          };
-        }),
+        removeMitEvent: (id: string) => {
+          const state = get();
+          commitMitigationSet(state.mitEvents.filter((e) => e.id !== id));
+        },
 
-      setMitEvents: (events) => {
-        const sortedEvents = [...events].sort((a, b) => a.tStartMs - b.tStartMs);
-        const cooldownEvents = tryBuildCooldowns(sortedEvents) ?? [];
-        set({ mitEvents: sortedEvents, cooldownEvents });
-      },
-    }),
+        setMitEvents: (events) => {
+          commitMitigationSet(events);
+        },
+      };
+    },
     {
       name: 'xiv-mit-composer-storage',
       version: 1,
