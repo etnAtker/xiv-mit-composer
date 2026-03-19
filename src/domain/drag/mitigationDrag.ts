@@ -1,7 +1,7 @@
 import { withOwnerSkillId, getSkillDefinition } from '../../data/skills';
 import type { CooldownEvent, Job, MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
-import { canInsertMitigation, tryBuildCooldowns } from '../../utils/playerCast';
+import { canInsertMitigation } from '../../utils/playerCast';
 
 export interface OwnerContext {
   ownerJob?: Job;
@@ -10,7 +10,6 @@ export interface OwnerContext {
 
 export interface ExistingMitDragContext {
   eventsToMove: MitEvent[];
-  cooldownEvents: CooldownEvent[];
 }
 
 interface BuildMitEventFromSkillInput extends OwnerContext {
@@ -24,7 +23,6 @@ interface ExistingMitDropValidationInput {
   tStartMs: number;
   eventsToMove: MitEvent[];
   mitEvents: MitEvent[];
-  cooldownEvents: CooldownEvent[];
 }
 
 export function resolveEventsToMove(
@@ -44,9 +42,7 @@ export function prepareExistingMitDrag(
   mitEvents: MitEvent[],
 ): ExistingMitDragContext {
   const eventsToMove = resolveEventsToMove(currentMit, selectedMitIds, mitEvents);
-  const movingIds = new Set(eventsToMove.map((mit) => mit.id));
-  const cooldownEvents = tryBuildCooldowns(mitEvents.filter((mit) => !movingIds.has(mit.id))) ?? [];
-  return { eventsToMove, cooldownEvents };
+  return { eventsToMove };
 }
 
 export function resolveDropStartMs(
@@ -107,23 +103,26 @@ export function canDropExistingMitigations({
   tStartMs,
   eventsToMove,
   mitEvents,
-  cooldownEvents,
 }: ExistingMitDropValidationInput): boolean {
-  const deltaMs = tStartMs - sourceMit.tStartMs;
-  return eventsToMove.every((mit) => {
-    const newStart = mit.tStartMs + deltaMs;
-    if (newStart < 0) return false;
+  const movedEvents = buildMovedCandidateEvents(sourceMit, tStartMs, eventsToMove);
+  if (!movedEvents) {
+    return false;
+  }
 
-    return canInsertMitigation(
+  const movingIds = new Set(eventsToMove.map((mit) => mit.id));
+  const staticEvents = mitEvents.filter((mit) => !movingIds.has(mit.id));
+  const candidateEvents = [...staticEvents, ...movedEvents];
+
+  return movedEvents.every((mit) =>
+    canInsertMitigation(
       mit.skillId,
-      newStart,
-      mitEvents,
+      mit.tStartMs,
+      candidateEvents,
       mit.ownerJob ?? undefined,
       mit.ownerId ?? undefined,
-      undefined,
-      cooldownEvents,
-    );
-  });
+      new Set([mit.id]),
+    ),
+  );
 }
 
 export function buildMovedMitEvents(input: ExistingMitDropValidationInput): MitEvent[] | null {
@@ -131,13 +130,29 @@ export function buildMovedMitEvents(input: ExistingMitDropValidationInput): MitE
     return null;
   }
 
-  const deltaMs = input.tStartMs - input.sourceMit.tStartMs;
-  return input.eventsToMove.map((mit) => {
+  return buildMovedCandidateEvents(input.sourceMit, input.tStartMs, input.eventsToMove);
+}
+
+function buildMovedCandidateEvents(
+  sourceMit: MitEvent,
+  tStartMs: number,
+  eventsToMove: MitEvent[],
+): MitEvent[] | null {
+  const deltaMs = tStartMs - sourceMit.tStartMs;
+  const movedEvents: MitEvent[] = [];
+
+  for (const mit of eventsToMove) {
     const newStart = mit.tStartMs + deltaMs;
-    return {
+    if (newStart < 0) {
+      return null;
+    }
+
+    movedEvents.push({
       ...mit,
       tStartMs: newStart,
       tEndMs: newStart + mit.durationMs,
-    };
-  });
+    });
+  }
+
+  return movedEvents;
 }

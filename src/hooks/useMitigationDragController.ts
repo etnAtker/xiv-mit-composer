@@ -52,7 +52,6 @@ export function useMitigationDragController({
   const dragPreviewRafRef = useRef<number | null>(null);
   const dragInvalidRef = useRef(false);
   const dragMovingEventsRef = useRef<MitEvent[]>([]);
-  const dragCooldownEventsRef = useRef<CooldownEvent[]>([]);
 
   const resolveOwnerContext = useCallback(
     (job?: Job) => {
@@ -70,7 +69,6 @@ export function useMitigationDragController({
     dragInvalidRef.current = false;
     setDragInvalid(false);
     dragMovingEventsRef.current = [];
-    dragCooldownEventsRef.current = [];
     dragPreviewRef.current = 0;
 
     if (dragPreviewRafRef.current !== null) {
@@ -106,7 +104,6 @@ export function useMitigationDragController({
       const selectedMitIds = useStore.getState().selectedMitIds;
       const dragContext = prepareExistingMitDrag(currentItem.mit, selectedMitIds, mitEvents);
       dragMovingEventsRef.current = dragContext.eventsToMove;
-      dragCooldownEventsRef.current = dragContext.cooldownEvents;
     },
     [clearDragRuntime, mitEvents, setSelectedMitIds],
   );
@@ -153,7 +150,6 @@ export function useMitigationDragController({
           tStartMs,
           eventsToMove,
           mitEvents,
-          cooldownEvents: dragCooldownEventsRef.current,
         });
       }
 
@@ -221,7 +217,6 @@ export function useMitigationDragController({
         tStartMs,
         eventsToMove: dragContext.eventsToMove,
         mitEvents,
-        cooldownEvents: dragContext.cooldownEvents,
       });
 
       if (!movedEvents || movedEvents.length !== dragContext.eventsToMove.length) {

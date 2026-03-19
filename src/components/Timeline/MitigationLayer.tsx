@@ -1,7 +1,7 @@
 import type { Job, MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
 import { getSkillDefinition, normalizeSkillId } from '../../data/skills';
-import { JOB_ICON_LOCAL_SRC } from '../../data/icons';
+import { getSkillIconLocalSrc, JOB_ICON_LOCAL_SRC } from '../../data/icons';
 import { DraggableMitigation } from './DraggableMitigation';
 import { MitigationBarContent } from './MitigationBar';
 import { getMitigationBarHeights } from './mitigationBarUtils';
@@ -108,7 +108,8 @@ export function MitigationLayer({
           >
             <MitigationBarContent
               headerClassName={`border border-white/10 ${ghostColor}`}
-              showIcon={false}
+              iconSrc={skillDef ? getSkillIconLocalSrc(skillDef.actionId) : undefined}
+              iconAlt={skillDef?.name ?? 'skill icon'}
               effectHeight={effectHeight}
             />
           </div>

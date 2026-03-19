@@ -46,7 +46,6 @@ test('prepareExistingMitDrag 会基于选中项生成移动上下文', () => {
   const result = prepareExistingMitDrag(a, [a.id, b.id], [a, b]);
 
   assert.deepEqual(result.eventsToMove, [a, b]);
-  assert.deepEqual(result.cooldownEvents, []);
 });
 
 test('resolveDropStartMs 会把拖拽落点转换为时间', () => {
@@ -114,7 +113,6 @@ test('buildMovedMitEvents 会生成整体平移后的结果', () => {
     tStartMs: 20_000,
     eventsToMove: context.eventsToMove,
     mitEvents: [a, b],
-    cooldownEvents: context.cooldownEvents,
   });
 
   assert.deepEqual(
@@ -137,8 +135,34 @@ test('canDropExistingMitigations 在目标时间冲突时返回 false', () => {
       tStartMs: 100_000,
       eventsToMove: context.eventsToMove,
       mitEvents: [moving, blocker],
-      cooldownEvents: context.cooldownEvents,
     }),
     false,
+  );
+});
+
+test('canDropExistingMitigations 会阻止多选移动破坏未选中的充能技能排布', () => {
+  const a = createMitEvent('drk-oblation', 0, 'DRK', 1);
+  const b = createMitEvent('drk-oblation', 30_000, 'DRK', 1);
+  const staticMit = createMitEvent('drk-oblation', 100_000, 'DRK', 1);
+  const context = prepareExistingMitDrag(a, [a.id, b.id], [a, b, staticMit]);
+
+  assert.equal(
+    canDropExistingMitigations({
+      sourceMit: a,
+      tStartMs: 50_000,
+      eventsToMove: context.eventsToMove,
+      mitEvents: [a, b, staticMit],
+    }),
+    false,
+  );
+
+  assert.equal(
+    buildMovedMitEvents({
+      sourceMit: a,
+      tStartMs: 50_000,
+      eventsToMove: context.eventsToMove,
+      mitEvents: [a, b, staticMit],
+    }),
+    null,
   );
 });
