@@ -69,6 +69,7 @@ export function canInsertMitigation(
 interface StackEvent {
   resourceKey: string;
   ownerKey?: string;
+  ownerJob?: Job;
   skillId: string;
   isGroup: boolean;
   type: 'consume' | 'recover';
@@ -98,6 +99,7 @@ function buildStackEvents(mitEvents: MitEvent[]): BinaryHeap<StackEvent> {
     stackEvents.push({
       resourceKey: skillResourceKey,
       ownerKey: ownerKey,
+      ownerJob: event.ownerJob,
       skillId: baseSkillId,
       isGroup: false,
       type: 'consume',
@@ -119,6 +121,7 @@ function buildStackEvents(mitEvents: MitEvent[]): BinaryHeap<StackEvent> {
       stackEvents.push({
         resourceKey: groupResourceKey,
         ownerKey: ownerKey,
+        ownerJob: event.ownerJob,
         skillId: baseSkillId,
         isGroup: true,
         type: 'consume',
@@ -135,6 +138,7 @@ interface CooldownEventBoundary {
   skillId: string;
   resourceId: string;
   ownerKey?: string;
+  ownerJob?: Job;
   tMs: number;
   boundaryType: 'unusedStart' | 'unusedEnd' | 'cooldownStart' | 'cooldownEnd';
 }
@@ -186,6 +190,7 @@ function buildBoundaries(
             skillId,
             resourceId: stackEvent.resourceKey,
             ownerKey: stackEvent.ownerKey,
+            ownerJob: stackEvent.ownerJob,
             tMs: stackEvent.tMs - stackEvent.cooldownMs,
             boundaryType: 'unusedStart',
           },
@@ -193,6 +198,7 @@ function buildBoundaries(
             skillId,
             resourceId: stackEvent.resourceKey,
             ownerKey: stackEvent.ownerKey,
+            ownerJob: stackEvent.ownerJob,
             tMs: stackEvent.tMs,
             boundaryType: 'unusedEnd',
           },
@@ -200,6 +206,7 @@ function buildBoundaries(
             skillId,
             resourceId: stackEvent.resourceKey,
             ownerKey: stackEvent.ownerKey,
+            ownerJob: stackEvent.ownerJob,
             tMs: stackEvent.tMs,
             boundaryType: 'cooldownStart',
           },
@@ -212,6 +219,7 @@ function buildBoundaries(
             skillId,
             resourceId: stackEvent.resourceKey,
             ownerKey: stackEvent.ownerKey,
+            ownerJob: stackEvent.ownerJob,
             tMs: stackEvent.tMs,
             boundaryType: 'cooldownEnd',
           },
@@ -275,6 +283,7 @@ function buildCooldownEventsSingle(
 
   const cooldowns: CooldownEvent[] = [];
   const ownerKey = boundaries[0]?.ownerKey;
+  const ownerJob = boundaries[0]?.ownerJob;
 
   boundaries.sort((a, b) => a.tMs - b.tMs);
 
@@ -302,6 +311,7 @@ function buildCooldownEventsSingle(
       eventType: 'cooldown',
       cdType: type,
       skillId,
+      ownerJob,
       ownerKey,
       tStartMs: tMs,
       durationMs: 0,

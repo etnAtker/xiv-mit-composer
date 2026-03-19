@@ -135,6 +135,7 @@ export interface CooldownEvent {
   // unusable - 由于某技能使用，在该时间点之前无法额外使用一次
   cdType: 'cooldown' | 'unusable';
   skillId: string;
+  ownerJob?: Job;
   ownerKey?: string;
   tStartMs: number;
   durationMs: number;

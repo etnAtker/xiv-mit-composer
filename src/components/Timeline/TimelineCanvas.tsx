@@ -19,6 +19,7 @@ import { useTimelineScroll } from './useTimelineScroll';
 import { useBoxSelection } from './useBoxSelection';
 import { buildDropZoneId, type DropZoneData } from '../../dnd/types';
 import type { TimelineLayout } from './timelineLayout';
+import { getMitColumnKey } from './mitigationColumnUtils';
 
 const VISIBLE_RANGE_BUFFER_MS = 5000;
 const ZOOM_WHEEL_STEP = 5;
@@ -171,18 +172,6 @@ export function TimelineCanvas({
       ? mitEvents.filter((mit) => mit.ownerJob === secondaryJob)
       : [];
 
-  const getMitColumnKey = (mit: MitEvent) => {
-    const ownerJob = mit.ownerJob ?? layout.defaultOwnerJob;
-    const baseSkillId = normalizeSkillId(mit.skillId);
-    if (ownerJob) {
-      const jobKey = `${baseSkillId}:${ownerJob}`;
-      if (Object.prototype.hasOwnProperty.call(layout.columnMap, jobKey)) {
-        return jobKey;
-      }
-    }
-    return baseSkillId;
-  };
-
   const {
     boxSelection,
     handlePointerDown,
@@ -196,7 +185,7 @@ export function TimelineCanvas({
     zoom,
     mitX,
     getMitColumnLeft,
-    getMitColumnKey,
+    getMitColumnKey: (mit) => getMitColumnKey(mit, layout),
     setSelectedMitIds,
     setContextMenu,
     setEditingMitId: handleEditingChange,
@@ -333,7 +322,7 @@ export function TimelineCanvas({
               reprisalZIndexMap={reprisalZIndexMap}
               getEffectiveStartMs={getEffectiveStartMs}
               getMitColumnLeft={getMitColumnLeft}
-              getMitColumnKey={getMitColumnKey}
+              getMitColumnKey={(mit) => getMitColumnKey(mit, layout)}
               columnMap={layout.columnMap}
               mitEvents={mitEvents}
               zoom={zoom}
