@@ -1,4 +1,4 @@
-import type { CooldownEvent, Job, MitEvent } from '../../model/types';
+import type { Job, MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
 import { getSkillDefinition, normalizeSkillId } from '../../data/skills';
 import { JOB_ICON_LOCAL_SRC } from '../../data/icons';
@@ -27,7 +27,6 @@ interface Props {
   getMitColumnKey: (mit: MitEvent) => string;
   columnMap: Record<string, number>;
   mitEvents: MitEvent[];
-  cooldownEvents: CooldownEvent[];
   zoom: number;
   editingMitId: string | null;
   setEditingMitId: (id: string | null) => void;
@@ -55,7 +54,6 @@ export function MitigationLayer({
   getMitColumnKey,
   columnMap,
   mitEvents,
-  cooldownEvents,
   zoom,
   editingMitId,
   setEditingMitId,
@@ -90,11 +88,7 @@ export function MitigationLayer({
         const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
         const skillDef = getSkillDefinition(mit.skillId);
         const ghostColor = skillDef?.color || 'bg-slate-600';
-        const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(
-          mit,
-          zoom,
-          cooldownEvents,
-        );
+        const { effectHeight, totalHeight } = getMitigationBarHeights(mit, zoom);
         const top = (mit.tStartMs / MS_PER_SEC) * zoom + dragPreviewPx;
         const height = totalHeight;
 
@@ -116,7 +110,6 @@ export function MitigationLayer({
               headerClassName={`border border-white/10 ${ghostColor}`}
               showIcon={false}
               effectHeight={effectHeight}
-              cooldownHeight={cooldownHeight}
             />
           </div>
         );
@@ -125,12 +118,8 @@ export function MitigationLayer({
         const columnKey = `${normalizeSkillId(mit.skillId)}:${targetJob}`;
         const columnIndex = columnMap[columnKey];
         if (columnIndex === undefined) return null;
-        const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(
-          mit,
-          zoom,
-          cooldownEvents,
-        );
-        const height = totalHeight - cooldownHeight;
+        const { effectHeight, totalHeight } = getMitigationBarHeights(mit, zoom);
+        const height = totalHeight;
         const top = (getEffectiveStartMs(mit) / MS_PER_SEC) * zoom;
         const ghostColor = reprisalSkillColor ?? 'bg-slate-600';
         const reprisalIndex = reprisalZIndexMap.get(mit.id) ?? 0;
@@ -155,18 +144,12 @@ export function MitigationLayer({
               iconSrc={JOB_ICON_LOCAL_SRC[iconJob]}
               iconAlt={`${iconJob} icon`}
               effectHeight={effectHeight}
-              cooldownHeight={cooldownHeight}
-              showCooldown={false}
             />
           </div>
         );
       })}
       {mitEvents.map((mit) => {
-        const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(
-          mit,
-          zoom,
-          cooldownEvents,
-        );
+        const { effectHeight, totalHeight } = getMitigationBarHeights(mit, zoom);
         const top = (mit.tStartMs / MS_PER_SEC) * zoom;
         const height = totalHeight;
         const columnKey = getMitColumnKey(mit);
@@ -201,7 +184,6 @@ export function MitigationLayer({
               left={MIT_COLUMN_PADDING}
               width={barWidth}
               effectHeight={effectHeight}
-              cooldownHeight={cooldownHeight}
               onUpdate={(id, update) => updateMitEvent(id, update)}
               onRemove={(id) => removeMitEvent(id)}
               isEditing={isEditing}

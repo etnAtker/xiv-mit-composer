@@ -1,4 +1,4 @@
-import type { CooldownEvent, MitEvent } from '../../model/types';
+import type { MitEvent } from '../../model/types';
 import { cn } from '../../utils';
 import { EFFECT_BAR_COLOR } from './timelineUtils';
 import { getSkillDefinition } from '../../data/skills';
@@ -9,8 +9,6 @@ import { getMitigationBarHeights } from './mitigationBarUtils';
 interface MitigationBarContentProps {
   headerClassName?: string;
   effectHeight: number;
-  cooldownHeight?: number;
-  showCooldown?: boolean;
   showIcon?: boolean;
   iconSrc?: string;
   iconAlt?: string;
@@ -20,8 +18,6 @@ interface MitigationBarContentProps {
 export function MitigationBarContent({
   headerClassName,
   effectHeight,
-  cooldownHeight = 0,
-  showCooldown = true,
   showIcon = true,
   iconSrc,
   iconAlt = 'skill icon',
@@ -43,20 +39,6 @@ export function MitigationBarContent({
         className="relative z-0 w-full border-x border-white/10 shadow-inner"
         style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
       />
-      {showCooldown && cooldownHeight > 0 && (
-        <div
-          className="relative z-0 w-full border-x border-app bg-surface shadow-[inset_0_0_10px_var(--color-cooldown-shadow)]"
-          style={{
-            height: cooldownHeight,
-            backgroundImage:
-              'repeating-linear-gradient(45deg, var(--color-cooldown-hatch), var(--color-cooldown-hatch) 4px, transparent 4px, transparent 8px)',
-          }}
-        >
-          <div className="sticky top-14 text-center">
-            <span className="text-[8px] font-mono uppercase text-muted">CD</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -65,7 +47,6 @@ interface Props {
   mit: MitEvent;
   width: number; // 精确像素宽度
   zoom: number;
-  cooldownEvents?: CooldownEvent[];
   className?: string;
   isSelected?: boolean;
   onClick?: (mit: MitEvent, e: React.MouseEvent) => void;
@@ -79,7 +60,6 @@ export function MitigationBar({
   mit,
   width,
   zoom,
-  cooldownEvents,
   className,
   isSelected,
   onClick,
@@ -88,11 +68,7 @@ export function MitigationBar({
   isInvalid,
 }: Props) {
   const skill = getSkillDefinition(mit.skillId);
-  const { effectHeight, cooldownHeight, totalHeight } = getMitigationBarHeights(
-    mit,
-    zoom,
-    cooldownEvents,
-  );
+  const { effectHeight, totalHeight } = getMitigationBarHeights(mit, zoom);
 
   return (
     <div
@@ -120,7 +96,6 @@ export function MitigationBar({
         iconSrc={skill ? getSkillIconLocalSrc(skill.actionId) : undefined}
         iconAlt={skill?.name ?? 'skill icon'}
         effectHeight={effectHeight}
-        cooldownHeight={cooldownHeight}
       />
     </div>
   );

@@ -342,7 +342,6 @@ export function TimelineCanvas({
               getMitColumnKey={(mit) => getMitColumnKey(mit, layout)}
               columnMap={layout.columnMap}
               mitEvents={mitEvents}
-              cooldownEvents={cooldownEvents}
               zoom={zoom}
               editingMitId={editingMitId}
               setEditingMitId={handleEditingChange}
