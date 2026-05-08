@@ -1,6 +1,10 @@
 import type { Job, PartyMember, Skill } from '../../model/types';
 import { isSkillAvailableForJob } from '../../data/skills';
-import { MIT_COLUMN_WIDTH } from './timelineUtils';
+import {
+  MIN_MEMBER_GROUP_WIDTH,
+  MIT_COLUMN_WIDTH,
+  MIT_MEMBER_GROUP_PADDING_X,
+} from './timelineUtils';
 import type { TimelineSkillColumn } from './types';
 
 export const COLLAPSED_MEMBER_WIDTH = 56;
@@ -109,17 +113,23 @@ export function buildTimelineLayout({
         }),
       );
 
+    const contentWidth = memberSkills.length * MIT_COLUMN_WIDTH;
+    const groupWidth = Math.max(
+      MIN_MEMBER_GROUP_WIDTH,
+      contentWidth + MIT_MEMBER_GROUP_PADDING_X * 2,
+    );
     const groupLeft = cursor;
-    for (const skill of memberSkills) {
-      columnLefts.push(cursor);
+    const groupContentLeft = groupLeft + (groupWidth - contentWidth) / 2;
+    memberSkills.forEach((skill, index) => {
+      columnLefts.push(groupContentLeft + index * MIT_COLUMN_WIDTH);
       skillColumns.push(skill);
-      cursor += MIT_COLUMN_WIDTH;
-    }
+    });
+    cursor += groupWidth;
     memberGroups.push({
       member,
       skills: memberSkills,
       collapsed: false,
-      width: memberSkills.length * MIT_COLUMN_WIDTH,
+      width: groupWidth,
       left: groupLeft,
     });
   }

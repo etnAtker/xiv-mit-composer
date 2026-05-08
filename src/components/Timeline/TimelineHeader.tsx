@@ -107,7 +107,7 @@ export function TimelineHeader({
                   {member.job}
                 </div>
               ) : (
-                <div className="flex">
+                <div className="flex justify-center" style={{ width: group.width }}>
                   {group.skills.map((skill) => (
                     <div
                       key={`head-${skill.columnId}`}

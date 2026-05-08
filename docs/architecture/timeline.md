@@ -32,7 +32,7 @@
 
 时间轴以毫秒作为事件模型单位，以秒作为可视网格单位。纵向尺寸由战斗时长和缩放比例计算。Boss 咏唱存在施法持续时间时，时间轴总高度覆盖最后一个咏唱结束时间。
 
-固定列宽来自 `src/constants/timeline.ts`。减伤列宽来自 `src/components/Timeline/timelineUtils.ts` 的 `MIT_COLUMN_WIDTH`。
+固定列宽来自 `src/constants/timeline.ts`。减伤列宽来自 `src/components/Timeline/timelineUtils.ts` 的 `MIT_COLUMN_WIDTH`。展开玩家组会在技能列左右保留玩家组级别 padding，并保证组宽至少为 3 个减伤列宽。
 
 ## 滚动与缩放
 

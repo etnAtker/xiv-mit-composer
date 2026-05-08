@@ -52,19 +52,29 @@ export function TimelineBackground({
               return (
                 <div
                   key={`collapsed-${group.member.playerId}`}
-                  className="h-full border-r border-app bg-surface-2/70"
+                  className="h-full bg-surface-2/70"
                   style={{ width: group.width }}
                 />
               );
             }
 
-            return group.skills.map((skill) => (
+            return (
               <div
-                key={`lane-${skill.columnId}`}
-                className="h-full border-r border-app"
-                style={{ width: MIT_COLUMN_WIDTH }}
-              />
-            ));
+                key={`member-bg-${group.member.playerId}`}
+                className="h-full"
+                style={{ width: group.width }}
+              >
+                <div className="flex h-full justify-center">
+                  {group.skills.map((skill, index) => (
+                    <div
+                      key={`lane-${skill.columnId}`}
+                      className={`h-full border-r border-app ${index === 0 ? 'border-l' : ''}`}
+                      style={{ width: MIT_COLUMN_WIDTH }}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
           })}
           {memberGroups.length === 0 &&
             headerSkillColumns.flatMap((skill, index) => {

@@ -6,6 +6,8 @@ export const CHAR_W = 7;
 export const TRUNCATE_LEN = 12;
 export const MIT_COLUMN_WIDTH = 40;
 export const MIT_COLUMN_PADDING = 0;
+export const MIT_MEMBER_GROUP_PADDING_X = MIT_COLUMN_WIDTH / 4;
+export const MIN_MEMBER_GROUP_WIDTH = MIT_COLUMN_WIDTH * 3;
 export const EFFECT_BAR_COLOR = 'rgba(213,221,246,.6)';
 
 const VISIBLE_CLUSTER_BUFFER_MS = 2000;
