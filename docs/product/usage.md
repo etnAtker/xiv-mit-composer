@@ -46,8 +46,8 @@ FFLogs URL 由 `src/utils.ts` 中的 `parseFFLogsUrl` 解析。URL 中的 report
 
 ## 导出 Souma 时间轴
 
-导出按钮在已加载战斗且存在 Boss 咏唱事件时启用。导出内容由 Boss 咏唱事件和当前减伤事件合并生成，按时间排序。
+导出按钮在已加载战斗且存在 Boss 咏唱事件时启用。导出弹窗提供单个玩家选择。导出内容由 Boss 咏唱事件和所选玩家的减伤事件合并生成，按时间排序。
 
-导出弹窗展示 JSON 文本。JSON 包含 `name`、`condition`、`timeline`、`source` 和 `createdAt`。`condition.jobs` 来自当前队伍成员职业并去重，另包含 FFLogs zoneID 和 FFLogs boss ID。玩家减伤事件的 `sourceId` 使用事件 owner 玩家 ID。用户勾选“生成TTS”后，玩家减伤事件导出为包含 tts 的时间轴行。
+导出弹窗展示 JSON 文本。JSON 包含 `name`、`condition`、`timeline`、`source` 和 `createdAt`。`condition.jobs` 使用所选玩家职业，另包含 FFLogs zoneID 和 FFLogs boss ID。玩家减伤事件的 `sourceId` 使用事件 owner 玩家 ID。用户勾选“生成TTS”后，玩家减伤事件导出为包含 tts 的时间轴行。
 
 导出逻辑位于 `src/App.tsx` 和 `src/lib/fflogs/exporter.ts`。

@@ -44,10 +44,10 @@
 
 ## Souma 时间轴导出
 
-导出入口位于 `src/App.tsx`。应用把 `castEvents` 和 `mitEvents` 合并成导出事件，并按秒级时间排序。
+导出入口位于 `src/App.tsx`。应用把 `castEvents` 和当前导出玩家的 `mitEvents` 合并成导出事件，并按秒级时间排序。导出弹窗通过单选下拉框切换导出玩家，切换后重新生成 JSON 内容。
 
 `src/lib/fflogs/exporter.ts` 的 `FFLogsExporter.generateTimeline` 生成 Souma 时间轴文本。玩家减伤事件导出为普通提示行。启用 TTS 时，玩家减伤事件额外包含 tts 文本。
 
 Boss 事件通过 `src/lib/fflogs/compat/timelineSpecialRules.ts` 查找同步规则。有规则的 Boss 事件导出为带 `StartsUsing` 或 `Ability` 正则条件的同步行。没有规则的通用攻击和未匹配事件导出为注释行。
 
-最终导出的 JSON 包含战斗名称、职业条件、zoneID、FFLogs boss ID、时间轴文本、来源和创建时间。职业条件来自队伍成员职业去重，玩家减伤事件的来源 ID 使用 `MitEvent.ownerId`。
+最终导出的 JSON 包含战斗名称、职业条件、zoneID、FFLogs boss ID、时间轴文本、来源和创建时间。职业条件使用当前导出玩家职业，玩家减伤事件的来源 ID 使用 `MitEvent.ownerId`。

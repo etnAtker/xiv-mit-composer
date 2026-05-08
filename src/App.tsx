@@ -56,6 +56,7 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportContent, setExportContent] = useState('');
   const [exportCreatedAt, setExportCreatedAt] = useState('');
+  const [exportPlayerId, setExportPlayerId] = useState<number | null>(null);
   const [enableTTS, setEnableTTS] = useState(false);
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   const { push } = useTopBanner();
@@ -86,8 +87,8 @@ export default function App() {
   );
   const sensors = useSensors(useSensor(PointerSensor, sensorOptions));
 
-  const getEventsToExport = () => {
-    const { castEvents, mitEvents, selectedPlayerId } = useStore.getState();
+  const getEventsToExport = (playerId: number) => {
+    const { castEvents, mitEvents } = useStore.getState();
     return [
       ...castEvents.map((e) => ({
         time: Number((e.tMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
@@ -97,17 +98,19 @@ export default function App() {
         isFriendly: !!e.isFriendly,
         sourceId: e.sourceID,
       })),
-      ...mitEvents.map((m) => {
-        const skill = getSkillDefinition(m.skillId);
-        return {
-          time: Number((m.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
-          actionName: skill?.name || 'Unknown',
-          actionId: skill?.actionId || 0,
-          type: 'cast',
-          isFriendly: true,
-          sourceId: m.ownerId ?? selectedPlayerId ?? 0,
-        };
-      }),
+      ...mitEvents
+        .filter((m) => m.ownerId === playerId)
+        .map((m) => {
+          const skill = getSkillDefinition(m.skillId);
+          return {
+            time: Number((m.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
+            actionName: skill?.name || 'Unknown',
+            actionId: skill?.actionId || 0,
+            type: 'cast',
+            isFriendly: true,
+            sourceId: m.ownerId ?? playerId,
+          };
+        }),
     ].sort((a, b) => a.time - b.time);
   };
 
@@ -115,12 +118,16 @@ export default function App() {
     eventsToExport: ReturnType<typeof getEventsToExport>,
     ttsEnabled: boolean,
     createdAt: string,
+    playerId: number,
   ) => {
     const timeline = FFLogsExporter.generateTimeline(eventsToExport, ttsEnabled);
     const parsed = parseFFLogsUrl(fflogsUrl);
     const source =
       parsed?.reportCode && fight ? `${parsed.reportCode}?fight=${fight.id}` : '来自XMC';
-    const jobs = Array.from(new Set(partyMembers.map((member) => member.job)));
+    const selectedMember = partyMembers.find((member) => member.playerId === playerId);
+    const jobs = selectedMember
+      ? [selectedMember.job]
+      : Array.from(new Set(partyMembers.map((member) => member.job)));
 
     const condition: { zoneID?: string; jobs: string[]; fflogsBoss?: number } = {
       jobs,
@@ -146,16 +153,42 @@ export default function App() {
   };
 
   const handleExportTimeline = () => {
-    const eventsToExport = getEventsToExport();
+    const playerId =
+      partyMembers.find((member) => member.playerId === selectedPlayerId)?.playerId ??
+      partyMembers[0]?.playerId;
+
+    if (playerId === undefined) {
+      push('请先选择队伍成员后再导出', { tone: 'warning' });
+      return;
+    }
+
+    const eventsToExport = getEventsToExport(playerId);
     const createdAt = new Date().toLocaleString();
     setExportCreatedAt(createdAt);
-    setExportContent(buildExportContent(eventsToExport, enableTTS, createdAt));
+    setExportPlayerId(playerId);
+    setExportContent(buildExportContent(eventsToExport, enableTTS, createdAt, playerId));
     setIsExportModalOpen(true);
   };
 
   const handleTtsChange = (enabled: boolean) => {
     setEnableTTS(enabled);
-    setExportContent(buildExportContent(getEventsToExport(), enabled, exportCreatedAt));
+    if (exportPlayerId !== null) {
+      setExportContent(
+        buildExportContent(
+          getEventsToExport(exportPlayerId),
+          enabled,
+          exportCreatedAt,
+          exportPlayerId,
+        ),
+      );
+    }
+  };
+
+  const handleExportPlayerChange = (playerId: number) => {
+    setExportPlayerId(playerId);
+    setExportContent(
+      buildExportContent(getEventsToExport(playerId), enableTTS, exportCreatedAt, playerId),
+    );
   };
 
   const handleLoadFight = async () => {
@@ -263,7 +296,10 @@ export default function App() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         content={exportContent}
+        partyMembers={partyMembers}
+        selectedPlayerId={exportPlayerId}
         enableTTS={enableTTS}
+        onPlayerChange={handleExportPlayerChange}
         onTtsChange={handleTtsChange}
       />
 
