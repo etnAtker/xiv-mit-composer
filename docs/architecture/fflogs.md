@@ -1,0 +1,51 @@
+# FFLogs 数据流
+
+本文档描述 FFLogs API 请求、事件转换和 Souma 时间轴导出。
+
+## API 客户端
+
+`src/lib/fflogs/client.ts` 定义 `FFLogsClient`。客户端使用 `https://cn.fflogs.com/v1` 作为 API 基础地址。
+
+`fetchReport` 请求 `/report/fights/{reportCode}`，返回报告中的战斗、友方单位和敌方单位等元数据。
+
+`fetchEvents` 请求 `/report/events/{type}/{reportCode}`，支持 `damage-taken` 和 `casts` 两类事件。方法传入 `sourceid`、`start`、`end` 和 `api_key` 参数。咏唱事件按 `hostility` 区分敌方和友方。分页通过 `nextPageTimestamp` 递归拉取，直到没有下一页或下一页时间达到战斗结束时间。
+
+## 报告元数据
+
+`loadFightMetadata` 使用 `parseFFLogsUrl` 获取 report code 和 fight ID。fight ID 为 `last` 时，应用选择报告中的最后一场战斗。
+
+应用将 FFLogs fight 转换为 `Fight` 模型，字段包含 `id`、`start`、`end`、`durationMs`、`name`、`zoneID` 和 `fflogsBoss`。
+
+应用从 `report.friendlies` 中保留参与当前战斗的玩家，排除 `LimitBreak` 和 `Environment`。应用从 `report.enemies` 中收集参与当前战斗且类型为 `Boss` 的敌方 ID。
+
+## 事件加载
+
+`loadEventsCore` 并行加载三类事件：
+
+- 友方玩家咏唱事件：每个玩家请求一次 `casts`，并按该玩家职业可用技能过滤。
+- 敌方 Boss 咏唱事件：每个 Boss 请求一次 `casts`。
+- 玩家受击事件：每个玩家请求一次 `damage-taken`。
+
+友方事件通过 `FFLogsProcessor.processFriendlyEvents` 转换为轻量事件。转换过程只保留 `cast` 和 `begincast`，并只保留技能表内的 action ID。
+
+敌方事件通过 `FFLogsProcessor.processEnemyEvents` 转换为轻量事件。转换过程保留全部敌方 `cast` 和 `begincast`，导出阶段再根据规则处理同步行和注释行。
+
+## 应用模型转换
+
+`src/domain/fflogs/buildCastEvents.ts` 把敌方咏唱事件转换为 `CastEvent[]`。事件时间以战斗开始时间为基准转换为 `tMs`。
+
+`src/domain/fflogs/buildMitEvents.ts` 把友方技能事件转换为 `MitEvent[]`。转换过程根据 action ID 查找技能定义，并按技能持续时间计算 `tStartMs`、`durationMs` 和 `tEndMs`。
+
+`src/domain/fflogs/mergeDamageEvents.ts` 合并 FFLogs 的 `calculateddamage` 和普通伤害事件。具有相同 `packetID` 的计算伤害和普通伤害合并为 `damage-combined`。无法配对的计算伤害名称加 `?` 前缀，无法配对的普通伤害名称加 `*` 前缀。
+
+`src/domain/fflogs/buildDamageEventsByJob.ts` 按职业保存受击事件，用于双坦时间轴显示不同坦克的受击列。
+
+## Souma 时间轴导出
+
+导出入口位于 `src/App.tsx`。应用把 `castEvents` 和 `mitEvents` 合并成导出事件，并按秒级时间排序。
+
+`src/lib/fflogs/exporter.ts` 的 `FFLogsExporter.generateTimeline` 生成 Souma 时间轴文本。玩家减伤事件导出为普通提示行。启用 TTS 时，玩家减伤事件额外包含 tts 文本。
+
+Boss 事件通过 `src/lib/fflogs/compat/timelineSpecialRules.ts` 查找同步规则。有规则的 Boss 事件导出为带 `StartsUsing` 或 `Ability` 正则条件的同步行。没有规则的通用攻击和未匹配事件导出为注释行。
+
+最终导出的 JSON 包含战斗名称、职业条件、zoneID、FFLogs boss ID、时间轴文本、来源和创建时间。

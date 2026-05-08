@@ -34,6 +34,10 @@
 - **状态管理**: [Zustand](https://github.com/pmndrs/zustand)
 - **拖拽库**: [@dnd-kit](https://dndkit.com/)
 
+## 文档
+
+项目文档位于 [docs](docs/index.md)。文档索引介绍整体架构、各文档文件用途和文档维护规约。
+
 ## 使用说明
 
 1.  **加载数据**：
