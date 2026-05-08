@@ -72,7 +72,7 @@ export const SCH_SKILLS: Skill[] = [
     name_jp: '秘策',
     name_fr: 'Récitation',
     name_de: 'Raffinesse',
-    cooldownSec: 90,
+    cooldownSec: 60,
     durationSec: 15,
     job: 'SCH',
     color: 'bg-emerald-700',
