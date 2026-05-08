@@ -18,6 +18,7 @@ XIV Mitigation Composer 是一个基于 React、TypeScript、Vite、Tailwind CSS
 - [时间轴架构](architecture/timeline.md)：描述时间轴布局、滚动缩放、事件层、选择和编辑。
 - [技能与冷却](architecture/skills-and-cooldowns.md)：描述技能数据、职业过滤、owner 作用域、共享冷却组和冷却校验。
 - [测试与资产](development/testing-and-assets.md)：描述开发命令、测试覆盖和 XIV 图标资源脚本。
+- `todos/`：存放待实现功能、重构或调研事项的设计文档和实施计划。
 
 ## 文档规约
 
@@ -28,3 +29,5 @@ XIV Mitigation Composer 是一个基于 React、TypeScript、Vite、Tailwind CSS
 - 文档允许按层级组织，一个模块对应一个文件夹或一组文件。
 - 文档中的路径使用仓库相对路径，便于在本仓库中定位源码。
 - 产品文档描述用户可见能力和操作流程，实现文档描述工程结构、数据流和关键约束。
+- 待实现内容写入 `docs/todos/`，不写入正式产品或架构文档作为当前行为。
+- `docs/todos/` 中的内容实现后，删除待实现文档中的已实现部分，并把已实现行为补充到对应正式文档中。
