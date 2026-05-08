@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "fetch:icons": "bun scripts/fetch-xiv-icons.ts",
+    "fetch:skills": "bun scripts/fetch-xiv-job-skills.ts",
     "preview": "vite preview",
     "prepare": "husky"
   },

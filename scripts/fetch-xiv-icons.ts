@@ -53,7 +53,7 @@ const fetchJson = async <T>(url: string): Promise<T> => {
   if (!res.ok) {
     throw new HttpError(res.status, url);
   }
-  return res.json();
+  return (await res.json()) as T;
 };
 
 const fetchBinary = async (url: string) => {
