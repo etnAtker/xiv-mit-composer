@@ -21,6 +21,7 @@
 - 实现需求后，应至少使用 ESLint 和构建命令验证语法与类型问题：
   - `bun run lint`
   - `bun run build`
+- 开发完成后不需要启动开发服务器；除非用户明确要求进行交互式本地预览，否则使用 `bun test`、`bun run lint` 和 `bun run build` 等静态验证即可。
 
 ## 文档维护
 

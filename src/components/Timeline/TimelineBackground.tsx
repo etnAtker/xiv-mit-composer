@@ -1,6 +1,7 @@
 import type { TimelineSkillColumn } from './types';
 import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 import { MIT_COLUMN_WIDTH } from './timelineUtils';
+import type { TimelineMemberGroup } from './timelineLayout';
 
 interface Props {
   rulerWidth: number;
@@ -10,6 +11,7 @@ interface Props {
   dmgX: number;
   secondaryDamageLaneLeft: number;
   headerSkillColumns: TimelineSkillColumn[];
+  memberGroups: TimelineMemberGroup[];
   hasSecondaryDamageLane: boolean;
   firstGroupCount: number;
   timelineHeight: number;
@@ -23,6 +25,7 @@ export function TimelineBackground({
   dmgX,
   secondaryDamageLaneLeft,
   headerSkillColumns,
+  memberGroups,
   hasSecondaryDamageLane,
   firstGroupCount,
   timelineHeight,
@@ -44,26 +47,46 @@ export function TimelineBackground({
         <div className="h-full" style={{ width: castWidth }} />
         <div className="h-full" style={{ width: dmgWidth }} />
         <div className="flex h-full" style={{ width: mitAreaWidth }}>
-          {headerSkillColumns.flatMap((skill, index) => {
-            const blocks = [];
-            if (hasSecondaryDamageLane && index === firstGroupCount) {
-              blocks.push(
+          {memberGroups.map((group) => {
+            if (group.collapsed) {
+              return (
                 <div
-                  key="secondary-damage-lane-gap"
-                  className="h-full"
-                  style={{ width: DAMAGE_LANE_WIDTH }}
-                />,
+                  key={`collapsed-${group.member.playerId}`}
+                  className="h-full border-r border-app bg-surface-2/70"
+                  style={{ width: group.width }}
+                />
               );
             }
-            blocks.push(
+
+            return group.skills.map((skill) => (
               <div
                 key={`lane-${skill.columnId}`}
                 className="h-full border-r border-app"
                 style={{ width: MIT_COLUMN_WIDTH }}
-              />,
-            );
-            return blocks;
+              />
+            ));
           })}
+          {memberGroups.length === 0 &&
+            headerSkillColumns.flatMap((skill, index) => {
+              const blocks = [];
+              if (hasSecondaryDamageLane && index === firstGroupCount) {
+                blocks.push(
+                  <div
+                    key="secondary-damage-lane-gap"
+                    className="h-full"
+                    style={{ width: DAMAGE_LANE_WIDTH }}
+                  />,
+                );
+              }
+              blocks.push(
+                <div
+                  key={`lane-${skill.columnId}`}
+                  className="h-full border-r border-app"
+                  style={{ width: MIT_COLUMN_WIDTH }}
+                />,
+              );
+              return blocks;
+            })}
         </div>
       </div>
 

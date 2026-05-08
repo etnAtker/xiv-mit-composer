@@ -4,28 +4,27 @@
 
 ## 组件结构
 
-`src/components/Timeline/Timeline.tsx` 从 store 读取战斗、职业、减伤、冷却、伤害和咏唱事件，并计算时间轴尺寸。`Timeline` 调用 `buildTimelineLayout` 生成减伤列布局，然后把布局和事件传入 `TimelineCanvas`。
+`src/components/Timeline/Timeline.tsx` 从 store 读取战斗、队伍成员、减伤、冷却、按玩家分组的伤害和咏唱事件，并计算时间轴尺寸。`Timeline` 调用 `buildTimelineLayout` 生成减伤列布局，把按玩家分组的伤害聚合为全局受击组，然后把布局和事件传入 `TimelineCanvas`。
 
 `src/components/Timeline/TimelineCanvas.tsx` 负责时间轴主体渲染、滚动、缩放、框选、右键菜单、编辑弹窗、悬浮提示和删除快捷键。
 
 时间轴主要渲染层包含：
 
 - `TimelineHeader`：固定表头。
-- `PinnedTimelineLanes`：固定时间标尺和 Boss 咏唱列。
+- `PinnedTimelineLanes`：固定时间标尺、Boss 咏唱列和全局 Damage 列。
 - `TimelineBackground`：列背景。
 - `TimelineGridLines`：时间网格线。
 - `CooldownConstraintLayer`：冷却和不可用区间。
 - `MitigationLayer`：减伤条、拖拽投放区域和编辑入口。
-- `DamageLayers`：受击事件与减伤覆盖关系。
 - `TimelineTooltip`：事件悬浮提示。
 
 ## 布局
 
-`src/components/Timeline/timelineLayout.ts` 定义 `buildTimelineLayout`。布局输入为当前职业列表、技能表和职能技能 ID 集合。
+`src/components/Timeline/timelineLayout.ts` 定义 `buildTimelineLayout`。布局输入为当前队伍成员和技能表。
 
-单职业布局包含一个受击列和一组减伤技能列。双职业布局包含两个职业的技能列，并在两组技能列之间插入第二个受击列。`primaryJob` 和 `secondaryJob` 分别对应第一、第二个职业。
+时间轴横向布局为时间列、Boss 咏唱列、全局 Damage 列和队伍成员技能组。每名队伍成员拥有独立技能组，技能列 key 使用 `基础技能ID:playerId`。折叠玩家组时，布局保留一个窄头部并不生成该玩家技能列。
 
-职能技能列按 owner 职业拆分。示例：双坦布局中的 `role-reprisal` 在 PLD 和 WAR 下分别拥有独立列。
+非 role 技能和 role 技能都按 `playerId` 分发到释放者列。重复职业玩家不会共享技能列。
 
 ## 时间与尺寸
 

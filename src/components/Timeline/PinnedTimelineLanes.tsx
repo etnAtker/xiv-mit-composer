@@ -1,7 +1,8 @@
 import { format } from 'date-fns';
-import type { CastEvent } from '../../model/types';
+import type { CastEvent, GroupedDamageEvent, MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
 import type { TooltipData } from './types';
+import { DamageLane, DamageLaneHitTargets } from './TimelineLanes';
 
 const RULER_STEP_SEC = 5;
 const VISIBLE_RANGE_BUFFER_MS = 5000;
@@ -9,24 +10,32 @@ const VISIBLE_RANGE_BUFFER_MS = 5000;
 interface Props {
   rulerWidth: number;
   castWidth: number;
+  damageWidth: number;
+  damageLineWidth: number;
   durationSec: number;
   totalHeight: number;
   timelineHeight: number;
   zoom: number;
   visibleRange: { start: number; end: number };
   castEvents: CastEvent[];
+  damageEvents: GroupedDamageEvent[];
+  mitEvents: MitEvent[];
   onHover: (data: TooltipData | null) => void;
 }
 
 export function PinnedTimelineLanes({
   rulerWidth,
   castWidth,
+  damageWidth,
+  damageLineWidth,
   durationSec,
   totalHeight,
   timelineHeight,
   zoom,
   visibleRange,
   castEvents,
+  damageEvents,
+  mitEvents,
   onHover,
 }: Props) {
   const visibleCasts = castEvents.filter(
@@ -37,8 +46,8 @@ export function PinnedTimelineLanes({
 
   return (
     <div
-      className="sticky left-0 z-20 flex h-full"
-      style={{ width: rulerWidth + castWidth, height: totalHeight }}
+      className="sticky left-0 z-30 flex h-full"
+      style={{ width: rulerWidth + castWidth + damageWidth, height: totalHeight }}
     >
       <div
         className="border-r border-app bg-surface-2 pr-2 text-right pointer-events-none"
@@ -117,6 +126,41 @@ export function PinnedTimelineLanes({
             </div>
           );
         })}
+      </div>
+
+      <div
+        className="relative h-full border-r border-app bg-surface-2"
+        style={{
+          width: damageWidth,
+          backgroundSize: '100% 60px',
+          backgroundImage: 'linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)',
+        }}
+      >
+        <svg
+          width={damageLineWidth}
+          height={timelineHeight}
+          className="absolute left-0 top-0 block text-xs pointer-events-none"
+        >
+          <DamageLane
+            events={damageEvents}
+            mitEvents={mitEvents}
+            zoom={zoom}
+            width={damageWidth}
+            left={0}
+            visibleRange={visibleRange}
+            lineWidth={damageLineWidth}
+          />
+        </svg>
+
+        <DamageLaneHitTargets
+          events={damageEvents}
+          mitEvents={mitEvents}
+          zoom={zoom}
+          width={damageWidth}
+          left={0}
+          visibleRange={visibleRange}
+          onHover={onHover}
+        />
       </div>
     </div>
   );

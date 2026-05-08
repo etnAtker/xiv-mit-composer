@@ -22,7 +22,7 @@
 
 `ROLE_SKILL_IDS` 标记职能技能。`isSkillAvailableForJob` 决定技能是否展示给指定职业：职业专属技能只展示给同职业，非 role 的 `ALL` 技能展示给全部职业，role 技能按 `ROLE_BY_ROLE_SKILL_ID` 限定战斗定位。
 
-当前战斗信息栏的职业按钮由 `src/components/FightInfoBar.tsx` 的 `JOBS` 常量控制，包含 `PLD`、`WAR`、`DRK` 和 `GNB`。
+队伍成员职业由 `src/model/jobs.ts` 根据 FFLogs friendlies 的职业类型解析。玩家选择窗口支持全部 `Job` 联合类型内的职业。
 
 ## Owner 作用域
 
@@ -30,7 +30,7 @@
 
 `withOwnerSkillId` 为 role 技能追加 owner 职业后缀，格式为 `基础技能ID@职业`。`normalizeSkillId` 移除 owner 后缀，返回基础技能 ID。技能定义查找始终使用基础技能 ID。
 
-时间轴列 key 使用冒号格式，格式为 `基础技能ID:职业`。`getMitColumnKey` 和 `getCooldownColumnKey` 根据 owner 职业把 role 技能分发到对应职业列。
+时间轴列 key 使用冒号格式，格式为 `基础技能ID:playerId`。`getMitColumnKey` 和 `getCooldownColumnKey` 优先根据 `ownerId` 或 `ownerKey` 把技能分发到对应玩家列。缺少玩家 ID 的历史事件回退到 owner 职业或默认队伍成员。
 
 ## 共享冷却组
 

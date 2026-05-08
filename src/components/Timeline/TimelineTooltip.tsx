@@ -1,4 +1,5 @@
 import type { TooltipData } from './types';
+import { XivIcon } from '../XivIcon';
 
 interface Props {
   tooltip: TooltipData | null;
@@ -23,13 +24,16 @@ export function TimelineTooltip({ tooltip }: Props) {
             idx > 0 ? 'mt-1 border-t border-app pt-1' : ''
           }`}
         >
+          {item.icon && (
+            <XivIcon localSrc={item.icon} alt="" className="h-4 w-4 shrink-0 object-contain" />
+          )}
           <span
-            className="min-w-0 flex-1 truncate font-medium leading-none"
+            className="min-w-0 flex-1 font-medium leading-tight"
             style={{ color: item.color || 'var(--color-text)' }}
           >
             {item.title}
           </span>
-          <span className="shrink-0 whitespace-nowrap font-mono text-[10px] leading-none text-muted">
+          <span className="shrink-0 whitespace-pre-line text-right font-mono text-[10px] leading-tight text-muted">
             {item.subtitle}
           </span>
         </div>

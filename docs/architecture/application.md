@@ -9,10 +9,11 @@
 `App` 渲染以下主要组件：
 
 - `AppHeader`：顶部输入栏和全局操作。
-- `FightInfoBar`：战斗信息、职业选择和玩家选择。
-- `SkillSidebar`：当前职业的可拖拽技能列表。
+- `FightInfoBar`：战斗信息、队伍成员摘要和玩家组折叠操作。
+- `SkillSidebar`：按队伍成员分组的可拖拽技能列表。
 - `Timeline`：战斗时间轴。
-- `LoadFightModal`：加载模式选择。
+- `LoadFightModal`：加载战斗元数据确认。
+- `PartyMemberSelectModal`：最多 8 人的队伍成员选择。
 - `ExportModal`：Souma 时间轴导出文本。
 - `DragOverlayLayer`：拖拽预览层。
 - `TrashDropZone`：已存在减伤事件的删除投放区。
@@ -26,11 +27,11 @@
 
 - 输入状态：`apiKey`、`fflogsUrl`。
 - 战斗状态：`fight`、`actors`、`bossIds`。
-- 选择状态：`selectedJob`、`selectedPlayerId`、`selectedMitIds`。
-- 事件状态：`damageEvents`、`damageEventsByJob`、`castEvents`、`mitEvents`、`cooldownEvents`。
+- 选择状态：`partyMembers`、`selectedJob`、`selectedPlayerId`、`selectedMitIds`。
+- 事件状态：`damageEvents`、`damageEventsByJob`、`damageEventsByPlayerId`、`castEvents`、`mitEvents`、`cooldownEvents`。
 - UI 状态：`banners`、`isLoading`、`isRendering`、`error`。
 
-持久化字段包含 `apiKey`、`fflogsUrl`、`selectedJob`、`selectedPlayerId` 和 `mitEvents`。迁移逻辑为缺少 owner 信息的历史减伤事件补充当前选中玩家和职业作为 owner。
+持久化字段包含 `apiKey`、`fflogsUrl`、`selectedJob`、`selectedPlayerId`、`partyMembers` 和 `mitEvents`。迁移逻辑为缺少 owner 信息的历史减伤事件补充当前选中玩家和职业作为 owner，并为历史单人选择生成一个队伍成员。
 
 `src/store/selectors.ts` 提供面向入口组件和时间轴组件的 selector，减少组件直接读取的状态范围。
 
@@ -38,7 +39,7 @@
 
 `loadFightMetadata` 解析 FFLogs URL，读取报告元数据，生成 `Fight`、`Actor[]` 和当前战斗的 Boss ID 列表。
 
-`loadEvents` 加载单个玩家的事件。`loadEventsForPlayers` 加载多个玩家的事件。两者共同调用 `loadEventsCore`，并生成伤害事件、按职业分组的伤害事件、Boss 咏唱事件、玩家减伤事件和冷却事件。
+`loadEventsForPlayers` 加载队伍成员事件。函数调用 `loadEventsCore`，并生成主视图兼容伤害事件、按职业分组的伤害事件、按玩家 ID 分组的伤害事件、Boss 咏唱事件、玩家减伤事件和冷却事件。
 
 战斗元数据请求和事件请求各自使用 request sequence 与 `AbortController`。新的同类请求会中止旧请求，旧请求完成后不会覆盖新状态。
 

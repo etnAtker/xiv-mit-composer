@@ -1,13 +1,24 @@
-import type { Job, Skill } from '../../model/types';
-import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
-import { isRoleSkillAvailableForJob } from '../../data/skills';
+import type { Job, PartyMember, Skill } from '../../model/types';
+import { isSkillAvailableForJob } from '../../data/skills';
 import { MIT_COLUMN_WIDTH } from './timelineUtils';
 import type { TimelineSkillColumn } from './types';
+
+export const COLLAPSED_MEMBER_WIDTH = 56;
+
+export interface TimelineMemberGroup {
+  member: PartyMember;
+  skills: TimelineSkillColumn[];
+  collapsed: boolean;
+  width: number;
+  left: number;
+}
 
 export interface TimelineLayout {
   columnMap: Record<string, number>;
   skillColumns: TimelineSkillColumn[];
   headerSkillColumns: TimelineSkillColumn[];
+  memberGroups: TimelineMemberGroup[];
+  collapsedMemberGroups: TimelineMemberGroup[];
   jobOrder: Job[];
   jobGroups: { job: Job; skills: TimelineSkillColumn[] }[];
   utilitySkills: TimelineSkillColumn[];
@@ -20,6 +31,7 @@ export interface TimelineLayout {
   secondaryDamageLaneOffset: number;
   lastColumnIndexByJob: Partial<Record<Job, number>>;
   defaultOwnerJob?: Job;
+  defaultOwnerId?: number;
 }
 
 const PLACEHOLDER_COLUMN: TimelineSkillColumn = {
@@ -31,19 +43,19 @@ const PLACEHOLDER_COLUMN: TimelineSkillColumn = {
 };
 
 export function buildTimelineLayout({
-  jobs,
+  members,
   skills,
-  roleSkillIds,
 }: {
-  jobs: Job[];
+  members: PartyMember[];
   skills: Skill[];
-  roleSkillIds: Set<string>;
 }): TimelineLayout {
-  if (!jobs.length) {
+  if (!members.length) {
     return {
       columnMap: {},
       skillColumns: [],
       headerSkillColumns: [PLACEHOLDER_COLUMN],
+      memberGroups: [],
+      collapsedMemberGroups: [],
       jobOrder: [],
       jobGroups: [],
       utilitySkills: [PLACEHOLDER_COLUMN],
@@ -56,61 +68,76 @@ export function buildTimelineLayout({
       secondaryDamageLaneOffset: 0,
       lastColumnIndexByJob: {},
       defaultOwnerJob: undefined,
+      defaultOwnerId: undefined,
     };
   }
 
-  const jobColumns = jobs.flatMap((job) =>
-    skills
-      .filter(
-        (s) => s.job === job || (roleSkillIds.has(s.id) && isRoleSkillAvailableForJob(s.id, job)),
-      )
-      .map((skill) => ({
-        id: skill.id,
-        columnId: skill.job === 'ALL' ? `${skill.id}:${job}` : skill.id,
-        name: skill.name,
-        color: skill.color,
-        icon: skill.icon,
-        actionId: skill.actionId,
-        job,
-      })),
-  );
+  const skillColumns: TimelineSkillColumn[] = [];
+  const memberGroups: TimelineMemberGroup[] = [];
+  const collapsedMemberGroups: TimelineMemberGroup[] = [];
+  const columnLefts: number[] = [];
+  let cursor = 0;
 
-  const utilityColumns = skills
-    .filter((s) => s.job === 'ALL' && !roleSkillIds.has(s.id))
-    .map((skill) => ({
-      id: skill.id,
-      columnId: skill.id,
-      name: skill.name,
-      color: skill.color,
-      icon: skill.icon,
-      actionId: skill.actionId,
-      job: 'ALL',
-    }));
+  for (const member of members) {
+    if (member.collapsed) {
+      const group: TimelineMemberGroup = {
+        member,
+        skills: [],
+        collapsed: true,
+        width: COLLAPSED_MEMBER_WIDTH,
+        left: cursor,
+      };
+      memberGroups.push(group);
+      collapsedMemberGroups.push(group);
+      cursor += COLLAPSED_MEMBER_WIDTH;
+      continue;
+    }
 
-  const skillColumns = [...jobColumns, ...utilityColumns];
+    const memberSkills = skills
+      .filter((skill) => isSkillAvailableForJob(skill, member.job))
+      .map(
+        (skill): TimelineSkillColumn => ({
+          id: skill.id,
+          columnId: `${skill.id}:${member.playerId}`,
+          name: skill.name,
+          color: skill.color,
+          icon: skill.icon,
+          actionId: skill.actionId,
+          job: member.job,
+          ownerId: member.playerId,
+          ownerName: member.name,
+        }),
+      );
+
+    const groupLeft = cursor;
+    for (const skill of memberSkills) {
+      columnLefts.push(cursor);
+      skillColumns.push(skill);
+      cursor += MIT_COLUMN_WIDTH;
+    }
+    memberGroups.push({
+      member,
+      skills: memberSkills,
+      collapsed: false,
+      width: memberSkills.length * MIT_COLUMN_WIDTH,
+      left: groupLeft,
+    });
+  }
+
   const columnMap: Record<string, number> = {};
   skillColumns.forEach((skill, index) => {
     columnMap[skill.columnId] = index;
   });
 
-  const hasSecondaryDamageLane = jobs.length > 1;
-  const baseMitWidth = Math.max(MIT_COLUMN_WIDTH, skillColumns.length * MIT_COLUMN_WIDTH);
-  const mitAreaWidth = baseMitWidth + (hasSecondaryDamageLane ? DAMAGE_LANE_WIDTH : 0);
+  const mitAreaWidth = Math.max(MIT_COLUMN_WIDTH, cursor);
 
   const headerSkillColumns = skillColumns.length > 0 ? skillColumns : [PLACEHOLDER_COLUMN];
-  const jobOrder = jobs;
-  const jobGroups = jobOrder.map((job) => ({
-    job,
-    skills: headerSkillColumns.filter((skill) => skill.job === job),
+  const jobOrder = members.map((member) => member.job);
+  const jobGroups = memberGroups.map((group) => ({
+    job: group.member.job,
+    skills: group.skills,
   }));
-  const utilitySkills = headerSkillColumns.filter((skill) => skill.job === 'ALL');
-
-  const firstGroupCount = jobGroups[0]?.skills.length ?? 0;
-  const columnLefts = skillColumns.map((_, index) => {
-    const baseLeft = index * MIT_COLUMN_WIDTH;
-    if (!hasSecondaryDamageLane || firstGroupCount === 0) return baseLeft;
-    return index >= firstGroupCount ? baseLeft + DAMAGE_LANE_WIDTH : baseLeft;
-  });
+  const utilitySkills: TimelineSkillColumn[] = [];
 
   const lastColumnIndexByJob: Partial<Record<Job, number>> = {};
   headerSkillColumns.forEach((skill, idx) => {
@@ -123,17 +150,20 @@ export function buildTimelineLayout({
     columnMap,
     skillColumns,
     headerSkillColumns,
+    memberGroups,
+    collapsedMemberGroups,
     jobOrder,
     jobGroups,
     utilitySkills,
-    hasSecondaryDamageLane,
-    firstGroupCount,
+    hasSecondaryDamageLane: false,
+    firstGroupCount: 0,
     columnLefts,
     mitAreaWidth,
     primaryJob: jobOrder[0],
-    secondaryJob: jobOrder[1],
-    secondaryDamageLaneOffset: firstGroupCount * MIT_COLUMN_WIDTH,
+    secondaryJob: undefined,
+    secondaryDamageLaneOffset: 0,
     lastColumnIndexByJob,
     defaultOwnerJob: jobOrder[0],
+    defaultOwnerId: members[0]?.playerId,
   };
 }

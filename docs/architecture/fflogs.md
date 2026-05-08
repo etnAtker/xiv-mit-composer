@@ -38,7 +38,9 @@
 
 `src/domain/fflogs/mergeDamageEvents.ts` 合并 FFLogs 的 `calculateddamage` 和普通伤害事件。具有相同 `packetID` 的计算伤害和普通伤害合并为 `damage-combined`。无法配对的计算伤害名称加 `?` 前缀，无法配对的普通伤害名称加 `*` 前缀。
 
-`src/domain/fflogs/buildDamageEventsByJob.ts` 按职业保存受击事件，用于双坦时间轴显示不同坦克的受击列。
+`src/domain/fflogs/buildDamageEventsByPlayerId.ts` 按玩家 ID 保存受击事件。该结构保留重复职业玩家的独立承伤数据。
+
+`src/domain/fflogs/groupDamageEvents.ts` 从按玩家 ID 保存的受击事件生成全局受击组。合并条件为相同 `ability.guid` 且组基准时间差小于 100ms。受击组显示时间使用组内最早时间，显示伤害使用组内最大 `unmitigatedAmount`，hover 明细包含命中玩家、职业、伤害和时间偏移。
 
 ## Souma 时间轴导出
 
@@ -48,4 +50,4 @@
 
 Boss 事件通过 `src/lib/fflogs/compat/timelineSpecialRules.ts` 查找同步规则。有规则的 Boss 事件导出为带 `StartsUsing` 或 `Ability` 正则条件的同步行。没有规则的通用攻击和未匹配事件导出为注释行。
 
-最终导出的 JSON 包含战斗名称、职业条件、zoneID、FFLogs boss ID、时间轴文本、来源和创建时间。
+最终导出的 JSON 包含战斗名称、职业条件、zoneID、FFLogs boss ID、时间轴文本、来源和创建时间。职业条件来自队伍成员职业去重，玩家减伤事件的来源 ID 使用 `MitEvent.ownerId`。

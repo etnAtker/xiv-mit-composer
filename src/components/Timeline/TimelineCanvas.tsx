@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import type { CastEvent, CooldownEvent, DamageEvent, Job, MitEvent } from '../../model/types';
+import type { CastEvent, CooldownEvent, GroupedDamageEvent, MitEvent } from '../../model/types';
 import { useStore } from '../../store';
 import { useShallow } from 'zustand/shallow';
 import { CooldownConstraintLayer } from './CooldownConstraintLayer';
@@ -14,7 +14,6 @@ import { TimelineHeader } from './TimelineHeader';
 import { TimelineBackground } from './TimelineBackground';
 import { TimelineGridLines } from './TimelineGridLines';
 import { MitigationLayer } from './MitigationLayer';
-import { DamageLayers } from './DamageLayers';
 import { TimelineTooltip } from './TimelineTooltip';
 import { useTimelineScroll } from './useTimelineScroll';
 import { useBoxSelection } from './useBoxSelection';
@@ -43,8 +42,7 @@ interface Props {
   mitX: number;
   layout: TimelineLayout;
   castEvents: CastEvent[];
-  damageEvents: DamageEvent[];
-  secondaryDamageEvents?: DamageEvent[];
+  damageEvents: GroupedDamageEvent[];
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
   activeDragId?: string | null;
@@ -68,18 +66,24 @@ export function TimelineCanvas({
   layout,
   castEvents,
   damageEvents,
-  secondaryDamageEvents = [],
   mitEvents,
   cooldownEvents,
   activeDragId,
   dragPreviewPx = 0,
 }: Props) {
-  const { updateMitEvent, removeMitEvent, selectedMitIds, setSelectedMitIds } = useStore(
+  const {
+    updateMitEvent,
+    removeMitEvent,
+    selectedMitIds,
+    setSelectedMitIds,
+    updatePartyMemberCollapsed,
+  } = useStore(
     useShallow((state) => ({
       updateMitEvent: state.updateMitEvent,
       removeMitEvent: state.removeMitEvent,
       selectedMitIds: state.selectedMitIds,
       setSelectedMitIds: state.setSelectedMitIds,
+      updatePartyMemberCollapsed: state.updatePartyMemberCollapsed,
     })),
   );
   const [editingMitId, setEditingMitId] = useState<string | null>(null);
@@ -148,32 +152,13 @@ export function TimelineCanvas({
   }, [handleEditingChange, removeMitEvent, selectedMitIds, setContextMenu, setSelectedMitIds]);
 
   const headerSkillColumns = layout.headerSkillColumns;
-  const jobGroups = layout.jobGroups;
+  const memberGroups = layout.memberGroups;
   const utilitySkills = layout.utilitySkills;
-  const hasSecondaryDamageLane = layout.hasSecondaryDamageLane;
-  const primaryJob = layout.primaryJob;
-  const secondaryJob = layout.secondaryJob;
   const secondaryDamageLaneLeft = mitX + layout.secondaryDamageLaneOffset;
 
   const getMitColumnLeft = (columnIndex: number) =>
     layout.columnLefts[columnIndex] ?? columnIndex * MIT_COLUMN_WIDTH;
-  const getLaneLineWidth = (job: Job | undefined, laneLeft: number) => {
-    const fullWidth = mitX + layout.mitAreaWidth - laneLeft;
-    if (!job) return Math.max(dmgWidth, fullWidth);
-    const lastIndex = layout.lastColumnIndexByJob[job] ?? -1;
-    if (lastIndex < 0) return Math.max(dmgWidth, fullWidth);
-    const rightEdge = mitX + getMitColumnLeft(lastIndex) + MIT_COLUMN_WIDTH;
-    return Math.max(dmgWidth, rightEdge - laneLeft);
-  };
-
-  const primaryMitEvents =
-    hasSecondaryDamageLane && primaryJob
-      ? mitEvents.filter((mit) => mit.ownerJob === primaryJob || !mit.ownerJob)
-      : mitEvents;
-  const secondaryMitEvents =
-    hasSecondaryDamageLane && secondaryJob
-      ? mitEvents.filter((mit) => mit.ownerJob === secondaryJob)
-      : [];
+  const damageLineWidth = Math.max(dmgWidth, mitX + layout.mitAreaWidth - dmgX);
 
   const {
     boxSelection,
@@ -211,22 +196,17 @@ export function TimelineCanvas({
     () => buildSkillZIndexMap(mitEvents, 'role-reprisal', getEffectiveStartMs),
     [mitEvents, getEffectiveStartMs],
   );
-  const reprisalGhosts = hasSecondaryDamageLane
-    ? mitEvents.flatMap((mit) => {
-        if (normalizeSkillId(mit.skillId) !== 'role-reprisal') return [];
-        if (!mit.ownerJob) return [];
-        return layout.jobOrder
-          .filter((job) => job !== mit.ownerJob)
-          .map((job) => ({
-            mit,
-            targetJob: job,
-          }));
-      })
-    : [];
-  const primaryLineWidth = getLaneLineWidth(primaryJob, dmgX);
-  const secondaryLineWidth = hasSecondaryDamageLane
-    ? getLaneLineWidth(secondaryJob, secondaryDamageLaneLeft)
-    : dmgWidth;
+  const reprisalGhosts = mitEvents.flatMap((mit) => {
+    if (normalizeSkillId(mit.skillId) !== 'role-reprisal') return [];
+    if (!mit.ownerId) return [];
+    return layout.memberGroups
+      .filter((group) => !group.collapsed && group.member.playerId !== mit.ownerId)
+      .map((group) => ({
+        mit,
+        targetOwnerId: group.member.playerId,
+        targetJob: group.member.job,
+      }));
+  });
 
   return (
     <div
@@ -242,11 +222,9 @@ export function TimelineCanvas({
           castWidth={castWidth}
           dmgWidth={dmgWidth}
           isScrolled={isScrolled}
-          jobGroups={jobGroups}
           utilitySkills={utilitySkills}
-          hasSecondaryDamageLane={hasSecondaryDamageLane}
-          primaryJob={primaryJob}
-          secondaryJob={secondaryJob}
+          memberGroups={memberGroups}
+          onToggleMemberCollapsed={updatePartyMemberCollapsed}
         />
 
         <div
@@ -271,12 +249,16 @@ export function TimelineCanvas({
           <PinnedTimelineLanes
             rulerWidth={rulerWidth}
             castWidth={castWidth}
+            damageWidth={dmgWidth}
+            damageLineWidth={damageLineWidth}
             durationSec={durationSec}
             totalHeight={totalHeight}
             timelineHeight={timelineHeight}
             zoom={zoom}
             visibleRange={visibleRange}
             castEvents={castEvents}
+            damageEvents={damageEvents}
+            mitEvents={mitEvents}
             onHover={setTooltip}
           />
 
@@ -292,7 +274,8 @@ export function TimelineCanvas({
               dmgX={dmgX}
               secondaryDamageLaneLeft={secondaryDamageLaneLeft}
               headerSkillColumns={headerSkillColumns}
-              hasSecondaryDamageLane={hasSecondaryDamageLane}
+              memberGroups={memberGroups}
+              hasSecondaryDamageLane={false}
               firstGroupCount={layout.firstGroupCount}
               timelineHeight={timelineHeight}
             />
@@ -353,24 +336,6 @@ export function TimelineCanvas({
               activeDragId={activeDragId}
               dragPreviewPx={dragPreviewPx}
               editPopoverPosition={editPopoverPosition}
-            />
-
-            <DamageLayers
-              totalWidth={totalWidth}
-              timelineHeight={timelineHeight}
-              zoom={zoom}
-              dmgWidth={dmgWidth}
-              dmgX={dmgX}
-              secondaryDamageLaneLeft={secondaryDamageLaneLeft}
-              visibleRange={visibleRange}
-              damageEvents={damageEvents}
-              secondaryDamageEvents={secondaryDamageEvents}
-              primaryMitEvents={primaryMitEvents}
-              secondaryMitEvents={secondaryMitEvents}
-              hasSecondaryDamageLane={hasSecondaryDamageLane}
-              primaryLineWidth={primaryLineWidth}
-              secondaryLineWidth={secondaryLineWidth}
-              onHover={setTooltip}
             />
           </div>
         </div>

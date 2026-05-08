@@ -3,7 +3,7 @@ import type { Job, MitEvent, Skill } from '../model/types';
 // dnd-kit `data.current` 的数据约定 (payload contract)。
 // 路由只看语义字段 (kind/timelineId/laneId)，不要解析字符串 id。
 export type DragItemData =
-  | { type: 'new-skill'; skill: Skill; ownerJob?: Job }
+  | { type: 'new-skill'; skill: Skill; ownerId?: number; ownerJob?: Job }
   | { type: 'existing-mit'; mit: MitEvent; sourceTimelineId: string };
 
 export type DropZoneData =

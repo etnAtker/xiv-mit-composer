@@ -10,6 +10,7 @@ import { canInsertMitigation } from '../../utils/playerCast';
 
 interface ReprisalGhost {
   mit: MitEvent;
+  targetOwnerId: number;
   targetJob: Job;
 }
 
@@ -115,8 +116,8 @@ export function MitigationLayer({
           </div>
         );
       })}
-      {reprisalGhosts.map(({ mit, targetJob }) => {
-        const columnKey = `${normalizeSkillId(mit.skillId)}:${targetJob}`;
+      {reprisalGhosts.map(({ mit, targetOwnerId, targetJob }) => {
+        const columnKey = `${normalizeSkillId(mit.skillId)}:${targetOwnerId}`;
         const columnIndex = columnMap[columnKey];
         if (columnIndex === undefined) return null;
         const { effectHeight, totalHeight } = getMitigationBarHeights(mit, zoom);
@@ -128,7 +129,7 @@ export function MitigationLayer({
 
         return (
           <div
-            key={`reprisal-ghost-${mit.id}-${targetJob}`}
+            key={`reprisal-ghost-${mit.id}-${targetOwnerId}`}
             style={{
               position: 'absolute',
               top,

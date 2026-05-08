@@ -85,6 +85,13 @@ export interface Actor {
   subType: string;
 }
 
+export interface PartyMember {
+  playerId: number;
+  name: string;
+  job: Job;
+  collapsed: boolean;
+}
+
 export interface SkillI18n {
   name_jp: string;
   name_en: string;
@@ -168,6 +175,26 @@ export interface DamageEvent {
   packetID?: number;
   // 计算字段
   tMs: number;
+}
+
+export type DamageEventsByPlayerId = Record<number, DamageEvent[]>;
+
+export interface GroupedDamageHit {
+  playerId: number;
+  playerName: string;
+  job: Job;
+  tMs: number;
+  amount: number;
+  unmitigatedAmount: number;
+  originalEvent: DamageEvent;
+}
+
+export interface GroupedDamageEvent {
+  id: string;
+  tMs: number;
+  ability: FFLogsAbility;
+  displayAmount: number;
+  hits: GroupedDamageHit[];
 }
 
 export interface CastEvent {
