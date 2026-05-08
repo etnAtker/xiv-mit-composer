@@ -16,6 +16,7 @@ export function DragOverlayLayer({ activeItem, zoom, isInvalid }: Props) {
       {activeItem?.type === 'new-skill' && (
         <SkillCard
           skill={activeItem.skill}
+          job={activeItem.ownerJob}
           className={`opacity-90 shadow-2xl scale-105 ${
             isInvalid ? 'border-red-500 bg-red-500/20' : ''
           }`}

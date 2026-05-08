@@ -85,6 +85,14 @@ export interface Actor {
   subType: string;
 }
 
+export interface PartyMember {
+  playerId: number;
+  name: string;
+  job: Job;
+  collapsed: boolean;
+  source?: 'player' | 'role';
+}
+
 export interface SkillI18n {
   name_jp: string;
   name_en: string;
@@ -106,6 +114,7 @@ export interface Skill {
   actionId: number; // FFLogs 技能 ID
   icon?: string;
   mitigation?: SkillMitigation[];
+  counterpartProjection?: boolean; // 在其他成员的同技能列显示对位投影
   cooldownGroup?: string; // 共享CD组 ID，在自己进入cd的同时会消耗冷却组的一层cd
 }
 
@@ -168,6 +177,26 @@ export interface DamageEvent {
   packetID?: number;
   // 计算字段
   tMs: number;
+}
+
+export type DamageEventsByPlayerId = Record<number, DamageEvent[]>;
+
+export interface GroupedDamageHit {
+  playerId: number;
+  playerName: string;
+  job: Job;
+  tMs: number;
+  amount: number;
+  unmitigatedAmount: number;
+  originalEvent: DamageEvent;
+}
+
+export interface GroupedDamageEvent {
+  id: string;
+  tMs: number;
+  ability: FFLogsAbility;
+  displayAmount: number;
+  hits: GroupedDamageHit[];
 }
 
 export interface CastEvent {

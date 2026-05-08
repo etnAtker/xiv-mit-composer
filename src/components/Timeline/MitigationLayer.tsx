@@ -1,4 +1,4 @@
-import type { Job, MitEvent } from '../../model/types';
+import type { MitEvent } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
 import { getSkillDefinition, normalizeSkillId } from '../../data/skills';
 import { getSkillIconLocalSrc, JOB_ICON_LOCAL_SRC } from '../../data/icons';
@@ -7,11 +7,7 @@ import { MitigationBarContent } from './MitigationBar';
 import { getMitigationBarHeights } from './mitigationBarUtils';
 import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './timelineUtils';
 import { canInsertMitigation } from '../../utils/playerCast';
-
-interface ReprisalGhost {
-  mit: MitEvent;
-  targetJob: Job;
-}
+import type { CounterpartProjectionGhost } from './counterpartProjectionUtils';
 
 interface Props {
   containerId: string;
@@ -19,9 +15,8 @@ interface Props {
   mitX: number;
   mitAreaWidth: number;
   timelineHeight: number;
-  reprisalGhosts: ReprisalGhost[];
-  reprisalSkillColor?: string;
-  reprisalZIndexMap: Map<string, number>;
+  counterpartProjectionGhosts: CounterpartProjectionGhost[];
+  counterpartProjectionZIndexMap: Map<string, number>;
   getEffectiveStartMs: (mit: MitEvent) => number;
   getMitColumnLeft: (columnIndex: number) => number;
   getMitColumnKey: (mit: MitEvent) => string;
@@ -46,9 +41,8 @@ export function MitigationLayer({
   mitX,
   mitAreaWidth,
   timelineHeight,
-  reprisalGhosts,
-  reprisalSkillColor,
-  reprisalZIndexMap,
+  counterpartProjectionGhosts,
+  counterpartProjectionZIndexMap,
   getEffectiveStartMs,
   getMitColumnLeft,
   getMitColumnKey,
@@ -115,27 +109,27 @@ export function MitigationLayer({
           </div>
         );
       })}
-      {reprisalGhosts.map(({ mit, targetJob }) => {
-        const columnKey = `${normalizeSkillId(mit.skillId)}:${targetJob}`;
+      {counterpartProjectionGhosts.map(({ mit, targetOwnerId, targetJob, skillColor }) => {
+        const columnKey = `${normalizeSkillId(mit.skillId)}:${targetOwnerId}`;
         const columnIndex = columnMap[columnKey];
         if (columnIndex === undefined) return null;
         const { effectHeight, totalHeight } = getMitigationBarHeights(mit, zoom);
         const height = totalHeight;
         const top = (getEffectiveStartMs(mit) / MS_PER_SEC) * zoom;
-        const ghostColor = reprisalSkillColor ?? 'bg-slate-600';
-        const reprisalIndex = reprisalZIndexMap.get(mit.id) ?? 0;
+        const ghostColor = skillColor ?? 'bg-slate-600';
+        const projectionIndex = counterpartProjectionZIndexMap.get(mit.id) ?? 0;
         const iconJob = mit.ownerJob ?? targetJob;
 
         return (
           <div
-            key={`reprisal-ghost-${mit.id}-${targetJob}`}
+            key={`counterpart-projection-${mit.id}-${targetOwnerId}`}
             style={{
               position: 'absolute',
               top,
               left: getMitColumnLeft(columnIndex),
               width: MIT_COLUMN_WIDTH,
               height,
-              zIndex: 10 + reprisalIndex,
+              zIndex: 10 + projectionIndex,
               pointerEvents: 'none',
             }}
             className="opacity-50"
@@ -160,9 +154,9 @@ export function MitigationLayer({
         const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
 
         const isEditing = editingMitId === mit.id;
-        const reprisalIndex = reprisalZIndexMap.get(mit.id);
+        const projectionIndex = counterpartProjectionZIndexMap.get(mit.id);
         const baseZ = isEditing ? 200 : 10;
-        const zIndex = reprisalIndex !== undefined ? baseZ + reprisalIndex : baseZ;
+        const zIndex = projectionIndex !== undefined ? baseZ + projectionIndex : baseZ;
 
         return (
           <div

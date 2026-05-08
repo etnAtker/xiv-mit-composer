@@ -1,7 +1,10 @@
-﻿export interface TooltipItem {
+﻿import type { Job } from '../../model/types';
+
+export interface TooltipItem {
   title: string;
   subtitle: string;
   color?: string;
+  icon?: string;
 }
 
 export interface TooltipData {
@@ -17,5 +20,7 @@ export interface TimelineSkillColumn {
   color?: string;
   icon?: string;
   actionId?: number;
-  job?: string;
+  job?: Job | 'ALL';
+  ownerId?: number;
+  ownerName?: string;
 }

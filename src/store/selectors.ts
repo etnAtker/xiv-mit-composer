@@ -7,6 +7,7 @@ export const selectAppState = (state: AppState) => ({
   actors: state.actors,
   selectedJob: state.selectedJob,
   selectedPlayerId: state.selectedPlayerId,
+  partyMembers: state.partyMembers,
   mitEvents: state.mitEvents,
   cooldownEvents: state.cooldownEvents,
   castEvents: state.castEvents,
@@ -22,6 +23,9 @@ export const selectAppActions = (state: AppState) => ({
   loadFightMetadata: state.loadFightMetadata,
   setSelectedJob: state.setSelectedJob,
   setSelectedPlayerId: state.setSelectedPlayerId,
+  setPartyMembers: state.setPartyMembers,
+  updatePartyMemberCollapsed: state.updatePartyMemberCollapsed,
+  setAllPartyMembersCollapsed: state.setAllPartyMembersCollapsed,
   loadEvents: state.loadEvents,
   loadEventsForPlayers: state.loadEventsForPlayers,
   addMitEvent: state.addMitEvent,
@@ -35,10 +39,15 @@ export const selectTimelineState = (state: AppState) => ({
   cooldownEvents: state.cooldownEvents,
   damageEvents: state.damageEvents,
   damageEventsByJob: state.damageEventsByJob,
+  damageEventMembers: state.damageEventMembers,
+  damageEventsByPlayerId: state.damageEventsByPlayerId,
+  partyMembers: state.partyMembers,
   castEvents: state.castEvents,
 });
 
 export const selectTimelineActions = (state: AppState) => ({
   setMitEvents: state.setMitEvents,
   setIsRendering: state.setIsRendering,
+  updatePartyMemberCollapsed: state.updatePartyMemberCollapsed,
+  setAllPartyMembersCollapsed: state.setAllPartyMembersCollapsed,
 });

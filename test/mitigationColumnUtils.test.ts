@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ROLE_SKILL_IDS, SKILLS } from '../src/data/skills';
+import { SKILLS } from '../src/data/skills';
 import type { CooldownEvent, MitEvent } from '../src/model/types';
 import {
   getCooldownColumnKey,
@@ -9,50 +9,73 @@ import {
 } from '../src/components/Timeline/mitigationColumnUtils';
 import { buildTimelineLayout } from '../src/components/Timeline/timelineLayout';
 
-const dualTankLayout = buildTimelineLayout({
-  jobs: ['PLD', 'WAR'],
+const partyLayout = buildTimelineLayout({
+  members: [
+    { playerId: 1, name: 'Paladin', job: 'PLD', collapsed: false },
+    { playerId: 2, name: 'Warrior', job: 'WAR', collapsed: false },
+  ],
   skills: SKILLS,
-  roleSkillIds: ROLE_SKILL_IDS,
 });
 
-test('减伤事件的 role 技能列会按 ownerJob 分发', () => {
-  const pldReprisal: Pick<MitEvent, 'skillId' | 'ownerJob'> = {
+test('减伤事件的 role 技能列会按 ownerId 分发', () => {
+  const pldReprisal: Pick<MitEvent, 'skillId' | 'ownerJob' | 'ownerId'> = {
     skillId: 'role-reprisal@PLD',
     ownerJob: 'PLD',
+    ownerId: 1,
   };
-  const warReprisal: Pick<MitEvent, 'skillId' | 'ownerJob'> = {
+  const warReprisal: Pick<MitEvent, 'skillId' | 'ownerJob' | 'ownerId'> = {
     skillId: 'role-reprisal@WAR',
     ownerJob: 'WAR',
+    ownerId: 2,
   };
 
-  assert.equal(getMitColumnKey(pldReprisal, dualTankLayout), 'role-reprisal:PLD');
-  assert.equal(getMitColumnKey(warReprisal, dualTankLayout), 'role-reprisal:WAR');
+  assert.equal(getMitColumnKey(pldReprisal, partyLayout), 'role-reprisal:1');
+  assert.equal(getMitColumnKey(warReprisal, partyLayout), 'role-reprisal:2');
 });
 
-test('冷却事件的 role 技能列会按 ownerJob 分发', () => {
-  const pldRampartCooldown: Pick<CooldownEvent, 'skillId' | 'ownerJob'> = {
+test('冷却事件的 role 技能列会按 ownerKey 分发', () => {
+  const pldRampartCooldown: Pick<CooldownEvent, 'skillId' | 'ownerJob' | 'ownerKey'> = {
     skillId: 'role-rampart',
     ownerJob: 'PLD',
+    ownerKey: 'id:1',
   };
-  const warRampartCooldown: Pick<CooldownEvent, 'skillId' | 'ownerJob'> = {
+  const warRampartCooldown: Pick<CooldownEvent, 'skillId' | 'ownerJob' | 'ownerKey'> = {
     skillId: 'role-rampart',
     ownerJob: 'WAR',
+    ownerKey: 'id:2',
   };
 
-  assert.equal(getCooldownColumnKey(pldRampartCooldown, dualTankLayout), 'role-rampart:PLD');
-  assert.equal(getCooldownColumnKey(warRampartCooldown, dualTankLayout), 'role-rampart:WAR');
+  assert.equal(getCooldownColumnKey(pldRampartCooldown, partyLayout), 'role-rampart:1');
+  assert.equal(getCooldownColumnKey(warRampartCooldown, partyLayout), 'role-rampart:2');
 });
 
-test('非 role 技能会回退到基础列', () => {
-  const utilityMit: Pick<MitEvent, 'skillId' | 'ownerJob'> = {
-    skillId: 'pld-holy-sheltron',
+test('非 role 技能也会按 ownerId 分发', () => {
+  const utilityMit: Pick<MitEvent, 'skillId' | 'ownerJob' | 'ownerId'> = {
+    skillId: 'pld-h-sheltron',
     ownerJob: 'PLD',
+    ownerId: 1,
   };
-  const utilityCooldown: Pick<CooldownEvent, 'skillId' | 'ownerJob'> = {
-    skillId: 'pld-holy-sheltron',
+  const utilityCooldown: Pick<CooldownEvent, 'skillId' | 'ownerJob' | 'ownerKey'> = {
+    skillId: 'pld-h-sheltron',
     ownerJob: 'PLD',
+    ownerKey: 'id:1',
   };
 
-  assert.equal(getMitColumnKey(utilityMit, dualTankLayout), 'pld-holy-sheltron');
-  assert.equal(getCooldownColumnKey(utilityCooldown, dualTankLayout), 'pld-holy-sheltron');
+  assert.equal(getMitColumnKey(utilityMit, partyLayout), 'pld-h-sheltron:1');
+  assert.equal(getCooldownColumnKey(utilityCooldown, partyLayout), 'pld-h-sheltron:1');
+});
+
+test('空白职能成员会生成独立减伤列', () => {
+  const layout = buildTimelineLayout({
+    members: [{ playerId: -1, name: 'GNB', job: 'GNB', collapsed: false, source: 'role' }],
+    skills: SKILLS,
+  });
+  const rampart: Pick<MitEvent, 'skillId' | 'ownerJob' | 'ownerId'> = {
+    skillId: 'role-rampart@GNB',
+    ownerJob: 'GNB',
+    ownerId: -1,
+  };
+
+  assert.equal(layout.memberGroups[0].member.name, 'GNB');
+  assert.equal(getMitColumnKey(rampart, layout), 'role-rampart:-1');
 });

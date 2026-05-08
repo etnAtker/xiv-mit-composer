@@ -1,16 +1,29 @@
 import { useState } from 'react';
 import { cn } from '../utils';
 import { useTopBanner } from '../hooks/useTopBanner';
+import type { PartyMember } from '../model/types';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   content: string;
+  partyMembers: PartyMember[];
+  selectedPlayerId: number | null;
   enableTTS: boolean;
+  onPlayerChange: (playerId: number) => void;
   onTtsChange: (enabled: boolean) => void;
 }
 
-export function ExportModal({ isOpen, onClose, content, enableTTS, onTtsChange }: Props) {
+export function ExportModal({
+  isOpen,
+  onClose,
+  content,
+  partyMembers,
+  selectedPlayerId,
+  enableTTS,
+  onPlayerChange,
+  onTtsChange,
+}: Props) {
   const [copied, setCopied] = useState(false);
   const { push } = useTopBanner();
 
@@ -50,19 +63,35 @@ export function ExportModal({ isOpen, onClose, content, enableTTS, onTtsChange }
         </div>
 
         <div className="p-4 flex-1 overflow-hidden flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-muted">
               请复制以下内容并粘贴到 ff14-overlay-vue 的时间轴设置文件中。
             </div>
-            <label className="flex items-center gap-2 text-sm text-muted cursor-pointer hover:text-app transition-colors">
-              <input
-                type="checkbox"
-                checked={enableTTS}
-                onChange={(e) => onTtsChange(e.target.checked)}
-                className="w-4 h-4 rounded border-app bg-surface-3 text-(--color-accent) focus:ring-(--color-focus) focus:ring-offset-0 cursor-pointer"
-              />
-              <span>生成TTS</span>
-            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <span>导出玩家</span>
+                <select
+                  value={selectedPlayerId ?? ''}
+                  onChange={(e) => onPlayerChange(Number(e.target.value))}
+                  className="h-8 rounded-lg border border-app bg-surface px-2 text-sm text-app outline-none focus:ring-1 focus:ring-(--color-focus)"
+                >
+                  {partyMembers.map((member) => (
+                    <option key={member.playerId} value={member.playerId}>
+                      {member.name} / {member.job}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm text-muted cursor-pointer hover:text-app transition-colors">
+                <input
+                  type="checkbox"
+                  checked={enableTTS}
+                  onChange={(e) => onTtsChange(e.target.checked)}
+                  className="w-4 h-4 rounded border-app bg-surface-3 text-(--color-accent) focus:ring-(--color-focus) focus:ring-offset-0 cursor-pointer"
+                />
+                <span>生成TTS</span>
+              </label>
+            </div>
           </div>
           <textarea
             className="w-full flex-1 bg-surface border border-app rounded-lg p-3 font-mono text-xs text-accent resize-none focus:outline-none focus:ring-1 focus:ring-(--color-focus) custom-scrollbar"

@@ -1,29 +1,8 @@
-import type { Job } from '../../model/types';
+import type { TimelineMemberGroup } from './timelineLayout';
 import type { TimelineSkillColumn } from './types';
 import { XivIcon } from '../XivIcon';
 import { JOB_ICON_LOCAL_SRC, getSkillIconLocalSrc } from '../../data/icons';
-import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 import { MIT_COLUMN_WIDTH } from './timelineUtils';
-
-const jobToneMap: Record<string, string> = {
-  PLD: 'bg-blue-500/5',
-  WAR: 'bg-red-500/5',
-  DRK: 'bg-purple-500/5',
-  GNB: 'bg-emerald-500/5',
-};
-const jobHeaderToneMap: Record<string, string> = {
-  PLD: 'bg-blue-900/20 text-blue-300',
-  WAR: 'bg-red-900/20 text-red-300',
-  DRK: 'bg-purple-900/20 text-purple-300',
-  GNB: 'bg-emerald-900/20 text-emerald-300',
-};
-const getJobTone = (job: Job) => jobToneMap[job] || 'bg-[#1f6feb]/5';
-const getJobHeaderTone = (job: Job) => jobHeaderToneMap[job] || 'bg-[#1f6feb]/15 text-muted';
-
-interface JobGroup {
-  job: Job;
-  skills: TimelineSkillColumn[];
-}
 
 interface Props {
   totalWidth: number;
@@ -32,11 +11,9 @@ interface Props {
   castWidth: number;
   dmgWidth: number;
   isScrolled: boolean;
-  jobGroups: JobGroup[];
+  memberGroups: TimelineMemberGroup[];
   utilitySkills: TimelineSkillColumn[];
-  hasSecondaryDamageLane: boolean;
-  primaryJob?: Job;
-  secondaryJob?: Job;
+  onToggleMemberCollapsed: (playerId: number, collapsed: boolean) => void;
 }
 
 export function TimelineHeader({
@@ -46,11 +23,8 @@ export function TimelineHeader({
   castWidth,
   dmgWidth,
   isScrolled,
-  jobGroups,
-  utilitySkills,
-  hasSecondaryDamageLane,
-  primaryJob,
-  secondaryJob,
+  memberGroups,
+  onToggleMemberCollapsed,
 }: Props) {
   return (
     <div
@@ -72,8 +46,6 @@ export function TimelineHeader({
         >
           Boss Cast
         </div>
-      </div>
-      <div className="flex h-full flex-1">
         <div
           className="flex h-full flex-col border-r border-app bg-surface-2"
           style={{ width: dmgWidth }}
@@ -81,115 +53,82 @@ export function TimelineHeader({
           <div className="flex h-6 items-center justify-center border-b border-app text-[10px] font-bold uppercase text-muted">
             Damage
           </div>
-          <div className="flex h-10 items-center justify-center">
-            {primaryJob ? (
-              <XivIcon
-                localSrc={JOB_ICON_LOCAL_SRC[primaryJob]}
-                alt={`${primaryJob} icon`}
-                className="h-5 w-5 object-contain"
-              />
-            ) : (
-              <span className="text-[10px] font-mono text-muted">T1</span>
-            )}
+          <div className="flex h-10 items-center justify-center text-[10px] font-mono text-muted">
+            Party
           </div>
         </div>
-        {jobGroups.flatMap((group, index) => {
-          const job = group.job;
-          if (group.skills.length === 0) return [];
-          const blocks = [
+      </div>
+
+      <div className="flex h-full flex-1">
+        {memberGroups.map((group) => {
+          const { member } = group;
+          return (
             <div
-              key={`job-${job}`}
-              className={`flex flex-col border-r border-app ${getJobTone(job)}`}
-              style={{ width: group.skills.length * MIT_COLUMN_WIDTH }}
+              key={`member-${member.playerId}`}
+              className="flex flex-col border-r border-app bg-surface-2"
+              style={{ width: group.width }}
             >
-              <div
-                className={`flex h-6 py-3 items-center justify-center border-b border-app text-[14px] font-bold uppercase tracking-tight ${getJobHeaderTone(
-                  job,
-                )}`}
+              <button
+                type="button"
+                className="flex h-6 min-w-0 items-center justify-center gap-1 overflow-hidden border-b border-app bg-surface-3 px-1 text-[11px] font-bold uppercase tracking-tight text-muted"
+                title={`${member.name} (${member.job})`}
+                onClick={() => onToggleMemberCollapsed(member.playerId, !member.collapsed)}
               >
-                <div className="flex items-center gap-2">
-                  <XivIcon
-                    localSrc={JOB_ICON_LOCAL_SRC[job]}
-                    alt={`${job} icon`}
-                    className="h-5 w-5 object-contain"
-                  />
-                  <span>{job}</span>
-                </div>
-              </div>
-              <div className="flex">
-                {group.skills.map((skill) => (
-                  <div
-                    key={`head-${skill.columnId}`}
-                    className="flex h-10 w-10 items-center justify-center"
-                    title={skill.name}
-                  >
-                    {skill.actionId ? (
-                      <XivIcon
-                        localSrc={getSkillIconLocalSrc(skill.actionId)}
-                        alt={skill.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>,
-          ];
-
-          if (hasSecondaryDamageLane && index === 0) {
-            blocks.push(
-              <div
-                key="secondary-damage-lane-header"
-                className="flex flex-col border-r border-app bg-surface-2"
-                style={{ width: DAMAGE_LANE_WIDTH }}
-              >
-                <div className="flex h-6 items-center justify-center border-b border-app text-[10px] font-bold uppercase text-muted">
-                  Damage
-                </div>
-                <div className="flex h-10 items-center justify-center">
-                  {secondaryJob ? (
-                    <XivIcon
-                      localSrc={JOB_ICON_LOCAL_SRC[secondaryJob]}
-                      alt={`${secondaryJob} icon`}
-                      className="h-5 w-5 object-contain"
-                    />
-                  ) : (
-                    <span className="text-[10px] font-mono text-muted">T2</span>
-                  )}
-                </div>
-              </div>,
-            );
-          }
-
-          return blocks;
-        })}
-        {utilitySkills.length > 0 && (
-          <div
-            className="flex flex-1 flex-col border-r border-app bg-surface-2"
-            style={{ width: utilitySkills.length * MIT_COLUMN_WIDTH }}
-          >
-            <div className="flex h-6 items-center px-4 border-b border-app bg-surface-3">
-              <span className="text-[12px] font-medium uppercase text-muted">Party Utility</span>
-            </div>
-            <div className="flex">
-              {utilitySkills.map((skill) => (
-                <div
-                  key={`head-${skill.columnId}`}
-                  className="flex h-10 w-10 items-center justify-center"
-                  title={skill.name}
+                <XivIcon
+                  localSrc={JOB_ICON_LOCAL_SRC[member.job]}
+                  alt={`${member.job} icon`}
+                  className="h-4 w-4 shrink-0 translate-y-px object-contain"
+                />
+                {!member.collapsed && (
+                  <span className="relative top-[2px] block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap leading-none text-app">
+                    {member.name}
+                  </span>
+                )}
+                <svg
+                  viewBox="0 0 16 16"
+                  className={`h-3 w-3 shrink-0 text-muted transition-transform ${
+                    member.collapsed ? '-rotate-90' : ''
+                  }`}
+                  aria-hidden="true"
                 >
-                  {skill.actionId ? (
-                    <XivIcon
-                      localSrc={getSkillIconLocalSrc(skill.actionId)}
-                      alt={skill.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
+                  <path
+                    d="M4.5 6.5 8 10l3.5-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.8"
+                  />
+                </svg>
+              </button>
+
+              {member.collapsed ? (
+                <div className="flex h-10 items-center justify-center text-[10px] font-mono leading-none text-muted">
+                  {member.job}
                 </div>
-              ))}
+              ) : (
+                <div className="flex justify-center" style={{ width: group.width }}>
+                  {group.skills.map((skill) => (
+                    <div
+                      key={`head-${skill.columnId}`}
+                      className="flex h-10 items-center justify-center"
+                      style={{ width: MIT_COLUMN_WIDTH }}
+                      title={skill.name}
+                    >
+                      {skill.actionId ? (
+                        <XivIcon
+                          localSrc={getSkillIconLocalSrc(skill.actionId)}
+                          alt={skill.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );

@@ -1,13 +1,13 @@
 import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/shallow';
 import { useStore } from '../../store';
-import { ROLE_SKILL_IDS, SKILLS } from '../../data/skills';
+import { SKILLS } from '../../data/skills';
 import { TimelineCanvas } from './TimelineCanvas';
 import { MS_PER_SEC } from '../../constants/time';
 import { CAST_LANE_WIDTH, DAMAGE_LANE_WIDTH } from '../../constants/timeline';
-import type { Job } from '../../model/types';
 import { selectTimelineActions, selectTimelineState } from '../../store/selectors';
 import { buildTimelineLayout } from './timelineLayout';
+import { groupDamageEvents } from '../../domain/fflogs/groupDamageEvents';
 
 interface TimelineProps {
   zoom: number;
@@ -15,7 +15,6 @@ interface TimelineProps {
   containerId?: string;
   activeDragId?: string | null;
   dragPreviewPx?: number;
-  selectedJobs?: Job[];
 }
 
 export function Timeline({
@@ -24,41 +23,37 @@ export function Timeline({
   containerId = 'mit-lane-container',
   activeDragId,
   dragPreviewPx = 0,
-  selectedJobs,
 }: TimelineProps) {
   const {
     fight,
-    selectedJob,
+    partyMembers,
     mitEvents,
     cooldownEvents,
-    damageEvents,
-    damageEventsByJob,
+    damageEventMembers,
+    damageEventsByPlayerId,
     castEvents,
   } = useStore(useShallow(selectTimelineState));
   const { setIsRendering } = useStore(useShallow(selectTimelineActions));
-
-  const resolvedJobs = useMemo(() => {
-    if (selectedJobs && selectedJobs.length > 0) {
-      return Array.from(new Set(selectedJobs));
-    }
-    return selectedJob ? [selectedJob] : [];
-  }, [selectedJob, selectedJobs]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsRendering(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [mitEvents, damageEvents, castEvents, setIsRendering]);
+  }, [mitEvents, damageEventsByPlayerId, castEvents, setIsRendering]);
 
   const layout = useMemo(
     () =>
       buildTimelineLayout({
-        jobs: resolvedJobs,
+        members: partyMembers,
         skills: SKILLS,
-        roleSkillIds: ROLE_SKILL_IDS,
       }),
-    [resolvedJobs],
+    [partyMembers],
+  );
+
+  const groupedDamageEvents = useMemo(
+    () => groupDamageEvents(damageEventsByPlayerId, damageEventMembers),
+    [damageEventsByPlayerId, damageEventMembers],
   );
 
   const lastCastEndMs = useMemo(() => {
@@ -97,15 +92,6 @@ export function Timeline({
 
   const totalWidth = MIT_X + layout.mitAreaWidth;
 
-  const primaryJob = layout.primaryJob;
-  const secondaryJob = layout.secondaryJob;
-  const primaryDamageEvents =
-    layout.hasSecondaryDamageLane && primaryJob
-      ? (damageEventsByJob?.[primaryJob] ?? [])
-      : damageEvents;
-  const secondaryDamageEvents =
-    layout.hasSecondaryDamageLane && secondaryJob ? (damageEventsByJob?.[secondaryJob] ?? []) : [];
-
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-app text-app font-['Space_Grotesk']">
       <TimelineCanvas
@@ -124,8 +110,7 @@ export function Timeline({
         mitX={MIT_X}
         layout={layout}
         castEvents={castEvents}
-        damageEvents={primaryDamageEvents}
-        secondaryDamageEvents={secondaryDamageEvents}
+        damageEvents={groupedDamageEvents}
         mitEvents={mitEvents}
         cooldownEvents={cooldownEvents}
         activeDragId={activeDragId}

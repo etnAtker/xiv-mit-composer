@@ -1,68 +1,23 @@
-import type { Actor, Fight, Job } from '../model/types';
-import { cn } from '../utils';
+import type { Fight, PartyMember } from '../model/types';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../constants/time';
 import { XivIcon } from './XivIcon';
 import { JOB_ICON_LOCAL_SRC } from '../data/icons';
 
 interface Props {
   fight: Fight;
-  actors: Actor[];
-  mode: 'single' | 'dual';
-  selectedJob: Job | null;
-  selectedJobs: Job[];
-  selectedPlayerId: number | null;
-  selectedPlayersByJob: Record<Job, number | null>;
-  onSelectJob: (job: Job) => void;
-  onToggleJob: (job: Job) => void;
-  onSelectPlayer: (id: number) => void;
-  onSelectPlayerForJob: (job: Job, id: number) => void;
+  partyMembers: PartyMember[];
+  onEditParty: () => void;
+  onExpandAll: () => void;
+  onCollapseAll: () => void;
 }
-
-const JOBS: Job[] = ['PLD', 'WAR', 'DRK', 'GNB'];
 
 export function FightInfoBar({
   fight,
-  actors,
-  mode,
-  selectedJob,
-  selectedJobs,
-  selectedPlayerId,
-  selectedPlayersByJob,
-  onSelectJob,
-  onToggleJob,
-  onSelectPlayer,
-  onSelectPlayerForJob,
+  partyMembers,
+  onEditParty,
+  onExpandAll,
+  onCollapseAll,
 }: Props) {
-  const maxJobs = mode === 'dual' ? 2 : 1;
-  const jobTypeMap: Record<Job, string[]> = {
-    PLD: ['Paladin'],
-    WAR: ['Warrior'],
-    DRK: ['DarkKnight', 'Dark Knight'],
-    GNB: ['Gunbreaker'],
-    WHM: ['WhiteMage', 'White Mage'],
-    SCH: ['Scholar'],
-    AST: ['Astrologian'],
-    SGE: ['Sage'],
-    MNK: ['Monk'],
-    DRG: ['Dragoon'],
-    NIN: ['Ninja'],
-    SAM: ['Samurai'],
-    RPR: ['Reaper'],
-    VPR: ['Viper'],
-    BRD: ['Bard'],
-    MCH: ['Machinist'],
-    DNC: ['Dancer'],
-    BLM: ['BlackMage', 'Black Mage'],
-    SMN: ['Summoner'],
-    RDM: ['RedMage', 'Red Mage'],
-    PCT: ['Pictomancer'],
-  };
-  const filteredActors = (job: Job | null) =>
-    actors.filter((actor) => {
-      if (!job) return true;
-      return jobTypeMap[job]?.includes(actor.type) || jobTypeMap[job]?.includes(actor.subType);
-    });
-
   return (
     <div className="px-6 py-3 bg-surface-2 border-b border-app flex gap-6 items-center flex-wrap z-10 relative shadow-sm">
       <div className="flex items-center gap-2">
@@ -73,111 +28,55 @@ export function FightInfoBar({
         </span>
       </div>
 
-      <div className="w-px h-6 bg-(--color-border)"></div>
+      <div className="w-px h-6 bg-(--color-border)" />
 
-      <div className="flex items-center gap-3">
-        <span className="text-muted text-xs font-bold uppercase tracking-wider">职业</span>
-        <div className="flex bg-surface-3 rounded-lg p-1 gap-1 border border-app">
-          {JOBS.map((job) => (
-            <button
-              key={job}
-              type="button"
-              onClick={() => {
-                if (mode === 'dual') {
-                  if (!selectedJobs.includes(job) && selectedJobs.length >= maxJobs) return;
-                  onToggleJob(job);
-                } else {
-                  onSelectJob(job);
-                }
-              }}
-              className={cn(
-                'px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-2',
-                (mode === 'dual' ? selectedJobs.includes(job) : selectedJob === job)
-                  ? 'bg-accent-strong text-white shadow-sm'
-                  : 'hover:bg-surface-4 text-muted hover:text-app',
-              )}
-            >
-              <XivIcon
-                localSrc={JOB_ICON_LOCAL_SRC[job]}
-                alt={`${job} icon`}
-                className="h-4 w-4 object-contain"
-              />
-              <span>{job}</span>
-            </button>
-          ))}
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="text-muted text-xs font-bold uppercase tracking-wider">队伍</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {partyMembers.length === 0 ? (
+            <span className="text-xs text-muted">未选择玩家</span>
+          ) : (
+            partyMembers.map((member) => (
+              <div
+                key={member.playerId}
+                className="flex max-w-48 items-center gap-1.5 rounded border border-app bg-surface-3 px-2 py-1 text-xs"
+                title={`${member.name} (${member.job})`}
+              >
+                <XivIcon
+                  localSrc={JOB_ICON_LOCAL_SRC[member.job]}
+                  alt={`${member.job} icon`}
+                  className="h-4 w-4 shrink-0 object-contain"
+                />
+                <span className="truncate">{member.name}</span>
+                <span className="font-mono text-[10px] text-muted">{member.job}</span>
+              </div>
+            ))
+          )}
         </div>
-        {mode === 'dual' && (
-          <span className="text-[10px] text-muted font-mono">最多 {maxJobs} 个</span>
-        )}
       </div>
 
-      <div className="w-px h-6 bg-(--color-border)"></div>
-
-      <div className="flex items-center gap-3">
-        <span className="text-muted text-xs font-bold uppercase tracking-wider">玩家</span>
-        {mode === 'dual' ? (
-          <div className="flex items-center gap-3">
-            {selectedJobs.length === 0 && <div className="text-xs text-muted">先选择职业</div>}
-            {selectedJobs.map((job) => (
-              <div key={job} className="relative flex items-center gap-2">
-                <span className="text-[10px] font-mono text-muted">{job}</span>
-                <select
-                  value={selectedPlayersByJob[job] ?? ''}
-                  onChange={(e) => onSelectPlayerForJob(job, Number(e.target.value))}
-                  aria-label={`选择玩家-${job}`}
-                  className="appearance-none bg-surface-1 border border-app hover:border-(--color-accent) rounded-lg pl-3 pr-8 py-1.5 text-sm w-72 text-app focus:outline-none focus:ring-1 focus:ring-(--color-focus) transition-colors cursor-pointer"
-                >
-                  <option value="">选择玩家...</option>
-                  {filteredActors(job).map((actor) => (
-                    <option key={actor.id} value={actor.id}>
-                      {actor.name} ({actor.type})
-                    </option>
-                  ))}
-                </select>
-                <div
-                  className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-muted text-xs"
-                  aria-hidden="true"
-                >
-                  ▼
-                </div>
-              </div>
-            ))}
-            {selectedJobs.length === 1 && (
-              <div className="relative flex items-center gap-2 opacity-50">
-                <span className="text-[10px] font-mono text-muted">---</span>
-                <select
-                  disabled
-                  aria-label="第二位玩家占位"
-                  className="appearance-none bg-surface-1 border border-app rounded-lg pl-3 pr-8 py-1.5 text-sm w-72 text-muted cursor-not-allowed"
-                >
-                  <option value="">选择第二名玩家...</option>
-                </select>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="relative">
-            <select
-              value={selectedPlayerId ?? ''}
-              onChange={(e) => onSelectPlayer(Number(e.target.value))}
-              aria-label="选择玩家"
-              className="appearance-none bg-surface-1 border border-app hover:border-(--color-accent) rounded-lg pl-3 pr-8 py-1.5 text-sm w-80 text-app focus:outline-none focus:ring-1 focus:ring-(--color-focus) transition-colors cursor-pointer"
-            >
-              <option value="">选择玩家...</option>
-              {filteredActors(selectedJob).map((actor) => (
-                <option key={actor.id} value={actor.id}>
-                  {actor.name} ({actor.type})
-                </option>
-              ))}
-            </select>
-            <div
-              className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-muted text-xs"
-              aria-hidden="true"
-            >
-              ▼
-            </div>
-          </div>
-        )}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="rounded border border-app bg-surface px-3 py-1 text-[11px] text-muted hover:text-app"
+          onClick={onExpandAll}
+        >
+          全部展开
+        </button>
+        <button
+          type="button"
+          className="rounded border border-app bg-surface px-3 py-1 text-[11px] text-muted hover:text-app"
+          onClick={onCollapseAll}
+        >
+          全部折叠
+        </button>
+        <button
+          type="button"
+          className="rounded border border-(--color-accent-strong) bg-accent-strong px-3 py-1 text-[11px] font-semibold text-white hover:bg-accent"
+          onClick={onEditParty}
+        >
+          调整队伍
+        </button>
       </div>
     </div>
   );

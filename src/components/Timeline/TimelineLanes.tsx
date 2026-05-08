@@ -1,15 +1,16 @@
 import { format } from 'date-fns';
 import { memo, useMemo } from 'react';
-import type { DamageEvent, MitEvent } from '../../model/types';
+import type { GroupedDamageEvent, MitEvent } from '../../model/types';
 import type { TooltipData } from './types';
 import { getDamageColor, getVisibleClusters, truncateText, TRUNCATE_LEN } from './timelineUtils';
 import { MS_PER_SEC } from '../../constants/time';
+import { JOB_ICON_LOCAL_SRC } from '../../data/icons';
 
 const DAMAGE_AMOUNT_UNIT = 1000;
 const DAMAGE_DECIMAL_PLACES = 0;
 
 interface DamageLaneProps {
-  events: DamageEvent[];
+  events: GroupedDamageEvent[];
   mitEvents: MitEvent[];
   zoom: number;
   width: number;
@@ -19,7 +20,7 @@ interface DamageLaneProps {
 }
 
 interface DamageLaneHitTargetsProps {
-  events: DamageEvent[];
+  events: GroupedDamageEvent[];
   mitEvents: MitEvent[];
   zoom: number;
   width: number;
@@ -71,6 +72,16 @@ const isMitigatedAt = (windows: { start: number; end: number }[], tMs: number) =
   return false;
 };
 
+const formatDamageK = (amount: number) => {
+  if (!Number.isFinite(amount)) return '???';
+  return `${(amount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k`;
+};
+
+const formatDamageRaw = (amount: number) => {
+  if (!Number.isFinite(amount)) return '???';
+  return Math.round(amount).toLocaleString();
+};
+
 export const DamageLane = memo(
   ({ events, mitEvents, zoom, width, left, visibleRange, lineWidth }: DamageLaneProps) => {
     const mergedMitWindows = useMemo(() => mergeMitWindows(mitEvents), [mitEvents]);
@@ -88,10 +99,7 @@ export const DamageLane = memo(
           const isCovered = cluster.events.some((ev) => isMitigatedAt(mergedMitWindows, ev.tMs));
           const color = getDamageColor(isCovered);
 
-          const damageNumStr = (firstEv.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(
-            DAMAGE_DECIMAL_PLACES,
-          );
-          const damageStr = isNaN(Number(damageNumStr)) ? '???' : `${damageNumStr}k`;
+          const damageStr = formatDamageK(firstEv.displayAmount);
 
           const skillName = firstEv.ability.name ? firstEv.ability.name : '';
           const skillLabelText =
@@ -194,9 +202,10 @@ export const DamageLaneHitTargets = memo(
                   x: e.clientX,
                   y: e.clientY,
                   items: cluster.events.map((ev) => ({
-                    title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
-                    subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
+                    title: `${formatDamageK(ev.displayAmount)} ${ev.ability.name}`,
+                    subtitle: `${format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS')} · ${ev.hits.length} 人命中`,
                     color: getDamageColor(isMitigatedAt(mergedMitWindows, ev.tMs)),
+                    icon: JOB_ICON_LOCAL_SRC[ev.hits[0]?.job],
                   })),
                 });
               }}
@@ -205,9 +214,17 @@ export const DamageLaneHitTargets = memo(
                   x: e.clientX,
                   y: e.clientY,
                   items: cluster.events.map((ev) => ({
-                    title: `${(ev.unmitigatedAmount / DAMAGE_AMOUNT_UNIT).toFixed(DAMAGE_DECIMAL_PLACES)}k ${ev.ability.name}`,
-                    subtitle: format(new Date(0, 0, 0, 0, 0, 0, ev.tMs), 'mm:ss.SS'),
+                    title: `${formatDamageK(ev.displayAmount)} ${ev.ability.name}`,
+                    subtitle: ev.hits
+                      .map((hit) => {
+                        const offset = hit.tMs - ev.tMs;
+                        const offsetLabel =
+                          offset === 0 ? '+0ms' : `${offset > 0 ? '+' : ''}${offset}ms`;
+                        return `${hit.playerName} ${formatDamageRaw(hit.unmitigatedAmount)} @ ${format(new Date(0, 0, 0, 0, 0, 0, hit.tMs), 'mm:ss.SS')} ${offsetLabel}`;
+                      })
+                      .join('\n'),
                     color: getDamageColor(isMitigatedAt(mergedMitWindows, ev.tMs)),
+                    icon: JOB_ICON_LOCAL_SRC[ev.hits[0]?.job],
                   })),
                 });
               }}

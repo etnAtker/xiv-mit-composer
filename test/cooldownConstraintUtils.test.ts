@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ROLE_SKILL_IDS, SKILLS } from '../src/data/skills';
+import { SKILLS } from '../src/data/skills';
 import type { Job, MitEvent } from '../src/model/types';
 import { buildTimelineLayout } from '../src/components/Timeline/timelineLayout';
 import { buildConstraintSegments } from '../src/components/Timeline/cooldownConstraintUtils';
@@ -28,9 +28,8 @@ function createMitEvent(
 
 test('共享资源的兄弟技能列会绘制完整 cooldown 区间，本技能列只露出尾巴', () => {
   const layout = buildTimelineLayout({
-    jobs: ['WAR'],
+    members: [{ playerId: 1, name: 'Warrior', job: 'WAR', collapsed: false }],
     skills: SKILLS,
-    roleSkillIds: ROLE_SKILL_IDS,
   });
   const mitEvents = [createMitEvent('war-bloodwhetting', 10_000, 'WAR', 1, 8_000)];
   const cooldownEvents = tryBuildCooldowns(mitEvents) ?? [];
@@ -53,9 +52,8 @@ test('共享资源的兄弟技能列会绘制完整 cooldown 区间，本技能�
 
 test('效果时长覆盖 cooldown 时不会再生成可见 cooldown 区段', () => {
   const layout = buildTimelineLayout({
-    jobs: ['DRK'],
+    members: [{ playerId: 1, name: 'Dark Knight', job: 'DRK', collapsed: false }],
     skills: SKILLS,
-    roleSkillIds: ROLE_SKILL_IDS,
   });
   const mitEvents = [createMitEvent('drk-oblation', 10_000, 'DRK', 1, 10_000)];
   const cooldownEvents = tryBuildCooldowns(mitEvents) ?? [];

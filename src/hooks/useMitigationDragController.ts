@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { DragEndEvent, DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
-import type { CooldownEvent, Job, MitEvent } from '../model/types';
+import type { CooldownEvent, Job, MitEvent, PartyMember } from '../model/types';
 import type { DragItemData, DropZoneData } from '../dnd/types';
 import { useStore } from '../store';
 import type { PushBanner } from './useTopBanner';
@@ -14,16 +14,10 @@ import {
   resolveMitRemovalIds,
 } from '../domain/drag/mitigationDrag';
 
-interface DualTankPlayer {
-  id: number | null;
-  job: Job;
-}
-
 interface UseMitigationDragControllerOptions {
   selectedJob: Job | null;
   selectedPlayerId: number | null;
-  loadMode: 'single' | 'dual';
-  dualTankPlayers: DualTankPlayer[];
+  partyMembers: PartyMember[];
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
   addMitEvent: (event: MitEvent) => void;
@@ -35,8 +29,7 @@ interface UseMitigationDragControllerOptions {
 export function useMitigationDragController({
   selectedJob,
   selectedPlayerId,
-  loadMode,
-  dualTankPlayers,
+  partyMembers,
   mitEvents,
   cooldownEvents,
   addMitEvent,
@@ -54,15 +47,24 @@ export function useMitigationDragController({
   const dragMovingEventsRef = useRef<MitEvent[]>([]);
 
   const resolveOwnerContext = useCallback(
-    (job?: Job) => {
+    (job?: Job, ownerId?: number) => {
       const resolvedJob = job ?? selectedJob ?? undefined;
-      if (loadMode === 'dual') {
-        const match = dualTankPlayers.find((player) => player.job === resolvedJob);
-        return { ownerJob: resolvedJob, ownerId: match?.id ?? undefined };
+      if (typeof ownerId === 'number') {
+        const member = partyMembers.find((player) => player.playerId === ownerId);
+        return {
+          ownerJob: member?.job ?? resolvedJob,
+          ownerId,
+        };
       }
-      return { ownerJob: resolvedJob, ownerId: selectedPlayerId ?? undefined };
+      const match = resolvedJob
+        ? partyMembers.find((player) => player.job === resolvedJob)
+        : partyMembers[0];
+      return {
+        ownerJob: match?.job ?? resolvedJob,
+        ownerId: match?.playerId ?? selectedPlayerId ?? undefined,
+      };
     },
-    [dualTankPlayers, loadMode, selectedJob, selectedPlayerId],
+    [partyMembers, selectedJob, selectedPlayerId],
   );
 
   const clearDragRuntime = useCallback(() => {
@@ -139,7 +141,7 @@ export function useMitigationDragController({
           tStartMs,
           mitEvents,
           cooldownEvents,
-          resolveOwnerContext(currentItem.ownerJob),
+          resolveOwnerContext(currentItem.ownerJob, currentItem.ownerId),
         );
       } else if (currentItem?.type === 'existing-mit') {
         const eventsToMove = dragMovingEventsRef.current.length
@@ -188,7 +190,7 @@ export function useMitigationDragController({
       const tStartMs = resolveDropStartMs(translated.top, over.rect.top, zone.msPerPx);
 
       if (item.type === 'new-skill') {
-        const ownerContext = resolveOwnerContext(item.ownerJob);
+        const ownerContext = resolveOwnerContext(item.ownerJob, item.ownerId);
         if (
           !canDropNewMitigation(item.skill.id, tStartMs, mitEvents, cooldownEvents, ownerContext)
         ) {

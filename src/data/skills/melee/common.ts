@@ -2,19 +2,6 @@ import type { Skill } from '../../../model/types';
 
 export const MELEE_COMMON_SKILLS: Skill[] = [
   {
-    id: 'role-bloodbath',
-    name: '浴血',
-    name_en: 'Bloodbath',
-    name_jp: 'ブラッドバス',
-    name_fr: 'Bain de sang',
-    name_de: 'Blutbad',
-    cooldownSec: 90,
-    durationSec: 20,
-    job: 'ALL',
-    color: 'bg-slate-500',
-    actionId: 7542,
-  },
-  {
     id: 'role-feint',
     name: '牵制',
     name_en: 'Feint',
@@ -44,5 +31,6 @@ export const MELEE_COMMON_SKILLS: Skill[] = [
     job: 'ALL',
     color: 'bg-slate-600',
     actionId: 7549,
+    counterpartProjection: true,
   },
 ];
