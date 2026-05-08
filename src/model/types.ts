@@ -90,6 +90,7 @@ export interface PartyMember {
   name: string;
   job: Job;
   collapsed: boolean;
+  source?: 'player' | 'role';
 }
 
 export interface SkillI18n {

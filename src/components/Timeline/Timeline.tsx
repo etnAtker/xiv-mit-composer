@@ -24,8 +24,15 @@ export function Timeline({
   activeDragId,
   dragPreviewPx = 0,
 }: TimelineProps) {
-  const { fight, partyMembers, mitEvents, cooldownEvents, damageEventsByPlayerId, castEvents } =
-    useStore(useShallow(selectTimelineState));
+  const {
+    fight,
+    partyMembers,
+    mitEvents,
+    cooldownEvents,
+    damageEventMembers,
+    damageEventsByPlayerId,
+    castEvents,
+  } = useStore(useShallow(selectTimelineState));
   const { setIsRendering } = useStore(useShallow(selectTimelineActions));
 
   useEffect(() => {
@@ -45,8 +52,8 @@ export function Timeline({
   );
 
   const groupedDamageEvents = useMemo(
-    () => groupDamageEvents(damageEventsByPlayerId, partyMembers),
-    [damageEventsByPlayerId, partyMembers],
+    () => groupDamageEvents(damageEventsByPlayerId, damageEventMembers),
+    [damageEventsByPlayerId, damageEventMembers],
   );
 
   const lastCastEndMs = useMemo(() => {

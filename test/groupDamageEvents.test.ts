@@ -89,3 +89,25 @@ test('同 ability 但超过窗口不合并', () => {
 
   assert.equal(groups.length, 2);
 });
+
+test('未添加到减伤轴的玩家受击也能参与全局聚合', () => {
+  const damageMembers: PartyMember[] = [
+    ...members,
+    { playerId: 3, name: 'Charlie', job: 'SAM', collapsed: false, source: 'player' },
+  ];
+
+  const groups = groupDamageEvents(
+    {
+      1: [createDamage(1, 1000, 10_000, 100)],
+      3: [createDamage(3, 1000, 10_050, 300)],
+    },
+    damageMembers,
+  );
+
+  assert.equal(groups.length, 1);
+  assert.deepEqual(
+    groups[0].hits.map((hit) => hit.playerName),
+    ['Alpha', 'Charlie'],
+  );
+  assert.equal(groups[0].displayAmount, 300);
+});

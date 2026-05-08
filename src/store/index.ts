@@ -20,6 +20,7 @@ import { buildMitEvents } from '../domain/fflogs/buildMitEvents';
 import { buildDamageEventsByJob } from '../domain/fflogs/buildDamageEventsByJob';
 import { buildDamageEventsByPlayerId } from '../domain/fflogs/buildDamageEventsByPlayerId';
 import { mergeDamageEvents } from '../domain/fflogs/mergeDamageEvents';
+import { resolveActorJob } from '../model/jobs';
 import { buildCooldownsTolerant, evaluateMitigationSetStrict } from '../utils/playerCast';
 import { parseFFLogsUrl } from '../utils';
 
@@ -35,6 +36,7 @@ export interface AppState {
   selectedJob: Job | null;
   selectedPlayerId: number | null;
   partyMembers: PartyMember[];
+  damageEventMembers: PartyMember[];
   selectedMitIds: string[];
 
   damageEvents: DamageEvent[];
@@ -95,17 +97,19 @@ const loadEventsCore = async ({
   reportCode,
   fight,
   bossIds,
-  players,
+  castPlayers,
+  damagePlayers,
   signal,
 }: {
   client: FFLogsClient;
   reportCode: string;
   fight: Fight;
   bossIds: number[];
-  players: LoadEventsPlayer[];
+  castPlayers: LoadEventsPlayer[];
+  damagePlayers: LoadEventsPlayer[];
   signal: AbortSignal;
 }): Promise<LoadEventsCoreResult> => {
-  const friendlyCastsPromises = players.map(async (player) => {
+  const friendlyCastsPromises = castPlayers.map(async (player) => {
     const allowedActionIds = new Set(
       SKILLS.filter((s) => s.job === player.job || s.job === 'ALL')
         .map((s) => s.actionId)
@@ -129,7 +133,7 @@ const loadEventsCore = async ({
     client.fetchEvents(reportCode, fight.start, fight.end, bossId, true, 'casts', signal),
   );
 
-  const damagePromises = players.map(async (player) => ({
+  const damagePromises = damagePlayers.map(async (player) => ({
     job: player.job,
     playerId: player.id,
     events: await client.fetchEvents<DamageEvent>(
@@ -188,6 +192,23 @@ const loadEventsCore = async ({
     cooldownEvents,
   };
 };
+
+const buildDamageEventMembers = (actors: Actor[]): PartyMember[] =>
+  actors.flatMap((actor) => {
+    const job = resolveActorJob(actor);
+    if (!job) return [];
+    return [
+      {
+        playerId: actor.id,
+        name: actor.name,
+        job,
+        collapsed: false,
+        source: 'player' as const,
+      },
+    ];
+  });
+
+const isPlayerPartyMember = (member: PartyMember) => member.source !== 'role';
 
 let fightRequestSeq = 0;
 let fightAbortController: AbortController | null = null;
@@ -253,6 +274,7 @@ export const useStore = create<AppState>()(
         selectedJob: 'GNB',
         selectedPlayerId: null,
         partyMembers: [],
+        damageEventMembers: [],
         selectedMitIds: [],
         damageEvents: [],
         damageEventsByJob: {},
@@ -431,6 +453,7 @@ export const useStore = create<AppState>()(
               actors,
               bossIds,
               partyMembers: [],
+              damageEventMembers: buildDamageEventMembers(actors),
               selectedMitIds: [],
               damageEvents: [],
               damageEventsByJob: {},
@@ -473,7 +496,12 @@ export const useStore = create<AppState>()(
               reportCode,
               fight,
               bossIds,
-              players: selectedJob ? [{ id: selectedPlayerId, job: selectedJob }] : [],
+              castPlayers: selectedJob ? [{ id: selectedPlayerId, job: selectedJob }] : [],
+              damagePlayers: buildDamageEventMembers(get().actors).map((player) => ({
+                id: player.playerId,
+                job: player.job,
+                name: player.name,
+              })),
               signal,
             });
             if (requestId !== eventsRequestSeq || signal.aborted) return;
@@ -499,13 +527,15 @@ export const useStore = create<AppState>()(
         },
 
         loadEventsForPlayers: async (players) => {
-          const { apiKey, fflogsUrl, fight, bossIds } = get();
+          const { apiKey, fflogsUrl, fight, bossIds, actors } = get();
           const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
           if (!apiKey || !reportCode || !fight || players.length === 0) return;
 
           const { requestId, signal } = beginEventsRequest();
           set({ isLoading: true, isRendering: true, error: null });
           const client = new FFLogsClient(apiKey);
+          const damageEventMembers = buildDamageEventMembers(actors);
+          const castPlayers = players.filter(isPlayerPartyMember);
 
           try {
             const {
@@ -520,7 +550,12 @@ export const useStore = create<AppState>()(
               reportCode,
               fight,
               bossIds,
-              players: players.map((player) => ({
+              castPlayers: castPlayers.map((player) => ({
+                id: player.playerId,
+                job: player.job,
+                name: player.name,
+              })),
+              damagePlayers: damageEventMembers.map((player) => ({
                 id: player.playerId,
                 job: player.job,
                 name: player.name,
@@ -529,7 +564,7 @@ export const useStore = create<AppState>()(
             });
             if (requestId !== eventsRequestSeq || signal.aborted) return;
 
-            const primaryPlayerId = players[0]?.playerId;
+            const primaryPlayerId = players.find(isPlayerPartyMember)?.playerId;
             const primaryDamages =
               primaryPlayerId !== undefined
                 ? (damageEventsByPlayerId[primaryPlayerId] ?? [])
@@ -537,6 +572,7 @@ export const useStore = create<AppState>()(
             set({
               damageEvents: primaryDamages,
               damageEventsByJob,
+              damageEventMembers,
               damageEventsByPlayerId,
               castEvents,
               mitEvents,

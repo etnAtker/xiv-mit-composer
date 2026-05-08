@@ -10,7 +10,6 @@ import { DragOverlayLayer } from './components/DragOverlayLayer';
 import { EmptyState } from './components/EmptyState';
 import { ExportModal } from './components/ExportModal';
 import { FightInfoBar } from './components/FightInfoBar';
-import { LoadFightModal } from './components/LoadFightModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { PartyMemberSelectModal } from './components/PartyMemberSelectModal';
 import { SkillSidebar } from './components/SkillSidebar';
@@ -58,7 +57,6 @@ export default function App() {
   const [exportContent, setExportContent] = useState('');
   const [exportCreatedAt, setExportCreatedAt] = useState('');
   const [enableTTS, setEnableTTS] = useState(false);
-  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   const { push } = useTopBanner();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -160,8 +158,7 @@ export default function App() {
     setExportContent(buildExportContent(getEventsToExport(), enabled, exportCreatedAt));
   };
 
-  const handleConfirmLoadFight = async () => {
-    setIsLoadModalOpen(false);
+  const handleLoadFight = async () => {
     await loadFightMetadata();
     const { fight: latestFight } = useStore.getState();
     if (latestFight) {
@@ -214,7 +211,7 @@ export default function App() {
           theme={theme}
           onApiKeyChange={setApiKey}
           onFflogsUrlChange={setFflogsUrl}
-          onLoadFight={() => setIsLoadModalOpen(true)}
+          onLoadFight={handleLoadFight}
           onExportTimeline={handleExportTimeline}
           onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         />
@@ -268,12 +265,6 @@ export default function App() {
         content={exportContent}
         enableTTS={enableTTS}
         onTtsChange={handleTtsChange}
-      />
-
-      <LoadFightModal
-        isOpen={isLoadModalOpen}
-        onConfirm={handleConfirmLoadFight}
-        onClose={() => setIsLoadModalOpen(false)}
       />
 
       {isPartyModalOpen && (

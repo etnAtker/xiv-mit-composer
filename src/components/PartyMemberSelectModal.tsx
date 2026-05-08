@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Actor, PartyMember } from '../model/types';
-import { resolveActorJob } from '../model/jobs';
+import { JOBS, resolveActorJob } from '../model/jobs';
 import { XivIcon } from './XivIcon';
 import { JOB_ICON_LOCAL_SRC } from '../data/icons';
 
@@ -13,6 +13,11 @@ interface Props {
 }
 
 const MAX_PARTY_MEMBERS = 8;
+
+type AddMode = 'player' | 'role';
+
+const getNextRolePlayerId = (members: PartyMember[]) =>
+  Math.min(0, ...members.map((member) => member.playerId)) - 1;
 
 export function PartyMemberSelectModal({
   isOpen,
@@ -32,6 +37,7 @@ export function PartyMemberSelectModal({
   const [selectedMembers, setSelectedMembers] = useState<PartyMember[]>(() =>
     initialMembers.slice(0, MAX_PARTY_MEMBERS),
   );
+  const [addMode, setAddMode] = useState<AddMode>('player');
   const selectedIds = new Set(selectedMembers.map((member) => member.playerId));
 
   if (!isOpen) return null;
@@ -57,6 +63,21 @@ export function PartyMemberSelectModal({
         name: actor.name,
         job,
         collapsed: false,
+        source: 'player',
+      },
+    ]);
+  };
+
+  const addRole = (job: PartyMember['job']) => {
+    if (selectedMembers.length >= MAX_PARTY_MEMBERS) return;
+    setSelectedMembers((prev) => [
+      ...prev,
+      {
+        playerId: getNextRolePlayerId(prev),
+        name: job,
+        job,
+        collapsed: false,
+        source: 'role',
       },
     ]);
   };
@@ -67,24 +88,67 @@ export function PartyMemberSelectModal({
         <div className="border-b border-app px-5 py-3">
           <div className="text-sm font-semibold text-app">选择队伍成员</div>
           <div className="mt-1 text-[11px] text-muted font-mono">
-            最多选择 {MAX_PARTY_MEMBERS} 人，顺序会用于时间轴列组。
+            最多选择 {MAX_PARTY_MEMBERS} 个成员，顺序会用于时间轴列组。
           </div>
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-0">
-          <div className="min-h-0 border-r border-app p-4">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
-              可选玩家
+          <div className="flex min-h-0 flex-col border-r border-app p-4">
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded border border-app bg-surface p-1">
+              <button
+                type="button"
+                onClick={() => setAddMode('player')}
+                className={`rounded px-2 py-1 text-[11px] font-semibold ${
+                  addMode === 'player'
+                    ? 'bg-accent-strong text-white'
+                    : 'text-muted hover:bg-surface-4 hover:text-app'
+                }`}
+              >
+                添加一名玩家
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddMode('role')}
+                className={`rounded px-2 py-1 text-[11px] font-semibold ${
+                  addMode === 'role'
+                    ? 'bg-accent-strong text-white'
+                    : 'text-muted hover:bg-surface-4 hover:text-app'
+                }`}
+              >
+                添加一个职能
+              </button>
             </div>
-            <div className="h-full space-y-2 overflow-y-auto pr-1 custom-scrollbar">
-              {selectableActors.map(({ actor, job }) => {
-                const selected = selectedIds.has(actor.id);
-                return (
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+              {addMode === 'player' &&
+                selectableActors.map(({ actor, job }) => {
+                  const selected = selectedIds.has(actor.id);
+                  return (
+                    <button
+                      key={actor.id}
+                      type="button"
+                      disabled={selected || selectedMembers.length >= MAX_PARTY_MEMBERS}
+                      onClick={() => addActor(actor, job)}
+                      className="flex w-full items-center justify-between gap-3 rounded border border-app bg-surface p-2 text-left text-sm hover:border-(--color-accent) disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <XivIcon
+                          localSrc={JOB_ICON_LOCAL_SRC[job]}
+                          alt={`${job} icon`}
+                          className="h-5 w-5 shrink-0 object-contain"
+                        />
+                        <span className="truncate font-medium">{actor.name}</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-muted">{job}</span>
+                    </button>
+                  );
+                })}
+              {addMode === 'role' &&
+                JOBS.map((job) => (
                   <button
-                    key={actor.id}
+                    key={job}
                     type="button"
-                    disabled={selected || selectedMembers.length >= MAX_PARTY_MEMBERS}
-                    onClick={() => addActor(actor, job)}
+                    disabled={selectedMembers.length >= MAX_PARTY_MEMBERS}
+                    onClick={() => addRole(job)}
                     className="flex w-full items-center justify-between gap-3 rounded border border-app bg-surface p-2 text-left text-sm hover:border-(--color-accent) disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     <div className="flex min-w-0 items-center gap-2">
@@ -93,26 +157,25 @@ export function PartyMemberSelectModal({
                         alt={`${job} icon`}
                         className="h-5 w-5 shrink-0 object-contain"
                       />
-                      <span className="truncate font-medium">{actor.name}</span>
+                      <span className="truncate font-medium">{job}</span>
                     </div>
-                    <span className="font-mono text-[10px] text-muted">{job}</span>
+                    <span className="font-mono text-[10px] text-muted">空白轴</span>
                   </button>
-                );
-              })}
+                ))}
             </div>
           </div>
 
-          <div className="min-h-0 p-4">
+          <div className="flex min-h-0 flex-col p-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wide text-muted">已选玩家</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-muted">已选成员</span>
               <span className="font-mono text-[10px] text-muted">
                 {selectedMembers.length}/{MAX_PARTY_MEMBERS}
               </span>
             </div>
-            <div className="h-full space-y-2 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
               {selectedMembers.length === 0 && (
                 <div className="rounded border border-dashed border-app p-4 text-center text-xs text-muted">
-                  从左侧选择玩家
+                  从左侧选择玩家或职能
                 </div>
               )}
               {selectedMembers.map((member, index) => (
@@ -130,7 +193,10 @@ export function PartyMemberSelectModal({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{member.name}</div>
-                    <div className="font-mono text-[10px] text-muted">{member.job}</div>
+                    <div className="font-mono text-[10px] text-muted">
+                      {member.job}
+                      {member.source === 'role' ? ' · 空白轴' : ''}
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -179,7 +245,7 @@ export function PartyMemberSelectModal({
             disabled={selectedMembers.length === 0}
             onClick={() => onConfirm(selectedMembers)}
           >
-            加载所选玩家
+            加载所选成员
           </button>
         </div>
       </div>

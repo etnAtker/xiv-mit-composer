@@ -39,6 +39,7 @@ export const selectTimelineState = (state: AppState) => ({
   cooldownEvents: state.cooldownEvents,
   damageEvents: state.damageEvents,
   damageEventsByJob: state.damageEventsByJob,
+  damageEventMembers: state.damageEventMembers,
   damageEventsByPlayerId: state.damageEventsByPlayerId,
   partyMembers: state.partyMembers,
   castEvents: state.castEvents,

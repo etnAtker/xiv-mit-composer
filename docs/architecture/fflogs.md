@@ -22,9 +22,9 @@
 
 `loadEventsCore` 并行加载三类事件：
 
-- 友方玩家咏唱事件：每个玩家请求一次 `casts`，并按该玩家职业可用技能过滤。
+- 友方玩家咏唱事件：每个已添加的真实玩家请求一次 `casts`，并按该玩家职业可用技能过滤。空白职能不请求友方咏唱。
 - 敌方 Boss 咏唱事件：每个 Boss 请求一次 `casts`。
-- 玩家受击事件：每个玩家请求一次 `damage-taken`。
+- 玩家受击事件：当前战斗中每个可识别玩家请求一次 `damage-taken`，不受是否添加到减伤轴影响。
 
 友方事件通过 `FFLogsProcessor.processFriendlyEvents` 转换为轻量事件。转换过程只保留 `cast` 和 `begincast`，并只保留技能表内的 action ID。
 

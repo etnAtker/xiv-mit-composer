@@ -64,3 +64,18 @@ test('非 role 技能也会按 ownerId 分发', () => {
   assert.equal(getMitColumnKey(utilityMit, partyLayout), 'pld-h-sheltron:1');
   assert.equal(getCooldownColumnKey(utilityCooldown, partyLayout), 'pld-h-sheltron:1');
 });
+
+test('空白职能成员会生成独立减伤列', () => {
+  const layout = buildTimelineLayout({
+    members: [{ playerId: -1, name: 'GNB', job: 'GNB', collapsed: false, source: 'role' }],
+    skills: SKILLS,
+  });
+  const rampart: Pick<MitEvent, 'skillId' | 'ownerJob' | 'ownerId'> = {
+    skillId: 'role-rampart@GNB',
+    ownerJob: 'GNB',
+    ownerId: -1,
+  };
+
+  assert.equal(layout.memberGroups[0].member.name, 'GNB');
+  assert.equal(getMitColumnKey(rampart, layout), 'role-rampart:-1');
+});
