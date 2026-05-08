@@ -38,6 +38,14 @@ bun run fetch:skills -- SGE
 
 脚本从 `src/data/skills/index.ts` 导入 `SKILLS`，按技能 action ID 获取 Action 图标路径，再通过 XIVAPI asset 接口下载 PNG。职业图标通过 ClassJob 表解析职业 ID 后下载。
 
+图标下载使用有限并发和请求节流。默认并发度为 6，默认请求速率为 12 req/sec。可通过环境变量调整：
+
+```bash
+XIV_ICON_FETCH_CONCURRENCY=8 XIV_ICON_FETCH_RPS=16 bun run fetch:icons
+```
+
+`XIV_ICON_FETCH_RPS` 建议不超过 XIVAPI 公开的 20 req/sec 限制。
+
 图标读取路径定义在 `src/data/icons.ts`。技能图标通过 `getSkillIconLocalSrc(actionId)` 生成路径，职业图标通过 `JOB_ICON_LOCAL_SRC` 读取。
 
 ## 技能候选数据
