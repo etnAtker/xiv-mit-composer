@@ -114,6 +114,7 @@ export interface Skill {
   actionId: number; // FFLogs 技能 ID
   icon?: string;
   mitigation?: SkillMitigation[];
+  counterpartProjection?: boolean; // 在其他成员的同技能列显示对位投影
   cooldownGroup?: string; // 共享CD组 ID，在自己进入cd的同时会消耗冷却组的一层cd
 }
 

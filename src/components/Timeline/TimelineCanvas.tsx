@@ -7,9 +7,8 @@ import { CooldownConstraintLayer } from './CooldownConstraintLayer';
 import { ContextMenu } from './ContextMenu';
 import { PinnedTimelineLanes } from './PinnedTimelineLanes';
 import type { TooltipData } from './types';
-import { buildSkillZIndexMap, MIT_COLUMN_WIDTH } from './timelineUtils';
+import { MIT_COLUMN_WIDTH } from './timelineUtils';
 import { MS_PER_SEC } from '../../constants/time';
-import { SKILLS, normalizeSkillId } from '../../data/skills';
 import { TimelineHeader } from './TimelineHeader';
 import { TimelineBackground } from './TimelineBackground';
 import { TimelineGridLines } from './TimelineGridLines';
@@ -20,6 +19,10 @@ import { useBoxSelection } from './useBoxSelection';
 import { buildDropZoneId, type DropZoneData } from '../../dnd/types';
 import type { TimelineLayout } from './timelineLayout';
 import { getMitColumnKey } from './mitigationColumnUtils';
+import {
+  buildCounterpartProjectionGhosts,
+  buildCounterpartProjectionZIndexMap,
+} from './counterpartProjectionUtils';
 
 const VISIBLE_RANGE_BUFFER_MS = 5000;
 const ZOOM_WHEEL_STEP = 5;
@@ -191,22 +194,14 @@ export function TimelineCanvas({
 
   const getEffectiveStartMs = useCallback((mit: MitEvent) => mit.tStartMs, []);
 
-  const reprisalSkill = SKILLS.find((skill) => skill.id === 'role-reprisal');
-  const reprisalZIndexMap = useMemo(
-    () => buildSkillZIndexMap(mitEvents, 'role-reprisal', getEffectiveStartMs),
+  const counterpartProjectionZIndexMap = useMemo(
+    () => buildCounterpartProjectionZIndexMap(mitEvents, getEffectiveStartMs),
     [mitEvents, getEffectiveStartMs],
   );
-  const reprisalGhosts = mitEvents.flatMap((mit) => {
-    if (normalizeSkillId(mit.skillId) !== 'role-reprisal') return [];
-    if (!mit.ownerId) return [];
-    return layout.memberGroups
-      .filter((group) => !group.collapsed && group.member.playerId !== mit.ownerId)
-      .map((group) => ({
-        mit,
-        targetOwnerId: group.member.playerId,
-        targetJob: group.member.job,
-      }));
-  });
+  const counterpartProjectionGhosts = useMemo(
+    () => buildCounterpartProjectionGhosts(mitEvents, layout.memberGroups),
+    [mitEvents, layout.memberGroups],
+  );
 
   return (
     <div
@@ -317,9 +312,8 @@ export function TimelineCanvas({
               mitX={mitX}
               mitAreaWidth={layout.mitAreaWidth}
               timelineHeight={timelineHeight}
-              reprisalGhosts={reprisalGhosts}
-              reprisalSkillColor={reprisalSkill?.color}
-              reprisalZIndexMap={reprisalZIndexMap}
+              counterpartProjectionGhosts={counterpartProjectionGhosts}
+              counterpartProjectionZIndexMap={counterpartProjectionZIndexMap}
               getEffectiveStartMs={getEffectiveStartMs}
               getMitColumnLeft={getMitColumnLeft}
               getMitColumnKey={(mit) => getMitColumnKey(mit, layout)}

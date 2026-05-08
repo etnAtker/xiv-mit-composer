@@ -31,5 +31,6 @@ export const RANGED_MAGICAL_COMMON_SKILLS: Skill[] = [
     job: 'ALL',
     color: 'bg-slate-600',
     actionId: 7560,
+    counterpartProjection: true,
   },
 ];

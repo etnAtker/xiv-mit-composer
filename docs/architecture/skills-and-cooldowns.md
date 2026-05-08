@@ -4,7 +4,7 @@
 
 ## 技能数据
 
-技能类型定义位于 `src/model/types.ts`。`Skill` 包含技能 ID、显示名称、多语言名称、冷却时间、持续时间、所属职业、颜色、FFLogs action ID、图标、减伤效果和共享冷却组。
+技能类型定义位于 `src/model/types.ts`。`Skill` 包含技能 ID、显示名称、多语言名称、冷却时间、持续时间、所属职业、颜色、FFLogs action ID、图标、减伤效果、对位投影标记和共享冷却组。
 
 技能数据位于 `src/data/skills/`，按战斗定位和职业拆分：
 
@@ -21,6 +21,8 @@
 `Job` 联合类型定义当前模型支持的职业缩写。`CombatRole` 将职业归类为 tank、healer、melee、ranged-physical 和 ranged-magical。
 
 `ROLE_SKILL_IDS` 标记职能技能。`isSkillAvailableForJob` 决定技能是否展示给指定职业：职业专属技能只展示给同职业，非 role 的 `ALL` 技能展示给全部职业，role 技能按 `ROLE_BY_ROLE_SKILL_ID` 限定战斗定位。
+
+`counterpartProjection` 标记技能是否在时间轴中向其他成员的同技能列显示对位投影。雪仇、牵制和昏乱启用该标记。
 
 队伍成员职业由 `src/model/jobs.ts` 根据 FFLogs friendlies 的职业类型解析。玩家选择窗口支持全部 `Job` 联合类型内的职业。
 
