@@ -24,6 +24,30 @@ export const JOBS: Job[] = [
   'PCT',
 ];
 
+export const PARTY_MEMBER_JOB_ORDER: Job[] = [
+  'WAR',
+  'DRK',
+  'PLD',
+  'GNB',
+  'WHM',
+  'AST',
+  'SGE',
+  'SCH',
+  'SAM',
+  'DRG',
+  'MNK',
+  'RPR',
+  'VPR',
+  'NIN',
+  'MCH',
+  'BRD',
+  'DNC',
+  'BLM',
+  'RDM',
+  'SMN',
+  'PCT',
+];
+
 export const JOB_TYPE_MAP: Record<Job, string[]> = {
   PLD: ['Paladin'],
   WAR: ['Warrior'],
@@ -54,4 +78,9 @@ export function resolveActorJob(actor: Pick<Actor, 'type' | 'subType'>): Job | n
       (job) => JOB_TYPE_MAP[job].includes(actor.type) || JOB_TYPE_MAP[job].includes(actor.subType),
     ) ?? null
   );
+}
+
+export function getPartyMemberJobOrder(job: Job): number {
+  const index = PARTY_MEMBER_JOB_ORDER.indexOf(job);
+  return index >= 0 ? index : PARTY_MEMBER_JOB_ORDER.length;
 }

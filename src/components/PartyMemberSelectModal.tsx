@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Actor, PartyMember } from '../model/types';
-import { JOBS, resolveActorJob } from '../model/jobs';
+import { JOBS, getPartyMemberJobOrder, resolveActorJob } from '../model/jobs';
 import { XivIcon } from './XivIcon';
 import { JOB_ICON_LOCAL_SRC } from '../data/icons';
 
@@ -29,8 +29,14 @@ export function PartyMemberSelectModal({
   const selectableActors = useMemo(
     () =>
       actors
-        .map((actor) => ({ actor, job: resolveActorJob(actor) }))
-        .filter((entry): entry is { actor: Actor; job: PartyMember['job'] } => !!entry.job),
+        .map((actor, index) => ({ actor, index, job: resolveActorJob(actor) }))
+        .filter(
+          (entry): entry is { actor: Actor; index: number; job: PartyMember['job'] } => !!entry.job,
+        )
+        .sort(
+          (a, b) =>
+            getPartyMemberJobOrder(a.job) - getPartyMemberJobOrder(b.job) || a.index - b.index,
+        ),
     [actors],
   );
 
@@ -82,6 +88,32 @@ export function PartyMemberSelectModal({
     ]);
   };
 
+  const addAllActors = () => {
+    setSelectedMembers((prev) => {
+      const selectedPlayerIds = new Set(prev.map((member) => member.playerId));
+      const remainingSlots = MAX_PARTY_MEMBERS - prev.length;
+      if (remainingSlots <= 0) return prev;
+
+      const membersToAdd = selectableActors
+        .filter(({ actor }) => !selectedPlayerIds.has(actor.id))
+        .slice(0, remainingSlots)
+        .map(({ actor, job }) => ({
+          playerId: actor.id,
+          name: actor.name,
+          job,
+          collapsed: false,
+          source: 'player' as const,
+        }));
+
+      if (membersToAdd.length === 0) return prev;
+      return [...prev, ...membersToAdd];
+    });
+  };
+
+  const canAddAllActors =
+    selectedMembers.length < MAX_PARTY_MEMBERS &&
+    selectableActors.some(({ actor }) => !selectedIds.has(actor.id));
+
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 p-4">
       <div className="flex h-[78vh] w-full max-w-4xl flex-col rounded-lg border border-app bg-surface-3 text-app shadow-2xl">
@@ -118,6 +150,16 @@ export function PartyMemberSelectModal({
                 添加一个职能
               </button>
             </div>
+            {addMode === 'player' && (
+              <button
+                type="button"
+                disabled={!canAddAllActors}
+                onClick={addAllActors}
+                className="mb-3 w-full rounded border border-(--color-accent-strong) bg-accent-strong px-3 py-2 text-[11px] font-semibold text-white hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                添加全部
+              </button>
+            )}
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
               {addMode === 'player' &&
                 selectableActors.map(({ actor, job }) => {
