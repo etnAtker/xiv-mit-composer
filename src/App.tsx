@@ -100,11 +100,16 @@ export default function App() {
   useEffect(() => {
     if (hasRestoredActiveSlot.current || !activeProjectSlotId) return;
     hasRestoredActiveSlot.current = true;
-    const document = switchProjectSlot(activeProjectSlotId);
-    if (document) {
-      setZoom(document.ui.zoom);
+    try {
+      const document = switchProjectSlot(activeProjectSlotId);
+      if (document) {
+        setZoom(document.ui.zoom);
+      }
+    } catch (error) {
+      console.error(error);
+      push('当前槽位存在冷却冲突，已保留历史状态', { tone: 'error' });
     }
-  }, [activeProjectSlotId, switchProjectSlot]);
+  }, [activeProjectSlotId, push, switchProjectSlot]);
 
   useEffect(() => {
     if (!activeProjectSlotId) return;

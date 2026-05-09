@@ -269,6 +269,73 @@ const isAbortError = (error: unknown, signal: AbortSignal) => {
   return error instanceof Error && error.name === 'AbortError';
 };
 
+export const migratePersistedState = (persistedState: unknown): AppState => {
+  const state = persistedState as Partial<AppState>;
+  const fallbackOwnerId =
+    typeof state.selectedPlayerId === 'number' ? state.selectedPlayerId : undefined;
+  const fallbackOwnerJob = state.selectedJob ?? undefined;
+  const mitEvents =
+    state.mitEvents?.map((event) => {
+      if (event.ownerId || event.ownerJob) return event;
+      return {
+        ...event,
+        ownerId: fallbackOwnerId,
+        ownerJob: fallbackOwnerJob,
+      };
+    }) ?? [];
+
+  const partyMembers =
+    state.partyMembers && state.partyMembers.length
+      ? state.partyMembers
+      : typeof state.selectedPlayerId === 'number' && state.selectedJob
+        ? [
+            {
+              playerId: state.selectedPlayerId,
+              name: '旧选择玩家',
+              job: state.selectedJob,
+              collapsed: false,
+            },
+          ]
+        : [];
+  const now = new Date().toISOString();
+  const migratedState = {
+    ...state,
+    mitEvents,
+    partyMembers,
+    actors: state.actors ?? [],
+    bossIds: state.bossIds ?? [],
+    damageEventMembers: state.damageEventMembers ?? [],
+    damageEvents: state.damageEvents ?? [],
+    damageEventsByJob: state.damageEventsByJob ?? {},
+    damageEventsByPlayerId: state.damageEventsByPlayerId ?? {},
+    castEvents: state.castEvents ?? [],
+    cooldownEvents: buildCooldownsTolerant(mitEvents),
+    fflogsUrl: state.fflogsUrl ?? '',
+    fight: state.fight ?? null,
+    selectedJob: state.selectedJob ?? null,
+    selectedPlayerId: state.selectedPlayerId ?? null,
+  } as AppState;
+
+  const projectSlots =
+    state.projectSlots && state.projectSlots.length
+      ? state.projectSlots
+      : [
+          {
+            ...createDefaultProjectSlot(now),
+            document: createProjectDocumentFromState(
+              migratedState,
+              initialProjectSlot.document.ui.zoom,
+            ),
+          },
+        ];
+
+  return {
+    ...migratedState,
+    projectSlots,
+    activeProjectSlotId: state.activeProjectSlotId ?? projectSlots[0]?.id ?? null,
+  } as AppState;
+};
+
 export const useStore = create<AppState>()(
   persist(
     (set, get) => {
@@ -823,71 +890,7 @@ export const useStore = create<AppState>()(
     {
       name: 'xiv-mit-composer-storage',
       version: 3,
-      migrate: (persistedState) => {
-        const state = persistedState as Partial<AppState>;
-        const fallbackOwnerId =
-          typeof state.selectedPlayerId === 'number' ? state.selectedPlayerId : undefined;
-        const fallbackOwnerJob = state.selectedJob ?? undefined;
-        const mitEvents =
-          state.mitEvents?.map((event) => {
-            if (event.ownerId || event.ownerJob) return event;
-            return {
-              ...event,
-              ownerId: fallbackOwnerId,
-              ownerJob: fallbackOwnerJob,
-            };
-          }) ?? [];
-
-        const partyMembers =
-          state.partyMembers && state.partyMembers.length
-            ? state.partyMembers
-            : typeof state.selectedPlayerId === 'number' && state.selectedJob
-              ? [
-                  {
-                    playerId: state.selectedPlayerId,
-                    name: '旧选择玩家',
-                    job: state.selectedJob,
-                    collapsed: false,
-                  },
-                ]
-              : [];
-        const now = new Date().toISOString();
-        const migratedState = {
-          ...state,
-          mitEvents,
-          partyMembers,
-          actors: state.actors ?? [],
-          bossIds: state.bossIds ?? [],
-          damageEventMembers: state.damageEventMembers ?? [],
-          damageEvents: state.damageEvents ?? [],
-          damageEventsByJob: state.damageEventsByJob ?? {},
-          damageEventsByPlayerId: state.damageEventsByPlayerId ?? {},
-          castEvents: state.castEvents ?? [],
-          fflogsUrl: state.fflogsUrl ?? '',
-          fight: state.fight ?? null,
-          selectedJob: state.selectedJob ?? null,
-          selectedPlayerId: state.selectedPlayerId ?? null,
-        } as AppState;
-
-        const projectSlots =
-          state.projectSlots && state.projectSlots.length
-            ? state.projectSlots
-            : [
-                {
-                  ...createDefaultProjectSlot(now),
-                  document: createProjectDocumentFromState(
-                    migratedState,
-                    initialProjectSlot.document.ui.zoom,
-                  ),
-                },
-              ];
-
-        return {
-          ...migratedState,
-          projectSlots,
-          activeProjectSlotId: state.activeProjectSlotId ?? projectSlots[0]?.id ?? null,
-        } as AppState;
-      },
+      migrate: migratePersistedState,
       partialize: (state) => ({
         apiKey: state.apiKey,
         fflogsUrl: state.fflogsUrl,
