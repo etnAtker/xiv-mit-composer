@@ -11,6 +11,7 @@ interface Props {
   onLoadFight: () => void;
   onExportTimeline: () => void;
   onOpenProjectManager: () => void;
+  onOpenHelp: () => void;
   onToggleTheme: () => void;
 }
 
@@ -25,6 +26,7 @@ export function AppHeader({
   onLoadFight,
   onExportTimeline,
   onOpenProjectManager,
+  onOpenHelp,
   onToggleTheme,
 }: Props) {
   const [showApiKey, setShowApiKey] = useState(false);
@@ -111,23 +113,30 @@ export function AppHeader({
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={onOpenProjectManager}
-          className="bg-surface-1 hover:bg-surface-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-app text-app shadow-sm"
-        >
-          导入/导出
-        </button>
-        <button
-          type="button"
           onClick={onExportTimeline}
           disabled={!canExport}
-          className="bg-primary-action hover:bg-[#2ea043] disabled:opacity-50 px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-app text-white shadow-sm"
+          className="bg-primary-action disabled:opacity-50 px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-app text-white shadow-sm"
         >
           导出 Souma 时间轴
         </button>
         <button
           type="button"
+          onClick={onOpenProjectManager}
+          className="bg-accent-strong px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-app text-white shadow-sm"
+        >
+          导入/导出
+        </button>
+        <button
+          type="button"
+          onClick={onOpenHelp}
+          className="bg-accent-strong px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-app text-white shadow-sm"
+        >
+          帮助
+        </button>
+        <button
+          type="button"
           onClick={onToggleTheme}
-          className="bg-surface-1 hover:bg-surface-2 size-9 rounded-full transition-colors border border-app text-muted hover:text-app shadow-sm flex items-center justify-center"
+          className="bg-surface-1 size-9 rounded-full transition-colors border border-app text-muted hover:text-app shadow-sm flex items-center justify-center"
           aria-label="切换亮色/暗色模式"
         >
           {theme === 'dark' ? (
@@ -150,7 +159,7 @@ export function AppHeader({
           href="https://github.com/etnAtker/xiv-mit-composer"
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-surface-1 hover:bg-surface-2 px-3 py-2 rounded-lg transition-colors border border-app text-muted hover:text-app shadow-sm flex items-center justify-center group"
+          className="bg-surface-1 px-3 py-2 rounded-lg transition-colors border border-app text-muted hover:text-app shadow-sm flex items-center justify-center group"
           title="View on GitHub"
         >
           <svg viewBox="0 0 98 96" width={20} height={20} aria-hidden="true" className="h-5 w-5">

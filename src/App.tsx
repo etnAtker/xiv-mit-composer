@@ -10,6 +10,7 @@ import { DragOverlayLayer } from './components/DragOverlayLayer';
 import { EmptyState } from './components/EmptyState';
 import { ExportModal } from './components/ExportModal';
 import { FightInfoBar } from './components/FightInfoBar';
+import { HelpModal } from './components/HelpModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { PartyMemberSelectModal } from './components/PartyMemberSelectModal';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
@@ -72,6 +73,7 @@ export default function App() {
   const [exportCreatedAt, setExportCreatedAt] = useState('');
   const [exportPlayerId, setExportPlayerId] = useState<number | null>(null);
   const [enableTTS, setEnableTTS] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectExportContent, setProjectExportContent] = useState('');
@@ -388,6 +390,7 @@ export default function App() {
           onLoadFight={handleLoadFight}
           onExportTimeline={handleExportTimeline}
           onOpenProjectManager={() => setIsProjectModalOpen(true)}
+          onOpenHelp={() => setIsHelpModalOpen(true)}
           onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         />
 
@@ -433,6 +436,8 @@ export default function App() {
 
       <DragOverlayLayer activeItem={activeItem} zoom={zoom} isInvalid={dragInvalid} />
       <TrashDropZone isActive={activeItem?.type === 'existing-mit'} />
+
+      <HelpModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} />
 
       <ExportModal
         isOpen={isExportModalOpen}
