@@ -1,10 +1,17 @@
-# FFXIV Mitigation Composer (最终幻想14 减伤排轴器)
+<p align="center">
+  <img src="assets/icon.png" alt="FFXIV Mitigation Composer icon" width="112" />
+</p>
+
+<h1 align="center">FFXIV Mitigation Composer</h1>
 
 这是一个用于规划最终幻想14（FFXIV）战斗减伤策略的网页工具。应用通过 FFLogs 报告加载战斗信息、玩家事件、Boss 咏唱和受击事件，并提供纵向时间轴来编排全队减伤。
 
-![Icon](assets/icon.png)
-
-直接访问：[FFXIV Mitigation Composer](https://etnatker.github.io/xiv-mit-composer/)
+<p align="center">
+  访问：
+  <a href="https://etnatker.github.io/xiv-mit-composer/">GitHub Pages</a>
+  ·
+  <a href="https://mit.etnatker.top">中国大陆优化</a>
+</p>
 
 ## 特性
 
@@ -94,12 +101,6 @@ bun install
 bun run fetch:icons
 ```
 
-按职业获取技能候选数据：
-
-```bash
-bun run fetch:skills -- SGE
-```
-
 ### 2. 本地开发
 
 启动开发服务器：
@@ -145,6 +146,10 @@ bun run build
 - [Slob](https://github.com/BeginnerSlob)
 
   技能数据提供、修正。
+
+- [Souma-Sumire](https://github.com/Souma-Sumire)
+
+  Souma 时间轴导出维护、文档修正。
 
 ## 致谢
 
