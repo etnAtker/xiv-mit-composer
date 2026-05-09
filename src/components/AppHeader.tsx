@@ -10,6 +10,7 @@ interface Props {
   onFflogsUrlChange: (value: string) => void;
   onLoadFight: () => void;
   onExportTimeline: () => void;
+  onOpenProjectManager: () => void;
   onToggleTheme: () => void;
 }
 
@@ -23,6 +24,7 @@ export function AppHeader({
   onFflogsUrlChange,
   onLoadFight,
   onExportTimeline,
+  onOpenProjectManager,
   onToggleTheme,
 }: Props) {
   const [showApiKey, setShowApiKey] = useState(false);
@@ -107,6 +109,13 @@ export function AppHeader({
       <div className="flex-1"></div>
 
       <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={onOpenProjectManager}
+          className="bg-surface-1 hover:bg-surface-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-app text-app shadow-sm"
+        >
+          导入/导出
+        </button>
         <button
           type="button"
           onClick={onExportTimeline}
