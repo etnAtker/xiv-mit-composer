@@ -31,3 +31,7 @@ XIV Mitigation Composer 是一个基于 React、TypeScript、Vite、Tailwind CSS
 - 产品文档描述用户可见能力和操作流程，实现文档描述工程结构、数据流和关键约束。
 - 待实现内容写入 `docs/todos/`，不写入正式产品或架构文档作为当前行为。
 - `docs/todos/` 中的内容实现后，删除待实现文档中的已实现部分，并把已实现行为补充到对应正式文档中。
+
+## 当前待办
+
+- [技能颜色字段清理](todos/skill-color-cleanup.md)：确认 `Skill.color` 的最终设计方向，并清理或统一相关 UI 颜色来源。

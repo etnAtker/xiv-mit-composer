@@ -2,7 +2,6 @@
 import type { MitEvent } from '../../model/types';
 import { normalizeSkillId } from '../../data/skills';
 
-export const CHAR_W = 7;
 export const TRUNCATE_LEN = 12;
 export const MIT_COLUMN_WIDTH = 40;
 export const MIT_COLUMN_PADDING = 0;
@@ -13,18 +12,11 @@ export const EFFECT_BAR_COLOR = 'rgba(213,221,246,.6)';
 const VISIBLE_CLUSTER_BUFFER_MS = 2000;
 
 const EVENT_COLORS = {
-  cast: {
-    begincast: '#1f6feb',
-    default: '#6366f1',
-  },
   damage: {
     mitigated: '#238636',
     unmitigated: '#da3633',
   },
 };
-
-export const getCastColor = (type: string) =>
-  type === 'begincast' ? EVENT_COLORS.cast.begincast : EVENT_COLORS.cast.default;
 
 export const getDamageColor = (isMitigated: boolean) =>
   isMitigated ? EVENT_COLORS.damage.mitigated : EVENT_COLORS.damage.unmitigated;

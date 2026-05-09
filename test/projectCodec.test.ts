@@ -29,19 +29,6 @@ const baseState = {
   damageEventMembers: [
     { playerId: 1, name: 'Player', job: 'GNB', collapsed: false, source: 'player' },
   ],
-  damageEvents: [
-    {
-      timestamp: 2000,
-      type: 'damage-taken',
-      sourceID: 99,
-      targetID: 1,
-      ability: { name: 'Raidwide', guid: 10, type: 1 },
-      amount: 1000,
-      unmitigatedAmount: 1200,
-      tMs: 1000,
-    },
-  ],
-  damageEventsByJob: {},
   damageEventsByPlayerId: {
     1: [
       {
@@ -88,8 +75,6 @@ const baseState = {
   | 'selectedPlayerId'
   | 'partyMembers'
   | 'damageEventMembers'
-  | 'damageEvents'
-  | 'damageEventsByJob'
   | 'damageEventsByPlayerId'
   | 'castEvents'
   | 'mitEvents'
@@ -105,8 +90,28 @@ test('工程文档编解码会保留完整 FFLogs 事件和减伤事件', async 
   assert.deepEqual(decoded.state.castEvents, document.state.castEvents);
   assert.deepEqual(decoded.state.damageEventsByPlayerId, document.state.damageEventsByPlayerId);
   assert.deepEqual(decoded.state.mitEvents, document.state.mitEvents);
+  assert.equal(Object.hasOwn(decoded.state, 'damageEvents'), false);
+  assert.equal(Object.hasOwn(decoded.state, 'damageEventsByJob'), false);
   assert.equal(decoded.source.reportCode, 'abc123');
   assert.equal(decoded.source.fightId, '4');
+});
+
+test('工程文档规范化会忽略旧版冗余伤害字段', () => {
+  const document = createProjectDocumentFromState(baseState, DEFAULT_ZOOM, undefined, 'P1 槽位');
+  const legacyDocument = {
+    ...document,
+    state: {
+      ...document.state,
+      damageEvents: [{ legacy: true }],
+      damageEventsByJob: { GNB: [{ legacy: true }] },
+    },
+  };
+
+  const normalized = normalizeProjectDocument(legacyDocument);
+
+  assert.deepEqual(normalized.state.damageEventsByPlayerId, document.state.damageEventsByPlayerId);
+  assert.equal(Object.hasOwn(normalized.state, 'damageEvents'), false);
+  assert.equal(Object.hasOwn(normalized.state, 'damageEventsByJob'), false);
 });
 
 test('工程文档规范化会拒绝不受支持的版本', () => {

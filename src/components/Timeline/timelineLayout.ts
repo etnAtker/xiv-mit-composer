@@ -22,18 +22,9 @@ export interface TimelineLayout {
   skillColumns: TimelineSkillColumn[];
   headerSkillColumns: TimelineSkillColumn[];
   memberGroups: TimelineMemberGroup[];
-  collapsedMemberGroups: TimelineMemberGroup[];
   jobOrder: Job[];
-  jobGroups: { job: Job; skills: TimelineSkillColumn[] }[];
-  utilitySkills: TimelineSkillColumn[];
-  hasSecondaryDamageLane: boolean;
-  firstGroupCount: number;
   columnLefts: number[];
   mitAreaWidth: number;
-  primaryJob?: Job;
-  secondaryJob?: Job;
-  secondaryDamageLaneOffset: number;
-  lastColumnIndexByJob: Partial<Record<Job, number>>;
   defaultOwnerJob?: Job;
   defaultOwnerId?: number;
 }
@@ -59,18 +50,9 @@ export function buildTimelineLayout({
       skillColumns: [],
       headerSkillColumns: [PLACEHOLDER_COLUMN],
       memberGroups: [],
-      collapsedMemberGroups: [],
       jobOrder: [],
-      jobGroups: [],
-      utilitySkills: [PLACEHOLDER_COLUMN],
-      hasSecondaryDamageLane: false,
-      firstGroupCount: 0,
       columnLefts: [],
       mitAreaWidth: MIT_COLUMN_WIDTH,
-      primaryJob: undefined,
-      secondaryJob: undefined,
-      secondaryDamageLaneOffset: 0,
-      lastColumnIndexByJob: {},
       defaultOwnerJob: undefined,
       defaultOwnerId: undefined,
     };
@@ -78,7 +60,6 @@ export function buildTimelineLayout({
 
   const skillColumns: TimelineSkillColumn[] = [];
   const memberGroups: TimelineMemberGroup[] = [];
-  const collapsedMemberGroups: TimelineMemberGroup[] = [];
   const columnLefts: number[] = [];
   let cursor = 0;
 
@@ -92,7 +73,6 @@ export function buildTimelineLayout({
         left: cursor,
       };
       memberGroups.push(group);
-      collapsedMemberGroups.push(group);
       cursor += COLLAPSED_MEMBER_WIDTH;
       continue;
     }
@@ -143,36 +123,15 @@ export function buildTimelineLayout({
 
   const headerSkillColumns = skillColumns.length > 0 ? skillColumns : [PLACEHOLDER_COLUMN];
   const jobOrder = members.map((member) => member.job);
-  const jobGroups = memberGroups.map((group) => ({
-    job: group.member.job,
-    skills: group.skills,
-  }));
-  const utilitySkills: TimelineSkillColumn[] = [];
-
-  const lastColumnIndexByJob: Partial<Record<Job, number>> = {};
-  headerSkillColumns.forEach((skill, idx) => {
-    if (skill.job !== 'ALL') {
-      lastColumnIndexByJob[skill.job as Job] = idx;
-    }
-  });
 
   return {
     columnMap,
     skillColumns,
     headerSkillColumns,
     memberGroups,
-    collapsedMemberGroups,
     jobOrder,
-    jobGroups,
-    utilitySkills,
-    hasSecondaryDamageLane: false,
-    firstGroupCount: 0,
     columnLefts,
     mitAreaWidth,
-    primaryJob: jobOrder[0],
-    secondaryJob: undefined,
-    secondaryDamageLaneOffset: 0,
-    lastColumnIndexByJob,
     defaultOwnerJob: jobOrder[0],
     defaultOwnerId: members[0]?.playerId,
   };

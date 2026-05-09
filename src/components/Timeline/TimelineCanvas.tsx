@@ -156,8 +156,6 @@ export function TimelineCanvas({
 
   const headerSkillColumns = layout.headerSkillColumns;
   const memberGroups = layout.memberGroups;
-  const utilitySkills = layout.utilitySkills;
-  const secondaryDamageLaneLeft = mitX + layout.secondaryDamageLaneOffset;
 
   const getMitColumnLeft = (columnIndex: number) =>
     layout.columnLefts[columnIndex] ?? columnIndex * MIT_COLUMN_WIDTH;
@@ -217,7 +215,6 @@ export function TimelineCanvas({
           castWidth={castWidth}
           dmgWidth={dmgWidth}
           isScrolled={isScrolled}
-          utilitySkills={utilitySkills}
           memberGroups={memberGroups}
           onToggleMemberCollapsed={updatePartyMemberCollapsed}
         />
@@ -267,11 +264,8 @@ export function TimelineCanvas({
               dmgWidth={dmgWidth}
               mitAreaWidth={layout.mitAreaWidth}
               dmgX={dmgX}
-              secondaryDamageLaneLeft={secondaryDamageLaneLeft}
               headerSkillColumns={headerSkillColumns}
               memberGroups={memberGroups}
-              hasSecondaryDamageLane={false}
-              firstGroupCount={layout.firstGroupCount}
               timelineHeight={timelineHeight}
             />
 
