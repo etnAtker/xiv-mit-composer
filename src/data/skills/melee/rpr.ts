@@ -15,7 +15,6 @@ export const RPR_SKILLS: Skill[] = [
       { kind: 'hot', durationSec: 15, potency: 50, targeting: { kind: 'party' } },
     ],
     job: 'RPR',
-    color: 'bg-violet-700',
     actionId: 24404,
   },
 ];

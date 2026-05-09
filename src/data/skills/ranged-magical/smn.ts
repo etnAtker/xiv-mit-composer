@@ -12,7 +12,6 @@ export const SMN_SKILLS: Skill[] = [
     durationSec: 30,
     mitigation: [{ kind: 'shield', durationSec: 30, maxHpPct: 20, targeting: { kind: 'self' } }],
     job: 'SMN',
-    color: 'bg-emerald-700',
     actionId: 25799,
     cooldownGroup: 'smn-grp-radiant-aegis',
   },

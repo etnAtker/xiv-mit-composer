@@ -30,7 +30,6 @@ export const DRK_SKILLS: Skill[] = [
       },
     ],
     job: 'DRK',
-    color: 'bg-purple-500',
     actionId: 3634,
   },
   {
@@ -53,7 +52,6 @@ export const DRK_SKILLS: Skill[] = [
       },
     ],
     job: 'DRK',
-    color: 'bg-purple-700',
     actionId: 25754,
     cooldownGroup: 'drk-grp-oblation',
   },
@@ -77,7 +75,6 @@ export const DRK_SKILLS: Skill[] = [
       },
     ],
     job: 'DRK',
-    color: 'bg-purple-600',
     actionId: 36927,
   },
   {
@@ -98,7 +95,6 @@ export const DRK_SKILLS: Skill[] = [
       },
     ],
     job: 'DRK',
-    color: 'bg-purple-400',
     actionId: 7393,
   },
   {
@@ -122,7 +118,6 @@ export const DRK_SKILLS: Skill[] = [
       },
     ],
     job: 'DRK',
-    color: 'bg-purple-900',
     actionId: 3638,
   },
   {
@@ -153,7 +148,6 @@ export const DRK_SKILLS: Skill[] = [
       },
     ],
     job: 'DRK',
-    color: 'bg-purple-800',
     actionId: 16471,
   },
 ];

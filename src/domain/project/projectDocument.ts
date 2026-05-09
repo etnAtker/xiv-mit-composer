@@ -29,8 +29,6 @@ export function createProjectDocumentFromState(
     | 'selectedPlayerId'
     | 'partyMembers'
     | 'damageEventMembers'
-    | 'damageEvents'
-    | 'damageEventsByJob'
     | 'damageEventsByPlayerId'
     | 'castEvents'
     | 'mitEvents'
@@ -64,8 +62,6 @@ export function createProjectDocumentFromState(
       selectedPlayerId: state.selectedPlayerId,
       partyMembers: state.partyMembers,
       damageEventMembers: state.damageEventMembers,
-      damageEvents: state.damageEvents,
-      damageEventsByJob: state.damageEventsByJob,
       damageEventsByPlayerId: state.damageEventsByPlayerId,
       castEvents: state.castEvents,
       mitEvents: state.mitEvents,
@@ -149,8 +145,6 @@ function createEmptyProjectDocument(now: string): XmcProjectDocument {
       selectedPlayerId: null,
       partyMembers: [],
       damageEventMembers: [],
-      damageEvents: [],
-      damageEventsByJob: {},
       damageEventsByPlayerId: {},
       castEvents: [],
       mitEvents: [],
@@ -171,10 +165,6 @@ function normalizeProjectState(state: Record<string, unknown>): XmcProjectState 
     selectedPlayerId: asNullableNumber(state.selectedPlayerId),
     partyMembers: asArray(state.partyMembers) as XmcProjectState['partyMembers'],
     damageEventMembers: asArray(state.damageEventMembers) as XmcProjectState['damageEventMembers'],
-    damageEvents: asArray(state.damageEvents) as XmcProjectState['damageEvents'],
-    damageEventsByJob: isRecord(state.damageEventsByJob)
-      ? (state.damageEventsByJob as XmcProjectState['damageEventsByJob'])
-      : {},
     damageEventsByPlayerId: isRecord(state.damageEventsByPlayerId)
       ? (state.damageEventsByPlayerId as XmcProjectState['damageEventsByPlayerId'])
       : {},

@@ -81,7 +81,6 @@ export function MitigationLayer({
         const left = getMitColumnLeft(columnIndex) + MIT_COLUMN_PADDING;
         const barWidth = MIT_COLUMN_WIDTH - MIT_COLUMN_PADDING * 2;
         const skillDef = getSkillDefinition(mit.skillId);
-        const ghostColor = skillDef?.color || 'bg-slate-600';
         const { effectHeight, totalHeight } = getMitigationBarHeights(mit, zoom);
         const top = (mit.tStartMs / MS_PER_SEC) * zoom + dragPreviewPx;
         const height = totalHeight;
@@ -101,7 +100,7 @@ export function MitigationLayer({
             className="opacity-60"
           >
             <MitigationBarContent
-              headerClassName={`border border-white/10 ${ghostColor}`}
+              headerClassName="border border-white/10"
               iconSrc={skillDef ? getSkillIconLocalSrc(skillDef.actionId) : undefined}
               iconAlt={skillDef?.name ?? 'skill icon'}
               effectHeight={effectHeight}
@@ -109,14 +108,13 @@ export function MitigationLayer({
           </div>
         );
       })}
-      {counterpartProjectionGhosts.map(({ mit, targetOwnerId, targetJob, skillColor }) => {
+      {counterpartProjectionGhosts.map(({ mit, targetOwnerId, targetJob }) => {
         const columnKey = `${normalizeSkillId(mit.skillId)}:${targetOwnerId}`;
         const columnIndex = columnMap[columnKey];
         if (columnIndex === undefined) return null;
         const { effectHeight, totalHeight } = getMitigationBarHeights(mit, zoom);
         const height = totalHeight;
         const top = (getEffectiveStartMs(mit) / MS_PER_SEC) * zoom;
-        const ghostColor = skillColor ?? 'bg-slate-600';
         const projectionIndex = counterpartProjectionZIndexMap.get(mit.id) ?? 0;
         const iconJob = mit.ownerJob ?? targetJob;
 
@@ -135,7 +133,7 @@ export function MitigationLayer({
             className="opacity-50"
           >
             <MitigationBarContent
-              headerClassName={`border border-white/10 ${ghostColor}`}
+              headerClassName="border border-white/10"
               iconSrc={JOB_ICON_LOCAL_SRC[iconJob]}
               iconAlt={`${iconJob} icon`}
               effectHeight={effectHeight}

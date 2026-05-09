@@ -20,7 +20,6 @@ function makeSkill(id: string, job: Job = 'PLD'): Skill {
     cooldownSec: 60,
     durationSec: 10,
     job,
-    color: 'bg-slate-600',
     actionId: 1000,
   };
 }

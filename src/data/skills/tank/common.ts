@@ -22,7 +22,6 @@ export const TANK_COMMON_SKILLS: Skill[] = [
       },
     ],
     job: 'ALL',
-    color: 'bg-slate-600',
     actionId: 7535,
     counterpartProjection: true,
   },
@@ -46,7 +45,6 @@ export const TANK_COMMON_SKILLS: Skill[] = [
       },
     ],
     job: 'ALL',
-    color: 'bg-slate-500',
     actionId: 7531,
   },
 ];

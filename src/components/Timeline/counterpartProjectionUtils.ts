@@ -7,7 +7,6 @@ export interface CounterpartProjectionGhost {
   mit: MitEvent;
   targetOwnerId: number;
   targetJob: Job;
-  skillColor?: string;
 }
 
 export function shouldProjectCounterpart(skillId: string) {
@@ -35,7 +34,6 @@ export function buildCounterpartProjectionGhosts(
         mit,
         targetOwnerId: group.member.playerId,
         targetJob: group.member.job,
-        skillColor: skillDef.color,
       }));
   });
 }

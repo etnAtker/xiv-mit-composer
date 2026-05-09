@@ -78,9 +78,7 @@ export function DraggableMitigation({
         }}
       >
         <MitigationBarContent
-          headerClassName={`relative z-10 shadow-[0_6px_12px_var(--color-skill-shadow)] ${
-            skill?.color || 'bg-slate-600'
-          }`}
+          headerClassName="relative z-10 shadow-[0_6px_12px_var(--color-skill-shadow)]"
           iconSrc={skill ? getSkillIconLocalSrc(skill.actionId) : undefined}
           iconAlt={skill?.name ?? 'skill icon'}
           effectHeight={effectHeight}

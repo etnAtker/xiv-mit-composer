@@ -11,7 +11,6 @@ export const MNK_SKILLS: Skill[] = [
     cooldownSec: 90,
     durationSec: 15,
     job: 'MNK',
-    color: 'bg-yellow-700',
     actionId: 65,
   },
   {
@@ -34,7 +33,6 @@ export const MNK_SKILLS: Skill[] = [
       },
     ],
     job: 'MNK',
-    color: 'bg-yellow-800',
     actionId: 7394,
   },
 ];

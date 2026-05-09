@@ -17,9 +17,7 @@ import { FFLogsProcessor } from '../lib/fflogs/processor';
 import { SKILLS, withOwnerSkillId } from '../data/skills';
 import { buildCastEvents } from '../domain/fflogs/buildCastEvents';
 import { buildMitEvents } from '../domain/fflogs/buildMitEvents';
-import { buildDamageEventsByJob } from '../domain/fflogs/buildDamageEventsByJob';
 import { buildDamageEventsByPlayerId } from '../domain/fflogs/buildDamageEventsByPlayerId';
-import { mergeDamageEvents } from '../domain/fflogs/mergeDamageEvents';
 import { resolveActorJob } from '../model/jobs';
 import { buildCooldownsTolerant, evaluateMitigationSetStrict } from '../utils/playerCast';
 import { parseFFLogsUrl } from '../utils';
@@ -46,8 +44,6 @@ export interface AppState {
   damageEventMembers: PartyMember[];
   selectedMitIds: string[];
 
-  damageEvents: DamageEvent[];
-  damageEventsByJob: Partial<Record<Job, DamageEvent[]>>;
   damageEventsByPlayerId: DamageEventsByPlayerId;
   castEvents: CastEvent[];
   mitEvents: MitEvent[];
@@ -63,8 +59,6 @@ export interface AppState {
 
   setApiKey: (key: string) => void;
   setFflogsUrl: (url: string) => void;
-  setSelectedJob: (job: Job | null) => void;
-  setSelectedPlayerId: (id: number | null) => void;
   setPartyMembers: (members: PartyMember[]) => void;
   updatePartyMemberCollapsed: (playerId: number, collapsed: boolean) => void;
   setAllPartyMembersCollapsed: (collapsed: boolean) => void;
@@ -74,7 +68,6 @@ export interface AppState {
   closeBanner: (id: number) => void;
 
   loadFightMetadata: () => Promise<void>;
-  loadEvents: () => Promise<void>;
   loadEventsForPlayers: (players: PartyMember[]) => Promise<void>;
 
   addMitEvent: (event: MitEvent) => void;
@@ -100,8 +93,6 @@ interface LoadEventsPlayer {
 }
 
 interface LoadEventsCoreResult {
-  damageEvents: DamageEvent[];
-  damageEventsByJob: Partial<Record<Job, DamageEvent[]>>;
   damageEventsByPlayerId: DamageEventsByPlayerId;
   castEvents: CastEvent[];
   mitEvents: MitEvent[];
@@ -184,24 +175,12 @@ const loadEventsCore = async ({
   );
 
   const cooldownEvents = buildCooldownsTolerant(mitEvents);
-  const primaryDamageEvents = damagesByPlayer[0]
-    ? mergeDamageEvents(damagesByPlayer[0].events, fight.start)
-    : [];
-
-  const jobBatches = damagesByPlayer
-    .filter((entry): entry is { job: Job; playerId: number; events: DamageEvent[] } => !!entry.job)
-    .map((entry) => ({ job: entry.job, events: entry.events }));
-  const damageEventsByJob = jobBatches.length
-    ? buildDamageEventsByJob(jobBatches, fight.start)
-    : {};
   const damageEventsByPlayerId = buildDamageEventsByPlayerId(
     damagesByPlayer.map((entry) => ({ playerId: entry.playerId, events: entry.events })),
     fight.start,
   );
 
   return {
-    damageEvents: primaryDamageEvents,
-    damageEventsByJob,
     damageEventsByPlayerId,
     castEvents,
     mitEvents,
@@ -305,8 +284,6 @@ export const migratePersistedState = (persistedState: unknown): AppState => {
     actors: state.actors ?? [],
     bossIds: state.bossIds ?? [],
     damageEventMembers: state.damageEventMembers ?? [],
-    damageEvents: state.damageEvents ?? [],
-    damageEventsByJob: state.damageEventsByJob ?? {},
     damageEventsByPlayerId: state.damageEventsByPlayerId ?? {},
     castEvents: state.castEvents ?? [],
     cooldownEvents: buildCooldownsTolerant(mitEvents),
@@ -318,7 +295,19 @@ export const migratePersistedState = (persistedState: unknown): AppState => {
 
   const projectSlots =
     state.projectSlots && state.projectSlots.length
-      ? state.projectSlots
+      ? state.projectSlots.map((slot) => {
+          try {
+            const document = normalizeProjectDocument(slot.document);
+            return {
+              ...slot,
+              name: slot.name || document.name,
+              updatedAt: slot.updatedAt || document.updatedAt,
+              document,
+            };
+          } catch {
+            return slot;
+          }
+        })
       : [
           {
             ...createDefaultProjectSlot(now),
@@ -368,8 +357,6 @@ export const useStore = create<AppState>()(
             partyMembers: normalized.state.partyMembers,
             damageEventMembers: normalized.state.damageEventMembers,
             selectedMitIds: [],
-            damageEvents: normalized.state.damageEvents,
-            damageEventsByJob: normalized.state.damageEventsByJob,
             damageEventsByPlayerId: normalized.state.damageEventsByPlayerId,
             castEvents: normalized.state.castEvents,
             mitEvents: result.mitEvents,
@@ -392,8 +379,6 @@ export const useStore = create<AppState>()(
         partyMembers: [],
         damageEventMembers: [],
         selectedMitIds: [],
-        damageEvents: [],
-        damageEventsByJob: {},
         damageEventsByPlayerId: {},
         castEvents: [],
         mitEvents: [],
@@ -407,8 +392,6 @@ export const useStore = create<AppState>()(
 
         setApiKey: (key) => set({ apiKey: key }),
         setFflogsUrl: (url) => set({ fflogsUrl: url }),
-        setSelectedJob: (job) => set({ selectedJob: job }),
-        setSelectedPlayerId: (id) => set({ selectedPlayerId: id }),
         setPartyMembers: (members) => {
           set({
             partyMembers: members,
@@ -573,8 +556,6 @@ export const useStore = create<AppState>()(
               partyMembers: [],
               damageEventMembers: buildDamageEventMembers(actors),
               selectedMitIds: [],
-              damageEvents: [],
-              damageEventsByJob: {},
               damageEventsByPlayerId: {},
               castEvents: [],
               mitEvents: [],
@@ -591,59 +572,6 @@ export const useStore = create<AppState>()(
           }
         },
 
-        loadEvents: async () => {
-          const { apiKey, fflogsUrl, fight, selectedPlayerId, selectedJob, bossIds } = get();
-          const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
-          if (!apiKey || !reportCode || !fight || !selectedPlayerId) return;
-
-          // 标记渲染中，等待 Timeline 通知完成
-          const { requestId, signal } = beginEventsRequest();
-          set({ isLoading: true, isRendering: true, error: null });
-          const client = new FFLogsClient(apiKey);
-
-          try {
-            const {
-              damageEvents,
-              damageEventsByJob,
-              damageEventsByPlayerId,
-              castEvents,
-              mitEvents,
-              cooldownEvents,
-            } = await loadEventsCore({
-              client,
-              reportCode,
-              fight,
-              bossIds,
-              castPlayers: selectedJob ? [{ id: selectedPlayerId, job: selectedJob }] : [],
-              damagePlayers: buildDamageEventMembers(get().actors).map((player) => ({
-                id: player.playerId,
-                job: player.job,
-                name: player.name,
-              })),
-              signal,
-            });
-            if (requestId !== eventsRequestSeq || signal.aborted) return;
-
-            set({
-              damageEvents,
-              damageEventsByJob,
-              damageEventsByPlayerId,
-              castEvents,
-              mitEvents,
-              cooldownEvents,
-              isLoading: false,
-              // 等待 Timeline 通知渲染完成后再取消遮罩
-            });
-          } catch (err: unknown) {
-            if (requestId !== eventsRequestSeq || isAbortError(err, signal)) return;
-            console.error(err);
-            const rawMsg = err instanceof Error ? err.message : String(err);
-            const msg = rawMsg || '加载事件失败';
-            set({ error: msg, isLoading: false, isRendering: false });
-            get().pushBanner(msg, { tone: 'error' });
-          }
-        },
-
         loadEventsForPlayers: async (players) => {
           const { apiKey, fflogsUrl, fight, bossIds, actors } = get();
           const { reportCode } = parseFFLogsUrl(fflogsUrl) ?? {};
@@ -656,40 +584,27 @@ export const useStore = create<AppState>()(
           const castPlayers = players.filter(isPlayerPartyMember);
 
           try {
-            const {
-              damageEvents,
-              damageEventsByJob,
-              damageEventsByPlayerId,
-              castEvents,
-              mitEvents,
-              cooldownEvents,
-            } = await loadEventsCore({
-              client,
-              reportCode,
-              fight,
-              bossIds,
-              castPlayers: castPlayers.map((player) => ({
-                id: player.playerId,
-                job: player.job,
-                name: player.name,
-              })),
-              damagePlayers: damageEventMembers.map((player) => ({
-                id: player.playerId,
-                job: player.job,
-                name: player.name,
-              })),
-              signal,
-            });
+            const { damageEventsByPlayerId, castEvents, mitEvents, cooldownEvents } =
+              await loadEventsCore({
+                client,
+                reportCode,
+                fight,
+                bossIds,
+                castPlayers: castPlayers.map((player) => ({
+                  id: player.playerId,
+                  job: player.job,
+                  name: player.name,
+                })),
+                damagePlayers: damageEventMembers.map((player) => ({
+                  id: player.playerId,
+                  job: player.job,
+                  name: player.name,
+                })),
+                signal,
+              });
             if (requestId !== eventsRequestSeq || signal.aborted) return;
 
-            const primaryPlayerId = players.find(isPlayerPartyMember)?.playerId;
-            const primaryDamages =
-              primaryPlayerId !== undefined
-                ? (damageEventsByPlayerId[primaryPlayerId] ?? [])
-                : damageEvents;
             set({
-              damageEvents: primaryDamages,
-              damageEventsByJob,
               damageEventMembers,
               damageEventsByPlayerId,
               castEvents,
@@ -889,7 +804,7 @@ export const useStore = create<AppState>()(
     },
     {
       name: 'xiv-mit-composer-storage',
-      version: 3,
+      version: 4,
       migrate: migratePersistedState,
       partialize: (state) => ({
         apiKey: state.apiKey,
@@ -901,8 +816,6 @@ export const useStore = create<AppState>()(
         selectedPlayerId: state.selectedPlayerId,
         partyMembers: state.partyMembers,
         damageEventMembers: state.damageEventMembers,
-        damageEvents: state.damageEvents,
-        damageEventsByJob: state.damageEventsByJob,
         damageEventsByPlayerId: state.damageEventsByPlayerId,
         castEvents: state.castEvents,
         mitEvents: state.mitEvents,

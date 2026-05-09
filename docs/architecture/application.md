@@ -28,7 +28,7 @@
 - 输入状态：`apiKey`、`fflogsUrl`。
 - 战斗状态：`fight`、`actors`、`bossIds`。
 - 选择状态：`partyMembers`、`selectedJob`、`selectedPlayerId`、`selectedMitIds`。
-- 事件状态：`damageEvents`、`damageEventsByJob`、`damageEventMembers`、`damageEventsByPlayerId`、`castEvents`、`mitEvents`、`cooldownEvents`。
+- 事件状态：`damageEventMembers`、`damageEventsByPlayerId`、`castEvents`、`mitEvents`、`cooldownEvents`。
 - 工程状态：`projectSlots`、`activeProjectSlotId`。
 - UI 状态：`banners`、`isLoading`、`isRendering`、`error`。
 
@@ -40,7 +40,7 @@
 
 工程文档类型位于 `src/model/project.ts`。工程导出文本使用 `XMC1:` 前缀，正文是 gzip 压缩后的 JSON，再经过 base64url 编码。编解码逻辑位于 `src/domain/project/projectCodec.ts`。
 
-工程文档保存完整工作区快照，包括槽位名称、FFLogs URL、战斗元数据、队伍成员、Boss 咏唱事件、受击事件、按职业和玩家分组的受击事件、已排减伤事件和时间轴缩放。工程文档不保存 FFLogs API Key。
+工程文档保存完整工作区快照，包括槽位名称、FFLogs URL、战斗元数据、队伍成员、Boss 咏唱事件、按玩家 ID 分组的受击事件、已排减伤事件和时间轴缩放。工程文档不保存 FFLogs API Key。
 
 工程导入和槽位切换由 `src/domain/project/projectDocument.ts` 与 `src/store/index.ts` 协作完成。导入时会规范化文档结构，并通过 `evaluateMitigationSetStrict` 校验减伤事件和重建 `cooldownEvents`。`cooldownEvents` 是由 `mitEvents` 派生的运行时状态，不写入工程导出文本。
 
@@ -48,7 +48,7 @@
 
 `loadFightMetadata` 解析 FFLogs URL，读取报告元数据，生成 `Fight`、`Actor[]` 和当前战斗的 Boss ID 列表。
 
-`loadEventsForPlayers` 加载队伍成员事件。函数调用 `loadEventsCore`，真实玩家用于加载友方咏唱并生成已有减伤事件，空白职能只生成可手动排轴的成员列。受击事件按当前战斗中所有可识别玩家加载，并生成主视图兼容伤害事件、按职业分组的伤害事件和按玩家 ID 分组的伤害事件。Boss 咏唱事件按当前战斗 Boss 加载。
+`loadEventsForPlayers` 加载队伍成员事件。函数调用 `loadEventsCore`，真实玩家用于加载友方咏唱并生成已有减伤事件，空白职能只生成可手动排轴的成员列。受击事件按当前战斗中所有可识别玩家加载，并按玩家 ID 分组保存。Boss 咏唱事件按当前战斗 Boss 加载。
 
 战斗元数据请求和事件请求各自使用 request sequence 与 `AbortController`。新的同类请求会中止旧请求，旧请求完成后不会覆盖新状态。
 

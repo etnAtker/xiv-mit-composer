@@ -1,10 +1,8 @@
 import type {
   Actor,
   CastEvent,
-  DamageEvent,
   DamageEventsByPlayerId,
   Fight,
-  GroupedDamageEvent,
   Job,
   MitEvent,
   PartyMember,
@@ -29,10 +27,7 @@ export interface XmcProjectState {
   selectedPlayerId: number | null;
   partyMembers: PartyMember[];
   damageEventMembers: PartyMember[];
-  damageEvents: DamageEvent[];
-  damageEventsByJob: Partial<Record<Job, DamageEvent[]>>;
   damageEventsByPlayerId: DamageEventsByPlayerId;
-  groupedDamageEvents?: GroupedDamageEvent[];
   castEvents: CastEvent[];
   mitEvents: MitEvent[];
 }

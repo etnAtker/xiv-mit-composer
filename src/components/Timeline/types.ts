@@ -17,7 +17,6 @@ export interface TimelineSkillColumn {
   id: string;
   columnId: string;
   name: string;
-  color?: string;
   icon?: string;
   actionId?: number;
   job?: Job | 'ALL';

@@ -11,7 +11,6 @@ export const SGE_SKILLS: Skill[] = [
     cooldownSec: 60,
     durationSec: 15,
     job: 'SGE',
-    color: 'bg-cyan-700',
     actionId: 24294,
   },
   {
@@ -25,7 +24,6 @@ export const SGE_SKILLS: Skill[] = [
     durationSec: 15,
     mitigation: [{ kind: 'hot', durationSec: 15, potency: 130, targeting: { kind: 'party' } }],
     job: 'SGE',
-    color: 'bg-cyan-500',
     actionId: 24302,
   },
   {
@@ -49,7 +47,6 @@ export const SGE_SKILLS: Skill[] = [
       { kind: 'hot', durationSec: 15, potency: 100, targeting: { kind: 'party' } },
     ],
     job: 'SGE',
-    color: 'bg-cyan-600',
     actionId: 24298,
   },
   {
@@ -72,7 +69,6 @@ export const SGE_SKILLS: Skill[] = [
       },
     ],
     job: 'SGE',
-    color: 'bg-cyan-500',
     actionId: 24303,
   },
   {
@@ -85,7 +81,6 @@ export const SGE_SKILLS: Skill[] = [
     cooldownSec: 120,
     durationSec: 30,
     job: 'SGE',
-    color: 'bg-cyan-700',
     actionId: 24300,
   },
   {
@@ -106,7 +101,6 @@ export const SGE_SKILLS: Skill[] = [
       },
     ],
     job: 'SGE',
-    color: 'bg-cyan-800',
     actionId: 24305,
   },
   {
@@ -120,7 +114,6 @@ export const SGE_SKILLS: Skill[] = [
     durationSec: 15,
     mitigation: [{ kind: 'shield', durationSec: 15, potency: 200, targeting: { kind: 'party' } }],
     job: 'SGE',
-    color: 'bg-cyan-800',
     actionId: 24311,
   },
   {
@@ -144,7 +137,6 @@ export const SGE_SKILLS: Skill[] = [
       { kind: 'shield', durationSec: 30, potency: 300, targeting: { kind: 'party' } },
     ],
     job: 'SGE',
-    color: 'bg-cyan-900',
     actionId: 24310,
   },
   {
@@ -157,7 +149,6 @@ export const SGE_SKILLS: Skill[] = [
     cooldownSec: 120,
     durationSec: 0,
     job: 'SGE',
-    color: 'bg-cyan-700',
     actionId: 24318,
   },
   {
@@ -170,7 +161,6 @@ export const SGE_SKILLS: Skill[] = [
     cooldownSec: 180,
     durationSec: 20,
     job: 'SGE',
-    color: 'bg-cyan-950',
     actionId: 37035,
   },
 ];

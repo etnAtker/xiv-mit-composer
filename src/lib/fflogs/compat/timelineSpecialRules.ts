@@ -1,6 +1,6 @@
 // 来自 https://github.com/Souma-Sumire/ff14-overlay-vue/blob/main/src/services/timelineSpecialRules.ts
 
-import type { FFlogsStance, FFlogsType } from './types';
+import type { FFlogsType } from './types';
 
 // 技能 ID 与时间窗规则映射
 const windowAction: Map<
@@ -132,18 +132,6 @@ windowAction.set(0xa82d, { type: 'cast', window: [60, 60], syncOnce: true, battl
 
 // 极火车
 windowAction.set(0xb24d, { type: 'cast', window: [60, 60], syncOnce: true, battleOnce: true }); // 无尽狂奔
-
-export function factory(events: FFlogsStance): FFlogsStance {
-  for (const event of events) {
-    const w = windowAction.get(event.actionId);
-    if (w?.type === event.type) {
-      event.window = w?.window;
-      event.syncOnce = Boolean(w?.syncOnce);
-      event.battleOnce = Boolean(w?.battleOnce);
-    }
-  }
-  return events;
-}
 
 export function getFactoryRule(actionId: number) {
   return windowAction.get(actionId);

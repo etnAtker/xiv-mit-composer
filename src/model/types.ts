@@ -110,7 +110,6 @@ export interface Skill {
   cooldownSec: number;
   durationSec: number;
   job: Job | 'ALL';
-  color: string;
   actionId: number; // FFLogs 技能 ID
   icon?: string;
   mitigation?: SkillMitigation[];
@@ -124,7 +123,6 @@ export interface CooldownGroup {
   stack: number;
 }
 
-export type PlayerEvent = MitEvent | CooldownEvent;
 export type PlayerEventType = 'mit' | 'cooldown';
 
 export interface MitEvent {
@@ -149,14 +147,6 @@ export interface CooldownEvent {
   tStartMs: number;
   durationMs: number;
   tEndMs: number;
-}
-
-export function isMitEvent(event: PlayerEvent): event is MitEvent {
-  return event.eventType === 'mit';
-}
-
-export function isCooldownEvent(event: PlayerEvent): event is CooldownEvent {
-  return event.eventType === 'cooldown';
 }
 
 // API 响应结构（简化版）

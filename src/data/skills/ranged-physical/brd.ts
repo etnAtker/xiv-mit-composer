@@ -21,7 +21,6 @@ export const BRD_SKILLS: Skill[] = [
       },
     ],
     job: 'BRD',
-    color: 'bg-pink-700',
     actionId: 7405,
   },
   {
@@ -34,7 +33,6 @@ export const BRD_SKILLS: Skill[] = [
     cooldownSec: 120,
     durationSec: 15,
     job: 'BRD',
-    color: 'bg-pink-600',
     actionId: 7408,
   },
 ];

@@ -318,13 +318,6 @@ const resolveImportPath = (outPath: string) => {
 
 const existingSkillByActionId = new Map(SKILLS.map((skill) => [skill.actionId, skill]));
 
-const fallbackColorByJob = new Map<Job, string>();
-for (const skill of SKILLS) {
-  if (skill.job === 'ALL') continue;
-  if (fallbackColorByJob.has(skill.job)) continue;
-  fallbackColorByJob.set(skill.job, skill.color);
-}
-
 const resolveCandidateJob = (
   row: ActionRow,
   requestedJob: Job,
@@ -412,11 +405,6 @@ const renderCandidate = (candidate: SkillCandidate) => {
   const actionNameChs = fields['Name@lang(chs)'] ?? actionNameEn;
   const name = existing?.name ?? actionNameChs;
   const id = existing?.id ?? `${String(candidate.job).toLowerCase()}-${candidate.slug}`;
-  const color =
-    existing?.color ??
-    (candidate.job === 'ALL'
-      ? 'bg-slate-500'
-      : (fallbackColorByJob.get(candidate.job) ?? 'bg-slate-500'));
   const cooldownGroup =
     existing?.cooldownGroup ??
     (candidate.maximumCharges && candidate.maximumCharges > 1 ? getGroupId(candidate) : undefined);
@@ -483,7 +471,6 @@ const renderCandidate = (candidate: SkillCandidate) => {
   lines.push(`    cooldownSec: ${formatNumber(candidate.cooldownSec)},`);
   lines.push(`    durationSec: ${formatNumber(candidate.durationSec)},`);
   lines.push(`    job: ${quote(candidate.job)},`);
-  lines.push(`    color: ${quote(color)},`);
   lines.push(`    actionId: ${candidate.action.row_id},`);
   if (cooldownGroup) {
     lines.push(`    cooldownGroup: ${quote(cooldownGroup)},`);

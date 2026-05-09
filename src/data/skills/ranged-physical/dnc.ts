@@ -21,7 +21,6 @@ export const DNC_SKILLS: Skill[] = [
       },
     ],
     job: 'DNC',
-    color: 'bg-fuchsia-700',
     actionId: 16012,
   },
 ];

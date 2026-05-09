@@ -12,7 +12,6 @@ export const PCT_SKILLS: Skill[] = [
     durationSec: 10,
     mitigation: [{ kind: 'shield', durationSec: 10, maxHpPct: 20, targeting: { kind: 'self' } }],
     job: 'PCT',
-    color: 'bg-rose-700',
     actionId: 34685,
   },
 ];

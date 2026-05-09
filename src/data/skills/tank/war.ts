@@ -12,7 +12,6 @@ export const WAR_SKILLS: Skill[] = [
     cooldownSec: 90,
     durationSec: 10,
     job: 'WAR',
-    color: 'bg-red-700',
     actionId: 40,
   },
   {
@@ -26,7 +25,6 @@ export const WAR_SKILLS: Skill[] = [
     durationSec: 15,
     mitigation: [{ kind: 'hot', durationSec: 15, potency: 200, targeting: { kind: 'self' } }],
     job: 'WAR',
-    color: 'bg-red-200',
     actionId: 3552,
   },
   {
@@ -49,7 +47,6 @@ export const WAR_SKILLS: Skill[] = [
       },
     ],
     job: 'WAR',
-    color: 'bg-red-600',
     actionId: 36923,
   },
   {
@@ -81,7 +78,6 @@ export const WAR_SKILLS: Skill[] = [
       { kind: 'shield', durationSec: 20, potency: 400, targeting: { kind: 'self' } },
     ],
     job: 'WAR',
-    color: 'bg-red-400',
     actionId: 25751,
     cooldownGroup: 'war-grp-bloodwhetting',
   },
@@ -114,7 +110,6 @@ export const WAR_SKILLS: Skill[] = [
       { kind: 'shield', durationSec: 20, potency: 400, targeting: { kind: 'ally', maxTargets: 1 } },
     ],
     job: 'WAR',
-    color: 'bg-red-400',
     actionId: 16464,
     cooldownGroup: 'war-grp-bloodwhetting',
   },
@@ -139,7 +134,6 @@ export const WAR_SKILLS: Skill[] = [
       },
     ],
     job: 'WAR',
-    color: 'bg-red-900',
     actionId: 43,
   },
   {
@@ -156,7 +150,6 @@ export const WAR_SKILLS: Skill[] = [
       { kind: 'hot', durationSec: 15, potency: 100, targeting: { kind: 'party' } },
     ],
     job: 'WAR',
-    color: 'bg-red-800',
     actionId: 7388,
   },
 ];

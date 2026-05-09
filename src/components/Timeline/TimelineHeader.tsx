@@ -1,5 +1,4 @@
 import type { TimelineMemberGroup } from './timelineLayout';
-import type { TimelineSkillColumn } from './types';
 import { XivIcon } from '../XivIcon';
 import { JOB_ICON_LOCAL_SRC, getSkillIconLocalSrc } from '../../data/icons';
 import { MIT_COLUMN_WIDTH } from './timelineUtils';
@@ -12,7 +11,6 @@ interface Props {
   dmgWidth: number;
   isScrolled: boolean;
   memberGroups: TimelineMemberGroup[];
-  utilitySkills: TimelineSkillColumn[];
   onToggleMemberCollapsed: (playerId: number, collapsed: boolean) => void;
 }
 

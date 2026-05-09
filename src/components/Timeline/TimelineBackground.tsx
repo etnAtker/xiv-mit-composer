@@ -1,5 +1,4 @@
 import type { TimelineSkillColumn } from './types';
-import { DAMAGE_LANE_WIDTH } from '../../constants/timeline';
 import { MIT_COLUMN_WIDTH } from './timelineUtils';
 import type { TimelineMemberGroup } from './timelineLayout';
 
@@ -9,11 +8,8 @@ interface Props {
   dmgWidth: number;
   mitAreaWidth: number;
   dmgX: number;
-  secondaryDamageLaneLeft: number;
   headerSkillColumns: TimelineSkillColumn[];
   memberGroups: TimelineMemberGroup[];
-  hasSecondaryDamageLane: boolean;
-  firstGroupCount: number;
   timelineHeight: number;
 }
 
@@ -23,11 +19,8 @@ export function TimelineBackground({
   dmgWidth,
   mitAreaWidth,
   dmgX,
-  secondaryDamageLaneLeft,
   headerSkillColumns,
   memberGroups,
-  hasSecondaryDamageLane,
-  firstGroupCount,
   timelineHeight,
 }: Props) {
   return (
@@ -77,26 +70,13 @@ export function TimelineBackground({
             );
           })}
           {memberGroups.length === 0 &&
-            headerSkillColumns.flatMap((skill, index) => {
-              const blocks = [];
-              if (hasSecondaryDamageLane && index === firstGroupCount) {
-                blocks.push(
-                  <div
-                    key="secondary-damage-lane-gap"
-                    className="h-full"
-                    style={{ width: DAMAGE_LANE_WIDTH }}
-                  />,
-                );
-              }
-              blocks.push(
-                <div
-                  key={`lane-${skill.columnId}`}
-                  className="h-full border-r border-app"
-                  style={{ width: MIT_COLUMN_WIDTH }}
-                />,
-              );
-              return blocks;
-            })}
+            headerSkillColumns.map((skill) => (
+              <div
+                key={`lane-${skill.columnId}`}
+                className="h-full border-r border-app"
+                style={{ width: MIT_COLUMN_WIDTH }}
+              />
+            ))}
         </div>
       </div>
 
@@ -113,18 +93,6 @@ export function TimelineBackground({
             backgroundImage: 'linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)',
           }}
         />
-        {hasSecondaryDamageLane && (
-          <div
-            className="absolute top-0 h-full border-r border-app bg-surface-2"
-            style={{
-              left: secondaryDamageLaneLeft,
-              width: dmgWidth,
-              backgroundSize: '100% 60px',
-              backgroundImage:
-                'linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)',
-            }}
-          />
-        )}
       </div>
     </>
   );

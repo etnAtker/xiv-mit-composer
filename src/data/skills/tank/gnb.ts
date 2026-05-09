@@ -20,7 +20,6 @@ export const GNB_SKILLS: Skill[] = [
       },
     ],
     job: 'GNB',
-    color: 'bg-orange-200',
     actionId: 16151,
     cooldownGroup: 'gnb-grp-aurora',
   },
@@ -44,7 +43,6 @@ export const GNB_SKILLS: Skill[] = [
       },
     ],
     job: 'GNB',
-    color: 'bg-orange-700',
     actionId: 16140,
   },
   {
@@ -67,7 +65,6 @@ export const GNB_SKILLS: Skill[] = [
       },
     ],
     job: 'GNB',
-    color: 'bg-orange-600',
     actionId: 36935,
   },
   {
@@ -98,7 +95,6 @@ export const GNB_SKILLS: Skill[] = [
       },
     ],
     job: 'GNB',
-    color: 'bg-orange-400',
     actionId: 25758,
   },
   {
@@ -122,7 +118,6 @@ export const GNB_SKILLS: Skill[] = [
       },
     ],
     job: 'GNB',
-    color: 'bg-orange-900',
     actionId: 16152,
   },
   {
@@ -153,7 +148,6 @@ export const GNB_SKILLS: Skill[] = [
       },
     ],
     job: 'GNB',
-    color: 'bg-orange-800',
     actionId: 16160,
   },
 ];

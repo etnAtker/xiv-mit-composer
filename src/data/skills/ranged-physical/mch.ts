@@ -21,7 +21,6 @@ export const MCH_SKILLS: Skill[] = [
       },
     ],
     job: 'MCH',
-    color: 'bg-slate-700',
     actionId: 16889,
   },
   {
@@ -44,7 +43,6 @@ export const MCH_SKILLS: Skill[] = [
       },
     ],
     job: 'MCH',
-    color: 'bg-slate-600',
     actionId: 2887,
   },
 ];

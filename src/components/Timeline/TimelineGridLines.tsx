@@ -1,4 +1,5 @@
 import { MS_PER_SEC } from '../../constants/time';
+import { GRID_LINE_OPACITY } from '../../constants/timeline';
 
 interface Props {
   totalWidth: number;
@@ -90,7 +91,7 @@ export function TimelineGridLines({
               y2={y}
               stroke="var(--color-border)"
               strokeWidth={1}
-              opacity={0.35}
+              opacity={GRID_LINE_OPACITY}
             />
           </g>
         );
