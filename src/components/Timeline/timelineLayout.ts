@@ -33,7 +33,6 @@ const PLACEHOLDER_COLUMN: TimelineSkillColumn = {
   id: 'mit-placeholder',
   columnId: 'mit-placeholder',
   name: '减伤',
-  color: 'bg-surface-4',
   job: 'ALL',
 };
 
@@ -84,7 +83,6 @@ export function buildTimelineLayout({
           id: skill.id,
           columnId: `${skill.id}:${member.playerId}`,
           name: skill.name,
-          color: skill.color,
           icon: skill.icon,
           actionId: skill.actionId,
           job: member.job,

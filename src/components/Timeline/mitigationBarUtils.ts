@@ -10,7 +10,7 @@ export interface MitigationBarHeights {
 
 export function getMitigationBarHeights(mit: MitEvent, zoom: number): MitigationBarHeights {
   const effectSec = mit.durationMs / MS_PER_SEC;
-  const effectHeight = effectSec * zoom - MITIGATION_HEADER_HEIGHT;
-  const totalHeight = effectHeight + MITIGATION_HEADER_HEIGHT;
+  const effectHeight = effectSec * zoom;
+  const totalHeight = effectHeight;
   return { effectHeight, totalHeight };
 }

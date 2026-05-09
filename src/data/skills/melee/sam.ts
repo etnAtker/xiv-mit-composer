@@ -22,7 +22,6 @@ export const SAM_SKILLS: Skill[] = [
       { kind: 'hot', durationSec: 9, potency: 200, targeting: { kind: 'self' } },
     ],
     job: 'SAM',
-    color: 'bg-sky-700',
     actionId: 36962,
   },
 ];

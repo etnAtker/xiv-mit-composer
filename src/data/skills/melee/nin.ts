@@ -12,7 +12,6 @@ export const NIN_SKILLS: Skill[] = [
     durationSec: 20,
     mitigation: [{ kind: 'shield', durationSec: 20, maxHpPct: 20, targeting: { kind: 'self' } }],
     job: 'NIN',
-    color: 'bg-gray-700',
     actionId: 2241,
   },
 ];

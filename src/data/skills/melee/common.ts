@@ -29,7 +29,6 @@ export const MELEE_COMMON_SKILLS: Skill[] = [
       },
     ],
     job: 'ALL',
-    color: 'bg-slate-600',
     actionId: 7549,
     counterpartProjection: true,
   },

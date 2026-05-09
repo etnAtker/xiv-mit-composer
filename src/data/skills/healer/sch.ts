@@ -23,7 +23,6 @@ export const SCH_SKILLS: Skill[] = [
       { kind: 'hot', durationSec: 15, potency: 100, targeting: { kind: 'party' } },
     ],
     job: 'SCH',
-    color: 'bg-emerald-700',
     actionId: 188,
   },
   {
@@ -36,7 +35,6 @@ export const SCH_SKILLS: Skill[] = [
     cooldownSec: 180,
     durationSec: 30,
     job: 'SCH',
-    color: 'bg-emerald-700',
     actionId: 3587,
   },
   {
@@ -49,7 +47,6 @@ export const SCH_SKILLS: Skill[] = [
     cooldownSec: 120,
     durationSec: 20,
     job: 'SCH',
-    color: 'bg-emerald-700',
     actionId: 16538,
   },
   {
@@ -62,7 +59,6 @@ export const SCH_SKILLS: Skill[] = [
     cooldownSec: 120,
     durationSec: 0,
     job: 'SCH',
-    color: 'bg-emerald-700',
     actionId: 3585,
   },
   {
@@ -75,7 +71,6 @@ export const SCH_SKILLS: Skill[] = [
     cooldownSec: 60,
     durationSec: 15,
     job: 'SCH',
-    color: 'bg-emerald-700',
     actionId: 16542,
   },
   {
@@ -88,7 +83,6 @@ export const SCH_SKILLS: Skill[] = [
     cooldownSec: 60,
     durationSec: 10,
     job: 'SCH',
-    color: 'bg-emerald-500',
     actionId: 25867,
   },
   {
@@ -102,7 +96,6 @@ export const SCH_SKILLS: Skill[] = [
     durationSec: 30,
     mitigation: [{ kind: 'shield', durationSec: 30, potency: 250, targeting: { kind: 'party' } }],
     job: 'SCH',
-    color: 'bg-emerald-600',
     actionId: 16546,
     cooldownGroup: 'sch-grp-consolation',
   },
@@ -116,7 +109,6 @@ export const SCH_SKILLS: Skill[] = [
     cooldownSec: 120,
     durationSec: 22,
     job: 'SCH',
-    color: 'bg-emerald-700',
     actionId: 16545,
   },
   {
@@ -129,7 +121,6 @@ export const SCH_SKILLS: Skill[] = [
     cooldownSec: 180,
     durationSec: 20,
     job: 'SCH',
-    color: 'bg-emerald-700',
     actionId: 37014,
   },
   {
@@ -152,7 +143,6 @@ export const SCH_SKILLS: Skill[] = [
       },
     ],
     job: 'SCH',
-    color: 'bg-emerald-900',
     actionId: 25868,
   },
 ];

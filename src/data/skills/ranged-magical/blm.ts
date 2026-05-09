@@ -12,7 +12,6 @@ export const BLM_SKILLS: Skill[] = [
     durationSec: 20,
     mitigation: [{ kind: 'shield', durationSec: 20, maxHpPct: 30, targeting: { kind: 'self' } }],
     job: 'BLM',
-    color: 'bg-indigo-900',
     actionId: 157,
   },
 ];

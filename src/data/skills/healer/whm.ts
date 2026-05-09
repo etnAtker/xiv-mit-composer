@@ -12,7 +12,6 @@ export const WHM_SKILLS: Skill[] = [
     durationSec: 24,
     mitigation: [{ kind: 'hot', durationSec: 24, potency: 100, targeting: { kind: 'party' } }],
     job: 'WHM',
-    color: 'bg-green-700',
     actionId: 3569,
   },
   {
@@ -33,7 +32,6 @@ export const WHM_SKILLS: Skill[] = [
       },
     ],
     job: 'WHM',
-    color: 'bg-green-600',
     actionId: 7432,
     cooldownGroup: 'whm-grp-divine-benison',
   },
@@ -57,7 +55,6 @@ export const WHM_SKILLS: Skill[] = [
       },
     ],
     job: 'WHM',
-    color: 'bg-green-500',
     actionId: 7433,
   },
   {
@@ -80,7 +77,6 @@ export const WHM_SKILLS: Skill[] = [
       },
     ],
     job: 'WHM',
-    color: 'bg-green-800',
     actionId: 16536,
   },
   {
@@ -93,7 +89,6 @@ export const WHM_SKILLS: Skill[] = [
     cooldownSec: 180,
     durationSec: 20,
     job: 'WHM',
-    color: 'bg-green-900',
     actionId: 25862,
   },
 ];

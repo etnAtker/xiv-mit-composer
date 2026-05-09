@@ -23,20 +23,20 @@ function createMitEvent(
   };
 }
 
-test('条身高度只由持续时间决定', () => {
+test('条身高度覆盖完整持续时间', () => {
   const mit = createMitEvent('role-rampart@PLD', 10_000, 20_000, 'PLD', 1);
 
   const heights = getMitigationBarHeights(mit, 5);
 
-  assert.equal(heights.effectHeight, 60);
+  assert.equal(heights.effectHeight, 100);
   assert.equal(heights.totalHeight, 100);
 });
 
-test('短持续时间条身仍保持 header + effect 结构', () => {
+test('短持续时间条身不再扣除 header 高度', () => {
   const mit = createMitEvent('drk-oblation', 10_000, 10_000, 'DRK', 1);
 
   const heights = getMitigationBarHeights(mit, 5);
 
-  assert.equal(heights.effectHeight, 10);
+  assert.equal(heights.effectHeight, 50);
   assert.equal(heights.totalHeight, 50);
 });

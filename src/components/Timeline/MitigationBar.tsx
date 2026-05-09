@@ -24,10 +24,14 @@ export function MitigationBarContent({
   iconClassName = 'h-full w-full object-cover',
 }: MitigationBarContentProps) {
   return (
-    <div className="flex w-full flex-col">
+    <div className="relative w-full" style={{ height: effectHeight }}>
+      <div
+        className="absolute inset-x-0 top-0 z-0 w-full border-x border-white/10 shadow-inner"
+        style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
+      />
       <div
         className={cn(
-          'flex h-10 w-full items-center justify-center text-[10px] font-semibold text-white',
+          'relative z-10 flex h-10 w-full items-center justify-center text-[10px] font-semibold text-white',
           headerClassName,
         )}
       >
@@ -35,10 +39,6 @@ export function MitigationBarContent({
           <XivIcon localSrc={iconSrc} alt={iconAlt} className={iconClassName} />
         ) : null}
       </div>
-      <div
-        className="relative z-0 w-full border-x border-white/10 shadow-inner"
-        style={{ height: effectHeight, backgroundColor: EFFECT_BAR_COLOR }}
-      />
     </div>
   );
 }
@@ -91,7 +91,7 @@ export function MitigationBar({
       <MitigationBarContent
         headerClassName={cn(
           'relative z-10 shadow-[0_6px_12px_var(--color-skill-shadow)]',
-          isInvalid ? 'bg-red-600' : skill?.color || 'bg-slate-600',
+          isInvalid && 'bg-red-600',
         )}
         iconSrc={skill ? getSkillIconLocalSrc(skill.actionId) : undefined}
         iconAlt={skill?.name ?? 'skill icon'}

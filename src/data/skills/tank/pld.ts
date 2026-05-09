@@ -12,7 +12,6 @@ export const PLD_SKILLS: Skill[] = [
     cooldownSec: 90,
     durationSec: 10,
     job: 'PLD',
-    color: 'bg-blue-700',
     actionId: 22,
   },
   {
@@ -36,7 +35,6 @@ export const PLD_SKILLS: Skill[] = [
       { kind: 'shield', durationSec: 15, potency: 1000, targeting: { kind: 'self' } },
     ],
     job: 'PLD',
-    color: 'bg-blue-600',
     actionId: 17,
   },
   {
@@ -68,7 +66,6 @@ export const PLD_SKILLS: Skill[] = [
       { kind: 'hot', durationSec: 12, potency: 250, targeting: { kind: 'self' } },
     ],
     job: 'PLD',
-    color: 'bg-blue-400',
     actionId: 25746,
     cooldownGroup: 'pld-grp-sheltron',
   },
@@ -101,7 +98,6 @@ export const PLD_SKILLS: Skill[] = [
       { kind: 'hot', durationSec: 12, potency: 250, targeting: { kind: 'ally', maxTargets: 1 } },
     ],
     job: 'PLD',
-    color: 'bg-blue-400',
     actionId: 7382,
     cooldownGroup: 'pld-grp-sheltron',
   },
@@ -126,7 +122,6 @@ export const PLD_SKILLS: Skill[] = [
       },
     ],
     job: 'PLD',
-    color: 'bg-blue-950',
     actionId: 30,
   },
   {
@@ -149,7 +144,6 @@ export const PLD_SKILLS: Skill[] = [
       },
     ],
     job: 'PLD',
-    color: 'bg-blue-800',
     actionId: 7385,
   },
   {
@@ -163,7 +157,6 @@ export const PLD_SKILLS: Skill[] = [
     durationSec: 30,
     mitigation: [{ kind: 'shield', durationSec: 30, maxHpPct: 10, targeting: { kind: 'party' } }],
     job: 'PLD',
-    color: 'bg-blue-900',
     actionId: 3540,
   },
 ];

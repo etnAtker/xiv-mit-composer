@@ -110,7 +110,6 @@ export interface Skill {
   cooldownSec: number;
   durationSec: number;
   job: Job | 'ALL';
-  color: string;
   actionId: number; // FFLogs 技能 ID
   icon?: string;
   mitigation?: SkillMitigation[];

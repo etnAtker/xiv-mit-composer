@@ -22,7 +22,6 @@ export const AST_SKILLS: Skill[] = [
       { kind: 'hot', durationSec: 15, potency: 100, targeting: { kind: 'party' } },
     ],
     job: 'AST',
-    color: 'bg-yellow-700',
     actionId: 3613,
   },
   {
@@ -35,7 +34,6 @@ export const AST_SKILLS: Skill[] = [
     cooldownSec: 60,
     durationSec: 15,
     job: 'AST',
-    color: 'bg-yellow-700',
     actionId: 16553,
   },
   {
@@ -48,7 +46,6 @@ export const AST_SKILLS: Skill[] = [
     cooldownSec: 60,
     durationSec: 10,
     job: 'AST',
-    color: 'bg-yellow-700',
     actionId: 7439,
   },
   {
@@ -61,7 +58,6 @@ export const AST_SKILLS: Skill[] = [
     cooldownSec: 60,
     durationSec: 10,
     job: 'AST',
-    color: 'bg-yellow-700',
     actionId: 16557,
   },
   {
@@ -74,7 +70,6 @@ export const AST_SKILLS: Skill[] = [
     cooldownSec: 120,
     durationSec: 20,
     job: 'AST',
-    color: 'bg-yellow-500',
     actionId: 16559,
   },
   {
@@ -87,7 +82,6 @@ export const AST_SKILLS: Skill[] = [
     cooldownSec: 180,
     durationSec: 15,
     job: 'AST',
-    color: 'bg-yellow-700',
     actionId: 25874,
   },
   {
@@ -100,7 +94,6 @@ export const AST_SKILLS: Skill[] = [
     cooldownSec: 1,
     durationSec: 15,
     job: 'AST',
-    color: 'bg-yellow-700',
     actionId: 37031,
   },
 ];
