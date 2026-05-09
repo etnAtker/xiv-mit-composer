@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useShallow } from 'zustand/shallow';
 import { useStore } from './store';
@@ -12,6 +12,7 @@ import { ExportModal } from './components/ExportModal';
 import { FightInfoBar } from './components/FightInfoBar';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { PartyMemberSelectModal } from './components/PartyMemberSelectModal';
+import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
 import { TimelineToolbar } from './components/Timeline/TimelineToolbar';
@@ -21,6 +22,7 @@ import { useTopBanner } from './hooks/useTopBanner';
 import { useMitigationDragController } from './hooks/useMitigationDragController';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
+import { decodeProjectDocument, encodeProjectDocument } from './domain/project/projectCodec';
 import { getStoredTheme, parseFFLogsUrl, setStoredTheme } from './utils';
 import type { PartyMember } from './model/types';
 
@@ -30,14 +32,21 @@ export default function App() {
     fflogsUrl,
     fight,
     actors,
+    bossIds,
     selectedJob,
     selectedPlayerId,
     partyMembers,
+    damageEventMembers,
+    damageEvents,
+    damageEventsByJob,
+    damageEventsByPlayerId,
     mitEvents,
     cooldownEvents,
     castEvents,
     isLoading,
     isRendering,
+    projectSlots,
+    activeProjectSlotId,
   } = useStore(useShallow(selectAppState));
 
   const {
@@ -50,6 +59,13 @@ export default function App() {
     loadEventsForPlayers,
     addMitEvent,
     setMitEvents,
+    saveCurrentProjectSlot,
+    createProjectSlot,
+    duplicateProjectSlot,
+    renameProjectSlot,
+    deleteProjectSlot,
+    switchProjectSlot,
+    importProjectDocument,
   } = useStore(useShallow(selectAppActions));
 
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
@@ -59,6 +75,10 @@ export default function App() {
   const [exportPlayerId, setExportPlayerId] = useState<number | null>(null);
   const [enableTTS, setEnableTTS] = useState(false);
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [projectExportContent, setProjectExportContent] = useState('');
+  const [isProjectBusy, setIsProjectBusy] = useState(false);
+  const hasRestoredActiveSlot = useRef(false);
   const { push } = useTopBanner();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') return 'dark';
@@ -76,6 +96,40 @@ export default function App() {
     }
     setStoredTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (hasRestoredActiveSlot.current || !activeProjectSlotId) return;
+    hasRestoredActiveSlot.current = true;
+    const document = switchProjectSlot(activeProjectSlotId);
+    if (document) {
+      setZoom(document.ui.zoom);
+    }
+  }, [activeProjectSlotId, switchProjectSlot]);
+
+  useEffect(() => {
+    if (!activeProjectSlotId) return;
+    const timer = window.setTimeout(() => {
+      saveCurrentProjectSlot(zoom);
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [
+    activeProjectSlotId,
+    fflogsUrl,
+    fight,
+    actors,
+    bossIds,
+    selectedJob,
+    selectedPlayerId,
+    partyMembers,
+    damageEventMembers,
+    damageEvents,
+    damageEventsByJob,
+    damageEventsByPlayerId,
+    castEvents,
+    mitEvents,
+    zoom,
+    saveCurrentProjectSlot,
+  ]);
 
   const sensorOptions = useMemo(
     () => ({
@@ -199,6 +253,92 @@ export default function App() {
     }
   };
 
+  const handleGenerateProjectExport = async () => {
+    setIsProjectBusy(true);
+    try {
+      saveCurrentProjectSlot(zoom);
+      const latest = useStore.getState();
+      const activeSlot =
+        latest.projectSlots.find((slot) => slot.id === latest.activeProjectSlotId) ??
+        latest.projectSlots[0];
+      if (!activeSlot) {
+        push('没有可导出的工程槽位', { tone: 'warning' });
+        return;
+      }
+
+      const content = await encodeProjectDocument(activeSlot.document);
+      setProjectExportContent(content);
+      push('工程导出内容已生成');
+    } catch (error) {
+      console.error(error);
+      push(error instanceof Error ? error.message : '工程导出失败', { tone: 'error' });
+    } finally {
+      setIsProjectBusy(false);
+    }
+  };
+
+  const handleImportProject = async (content: string) => {
+    setIsProjectBusy(true);
+    try {
+      const document = await decodeProjectDocument(content);
+      const slot = importProjectDocument(document);
+      setZoom(slot.document.ui.zoom);
+      setProjectExportContent('');
+      push(`已导入工程「${slot.name}」`);
+    } catch (error) {
+      console.error(error);
+      push(error instanceof Error ? error.message : '工程导入失败', { tone: 'error' });
+    } finally {
+      setIsProjectBusy(false);
+    }
+  };
+
+  const handleSwitchProjectSlot = (id: string) => {
+    try {
+      saveCurrentProjectSlot(zoom);
+      const document = switchProjectSlot(id);
+      if (!document) return;
+      setZoom(document.ui.zoom);
+      setProjectExportContent('');
+      const slot = useStore.getState().projectSlots.find((item) => item.id === id);
+      push(`已切换到「${slot?.name ?? '工程槽位'}」`);
+    } catch (error) {
+      console.error(error);
+      push(error instanceof Error ? error.message : '槽位切换失败', { tone: 'error' });
+    }
+  };
+
+  const handleCreateProjectSlot = (name: string) => {
+    const slot = createProjectSlot(name, zoom);
+    setProjectExportContent('');
+    push(`已创建槽位「${slot.name}」`);
+  };
+
+  const handleDuplicateProjectSlot = (name: string) => {
+    try {
+      saveCurrentProjectSlot(zoom);
+      const slot = duplicateProjectSlot(name);
+      setZoom(slot.document.ui.zoom);
+      setProjectExportContent('');
+      push(`已复制为「${slot.name}」`);
+    } catch (error) {
+      console.error(error);
+      push(error instanceof Error ? error.message : '复制槽位失败', { tone: 'error' });
+    }
+  };
+
+  const handleDeleteProjectSlot = (id: string) => {
+    try {
+      const document = deleteProjectSlot(id);
+      if (document) setZoom(document.ui.zoom);
+      setProjectExportContent('');
+      push('槽位已删除');
+    } catch (error) {
+      console.error(error);
+      push(error instanceof Error ? error.message : '删除槽位失败', { tone: 'error' });
+    }
+  };
+
   const handleConfirmPartyMembers = async (members: PartyMember[]) => {
     setIsPartyModalOpen(false);
     setPartyMembers(members);
@@ -246,6 +386,7 @@ export default function App() {
           onFflogsUrlChange={setFflogsUrl}
           onLoadFight={handleLoadFight}
           onExportTimeline={handleExportTimeline}
+          onOpenProjectManager={() => setIsProjectModalOpen(true)}
           onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         />
 
@@ -301,6 +442,22 @@ export default function App() {
         enableTTS={enableTTS}
         onPlayerChange={handleExportPlayerChange}
         onTtsChange={handleTtsChange}
+      />
+
+      <ProjectManagerModal
+        isOpen={isProjectModalOpen}
+        isBusy={isProjectBusy}
+        slots={projectSlots}
+        activeSlotId={activeProjectSlotId}
+        exportContent={projectExportContent}
+        onClose={() => setIsProjectModalOpen(false)}
+        onGenerateExport={handleGenerateProjectExport}
+        onImport={handleImportProject}
+        onSwitchSlot={handleSwitchProjectSlot}
+        onCreateSlot={handleCreateProjectSlot}
+        onDuplicateSlot={handleDuplicateProjectSlot}
+        onRenameSlot={renameProjectSlot}
+        onDeleteSlot={handleDeleteProjectSlot}
       />
 
       {isPartyModalOpen && (

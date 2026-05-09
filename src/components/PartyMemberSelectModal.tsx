@@ -116,12 +116,22 @@ export function PartyMemberSelectModal({
 
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex h-[78vh] w-full max-w-4xl flex-col rounded-lg border border-app bg-surface-3 text-app shadow-2xl">
-        <div className="border-b border-app px-5 py-3">
-          <div className="text-sm font-semibold text-app">选择队伍成员</div>
-          <div className="mt-1 text-[11px] text-muted font-mono">
-            最多选择 {MAX_PARTY_MEMBERS} 个成员，顺序会用于时间轴列组。
+      <div className="flex h-[78vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-app bg-surface-3 text-app shadow-2xl">
+        <div className="flex items-center justify-between border-b border-app px-5 py-3">
+          <div>
+            <div className="text-sm font-semibold text-app">选择队伍成员</div>
+            <div className="mt-1 text-[11px] text-muted font-mono">
+              最多选择 {MAX_PARTY_MEMBERS} 个成员，顺序会用于时间轴列组。
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-muted transition-colors hover:bg-surface-4 hover:text-app"
+            aria-label="关闭"
+          >
+            ✕
+          </button>
         </div>
 
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-0">

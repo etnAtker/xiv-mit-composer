@@ -5,15 +5,22 @@ export const selectAppState = (state: AppState) => ({
   fflogsUrl: state.fflogsUrl,
   fight: state.fight,
   actors: state.actors,
+  bossIds: state.bossIds,
   selectedJob: state.selectedJob,
   selectedPlayerId: state.selectedPlayerId,
   partyMembers: state.partyMembers,
+  damageEventMembers: state.damageEventMembers,
+  damageEvents: state.damageEvents,
+  damageEventsByJob: state.damageEventsByJob,
+  damageEventsByPlayerId: state.damageEventsByPlayerId,
   mitEvents: state.mitEvents,
   cooldownEvents: state.cooldownEvents,
   castEvents: state.castEvents,
   isLoading: state.isLoading,
   isRendering: state.isRendering,
   error: state.error,
+  projectSlots: state.projectSlots,
+  activeProjectSlotId: state.activeProjectSlotId,
 });
 
 export const selectAppActions = (state: AppState) => ({
@@ -30,6 +37,13 @@ export const selectAppActions = (state: AppState) => ({
   loadEventsForPlayers: state.loadEventsForPlayers,
   addMitEvent: state.addMitEvent,
   setMitEvents: state.setMitEvents,
+  saveCurrentProjectSlot: state.saveCurrentProjectSlot,
+  createProjectSlot: state.createProjectSlot,
+  duplicateProjectSlot: state.duplicateProjectSlot,
+  renameProjectSlot: state.renameProjectSlot,
+  deleteProjectSlot: state.deleteProjectSlot,
+  switchProjectSlot: state.switchProjectSlot,
+  importProjectDocument: state.importProjectDocument,
 });
 
 export const selectTimelineState = (state: AppState) => ({

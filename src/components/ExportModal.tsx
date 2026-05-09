@@ -43,7 +43,7 @@ export function ExportModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div
-        className="bg-surface-2 border border-app rounded-xl shadow-2xl w-full max-w-2xl flex flex-col h-[70vh] animate-in zoom-in-95 duration-200"
+        className="bg-surface-2 border border-app rounded-xl shadow-2xl w-full max-w-2xl flex flex-col h-[70vh] overflow-hidden animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
         aria-labelledby="export-modal-title"
@@ -56,7 +56,7 @@ export function ExportModal({
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="text-muted hover:text-app transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-muted hover:bg-surface-4 hover:text-app transition-colors"
           >
             ✕
           </button>

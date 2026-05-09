@@ -23,6 +23,13 @@ import { mergeDamageEvents } from '../domain/fflogs/mergeDamageEvents';
 import { resolveActorJob } from '../model/jobs';
 import { buildCooldownsTolerant, evaluateMitigationSetStrict } from '../utils/playerCast';
 import { parseFFLogsUrl } from '../utils';
+import type { ProjectSlot, XmcProjectDocument } from '../model/project';
+import {
+  createDefaultProjectSlot,
+  createProjectDocumentFromState,
+  createProjectSlotId,
+  normalizeProjectDocument,
+} from '../domain/project/projectDocument';
 
 export interface AppState {
   // 输入状态
@@ -46,6 +53,8 @@ export interface AppState {
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
   banners: BannerItem[];
+  projectSlots: ProjectSlot[];
+  activeProjectSlotId: string | null;
 
   // UI 状态
   isLoading: boolean;
@@ -72,6 +81,13 @@ export interface AppState {
   updateMitEvent: (id: string, updates: Partial<MitEvent>) => void;
   removeMitEvent: (id: string) => void;
   setMitEvents: (events: MitEvent[]) => void;
+  saveCurrentProjectSlot: (zoom: number) => void;
+  createProjectSlot: (name: string, zoom: number) => ProjectSlot;
+  duplicateProjectSlot: (name: string) => ProjectSlot;
+  renameProjectSlot: (id: string, name: string) => void;
+  deleteProjectSlot: (id: string) => XmcProjectDocument | null;
+  switchProjectSlot: (id: string) => XmcProjectDocument | null;
+  importProjectDocument: (document: XmcProjectDocument, name?: string) => ProjectSlot;
 }
 
 const SKILL_BY_ACTION_ID = new Map(SKILLS.map((skill) => [skill.actionId, skill]));
@@ -220,6 +236,7 @@ const BANNER_CLOSE_MS = 240;
 const BANNER_MAX = 4;
 let bannerSeq = 0;
 const bannerTimers = new Map<number, number>();
+const initialProjectSlot = createDefaultProjectSlot();
 
 const clearBannerTimer = (id: number) => {
   const timer = bannerTimers.get(id);
@@ -265,6 +282,38 @@ export const useStore = create<AppState>()(
         return result;
       };
 
+      const buildProjectStatePatch = (document: XmcProjectDocument) => {
+        const normalized = normalizeProjectDocument(document);
+        const result = evaluateMitigationSetStrict(normalized.state.mitEvents);
+        if (!result.ok) {
+          throw new Error('工程中的减伤事件存在冷却冲突，无法导入');
+        }
+
+        return {
+          document: normalized,
+          patch: {
+            fflogsUrl: normalized.state.fflogsUrl || normalized.source.fflogsUrl,
+            fight: normalized.state.fight,
+            actors: normalized.state.actors,
+            bossIds: normalized.state.bossIds,
+            selectedJob: normalized.state.selectedJob,
+            selectedPlayerId: normalized.state.selectedPlayerId,
+            partyMembers: normalized.state.partyMembers,
+            damageEventMembers: normalized.state.damageEventMembers,
+            selectedMitIds: [],
+            damageEvents: normalized.state.damageEvents,
+            damageEventsByJob: normalized.state.damageEventsByJob,
+            damageEventsByPlayerId: normalized.state.damageEventsByPlayerId,
+            castEvents: normalized.state.castEvents,
+            mitEvents: result.mitEvents,
+            cooldownEvents: result.cooldownEvents,
+            isLoading: false,
+            isRendering: false,
+            error: null,
+          },
+        };
+      };
+
       return {
         apiKey: '',
         fflogsUrl: '',
@@ -283,6 +332,8 @@ export const useStore = create<AppState>()(
         mitEvents: [],
         cooldownEvents: [],
         banners: [],
+        projectSlots: [initialProjectSlot],
+        activeProjectSlotId: initialProjectSlot.id,
         isLoading: false,
         isRendering: false,
         error: null,
@@ -607,11 +658,171 @@ export const useStore = create<AppState>()(
         setMitEvents: (events) => {
           commitMitigationSet(events);
         },
+
+        saveCurrentProjectSlot: (zoom) => {
+          set((state) => {
+            const fallbackSlot = state.projectSlots[0] ?? createDefaultProjectSlot();
+            const activeSlot =
+              state.projectSlots.find((slot) => slot.id === state.activeProjectSlotId) ??
+              fallbackSlot;
+            const document = createProjectDocumentFromState(
+              state,
+              zoom,
+              activeSlot.document,
+              activeSlot.name,
+            );
+            const nextSlot: ProjectSlot = {
+              ...activeSlot,
+              updatedAt: document.updatedAt,
+              document,
+            };
+            const hasSlot = state.projectSlots.some((slot) => slot.id === nextSlot.id);
+            const projectSlots = hasSlot
+              ? state.projectSlots.map((slot) => (slot.id === nextSlot.id ? nextSlot : slot))
+              : [nextSlot, ...state.projectSlots];
+
+            return {
+              projectSlots,
+              activeProjectSlotId: nextSlot.id,
+            };
+          });
+        },
+
+        createProjectSlot: (name, zoom) => {
+          const state = get();
+          const slotName = name.trim() || `槽位 ${state.projectSlots.length + 1}`;
+          const document = createProjectDocumentFromState(state, zoom, undefined, slotName);
+          const slot: ProjectSlot = {
+            id: createProjectSlotId(),
+            name: slotName,
+            updatedAt: document.updatedAt,
+            document,
+          };
+
+          set((current) => ({
+            projectSlots: [slot, ...current.projectSlots],
+            activeProjectSlotId: slot.id,
+          }));
+
+          return slot;
+        },
+
+        duplicateProjectSlot: (name) => {
+          const state = get();
+          const source =
+            state.projectSlots.find((slot) => slot.id === state.activeProjectSlotId) ??
+            state.projectSlots[0];
+          if (!source) {
+            return get().createProjectSlot(name, initialProjectSlot.document.ui.zoom);
+          }
+
+          const now = new Date().toISOString();
+          const slotName = name.trim() || `${source.name} 副本`;
+          const document: XmcProjectDocument = {
+            ...source.document,
+            name: slotName,
+            createdAt: now,
+            updatedAt: now,
+          };
+          const slot: ProjectSlot = {
+            id: createProjectSlotId(),
+            name: slotName,
+            updatedAt: now,
+            document,
+          };
+
+          set((current) => ({
+            projectSlots: [slot, ...current.projectSlots],
+            activeProjectSlotId: slot.id,
+          }));
+
+          const { patch } = buildProjectStatePatch(document);
+          set(patch);
+          return slot;
+        },
+
+        renameProjectSlot: (id, name) => {
+          const trimmed = name.trim();
+          if (!trimmed) return;
+
+          set((state) => ({
+            projectSlots: state.projectSlots.map((slot) =>
+              slot.id === id
+                ? {
+                    ...slot,
+                    name: trimmed,
+                    updatedAt: new Date().toISOString(),
+                    document: {
+                      ...slot.document,
+                      name: trimmed,
+                      updatedAt: new Date().toISOString(),
+                    },
+                  }
+                : slot,
+            ),
+          }));
+        },
+
+        deleteProjectSlot: (id) => {
+          const state = get();
+          const remaining = state.projectSlots.filter((slot) => slot.id !== id);
+          const nextSlots = remaining.length ? remaining : [createDefaultProjectSlot()];
+          const nextActiveId =
+            state.activeProjectSlotId === id
+              ? nextSlots[0]?.id
+              : (state.activeProjectSlotId ?? nextSlots[0]?.id);
+          const nextActiveSlot = nextSlots.find((slot) => slot.id === nextActiveId) ?? nextSlots[0];
+
+          set({
+            projectSlots: nextSlots,
+            activeProjectSlotId: nextActiveSlot?.id ?? null,
+          });
+
+          if (!nextActiveSlot || state.activeProjectSlotId !== id) {
+            return null;
+          }
+
+          const { document, patch } = buildProjectStatePatch(nextActiveSlot.document);
+          set(patch);
+          return document;
+        },
+
+        switchProjectSlot: (id) => {
+          const slot = get().projectSlots.find((item) => item.id === id);
+          if (!slot) return null;
+
+          const { document, patch } = buildProjectStatePatch(slot.document);
+          set({
+            ...patch,
+            activeProjectSlotId: id,
+          });
+          return document;
+        },
+
+        importProjectDocument: (document, name) => {
+          const { document: normalized, patch } = buildProjectStatePatch(document);
+          const slotName =
+            name?.trim() || normalized.name || normalized.state.fight?.name || '导入工程';
+          const slot: ProjectSlot = {
+            id: createProjectSlotId(),
+            name: slotName,
+            updatedAt: normalized.updatedAt,
+            document: { ...normalized, name: slotName },
+          };
+
+          set((state) => ({
+            ...patch,
+            projectSlots: [slot, ...state.projectSlots],
+            activeProjectSlotId: slot.id,
+          }));
+
+          return slot;
+        },
       };
     },
     {
       name: 'xiv-mit-composer-storage',
-      version: 2,
+      version: 3,
       migrate: (persistedState) => {
         const state = persistedState as Partial<AppState>;
         const fallbackOwnerId =
@@ -640,20 +851,60 @@ export const useStore = create<AppState>()(
                   },
                 ]
               : [];
-
-        return {
+        const now = new Date().toISOString();
+        const migratedState = {
           ...state,
           mitEvents,
           partyMembers,
+          actors: state.actors ?? [],
+          bossIds: state.bossIds ?? [],
+          damageEventMembers: state.damageEventMembers ?? [],
+          damageEvents: state.damageEvents ?? [],
+          damageEventsByJob: state.damageEventsByJob ?? {},
+          damageEventsByPlayerId: state.damageEventsByPlayerId ?? {},
+          castEvents: state.castEvents ?? [],
+          fflogsUrl: state.fflogsUrl ?? '',
+          fight: state.fight ?? null,
+          selectedJob: state.selectedJob ?? null,
+          selectedPlayerId: state.selectedPlayerId ?? null,
+        } as AppState;
+
+        const projectSlots =
+          state.projectSlots && state.projectSlots.length
+            ? state.projectSlots
+            : [
+                {
+                  ...createDefaultProjectSlot(now),
+                  document: createProjectDocumentFromState(
+                    migratedState,
+                    initialProjectSlot.document.ui.zoom,
+                  ),
+                },
+              ];
+
+        return {
+          ...migratedState,
+          projectSlots,
+          activeProjectSlotId: state.activeProjectSlotId ?? projectSlots[0]?.id ?? null,
         } as AppState;
       },
       partialize: (state) => ({
         apiKey: state.apiKey,
         fflogsUrl: state.fflogsUrl,
+        fight: state.fight,
+        actors: state.actors,
+        bossIds: state.bossIds,
         selectedJob: state.selectedJob,
         selectedPlayerId: state.selectedPlayerId,
         partyMembers: state.partyMembers,
+        damageEventMembers: state.damageEventMembers,
+        damageEvents: state.damageEvents,
+        damageEventsByJob: state.damageEventsByJob,
+        damageEventsByPlayerId: state.damageEventsByPlayerId,
+        castEvents: state.castEvents,
         mitEvents: state.mitEvents,
+        projectSlots: state.projectSlots,
+        activeProjectSlotId: state.activeProjectSlotId,
       }),
     },
   ),

@@ -65,12 +65,12 @@ export function TimelineHeader({
           return (
             <div
               key={`member-${member.playerId}`}
-              className="flex flex-col border-r border-app bg-surface-2"
+              className="flex flex-col border-app bg-surface-2"
               style={{ width: group.width }}
             >
               <button
                 type="button"
-                className="flex h-6 min-w-0 items-center justify-center gap-1 overflow-hidden border-b border-app bg-surface-3 px-1 text-[11px] font-bold uppercase tracking-tight text-muted"
+                className="flex border-r h-6 min-w-0 items-center justify-center gap-1 overflow-hidden border-b border-app bg-surface-3 px-1 text-[11px] font-bold uppercase tracking-tight text-muted"
                 title={`${member.name} (${member.job})`}
                 onClick={() => onToggleMemberCollapsed(member.playerId, !member.collapsed)}
               >
@@ -103,7 +103,7 @@ export function TimelineHeader({
               </button>
 
               {member.collapsed ? (
-                <div className="flex h-10 items-center justify-center text-[10px] font-mono leading-none text-muted">
+                <div className="flex border-r border-app h-10 items-center justify-center text-[10px] font-mono leading-none text-muted">
                   {member.job}
                 </div>
               ) : (

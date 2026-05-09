@@ -14,6 +14,7 @@
 - `Timeline`：战斗时间轴。
 - `PartyMemberSelectModal`：最多 8 个队伍成员的选择，支持添加真实玩家和空白职能。
 - `ExportModal`：Souma 时间轴导出文本。
+- `ProjectManagerModal`：工程槽位管理、工程导入和工程导出。
 - `DragOverlayLayer`：拖拽预览层。
 - `TrashDropZone`：已存在减伤事件的删除投放区。
 - `TopBannerStack`：顶部提示栈。
@@ -28,11 +29,20 @@
 - 战斗状态：`fight`、`actors`、`bossIds`。
 - 选择状态：`partyMembers`、`selectedJob`、`selectedPlayerId`、`selectedMitIds`。
 - 事件状态：`damageEvents`、`damageEventsByJob`、`damageEventMembers`、`damageEventsByPlayerId`、`castEvents`、`mitEvents`、`cooldownEvents`。
+- 工程状态：`projectSlots`、`activeProjectSlotId`。
 - UI 状态：`banners`、`isLoading`、`isRendering`、`error`。
 
-持久化字段包含 `apiKey`、`fflogsUrl`、`selectedJob`、`selectedPlayerId`、`partyMembers` 和 `mitEvents`。迁移逻辑为缺少 owner 信息的历史减伤事件补充当前选中玩家和职业作为 owner，并为历史单人选择生成一个队伍成员。
+持久化字段包含 `apiKey`、当前工程状态、工程槽位和当前槽位 ID。迁移逻辑为缺少 owner 信息的历史减伤事件补充当前选中玩家和职业作为 owner，并为历史单人选择生成一个队伍成员；旧版本没有槽位时，会基于当前状态生成默认槽位。
 
 `src/store/selectors.ts` 提供面向入口组件和时间轴组件的 selector，减少组件直接读取的状态范围。
+
+## 工程文档
+
+工程文档类型位于 `src/model/project.ts`。工程导出文本使用 `XMC1:` 前缀，正文是 gzip 压缩后的 JSON，再经过 base64url 编码。编解码逻辑位于 `src/domain/project/projectCodec.ts`。
+
+工程文档保存完整工作区快照，包括槽位名称、FFLogs URL、战斗元数据、队伍成员、Boss 咏唱事件、受击事件、按职业和玩家分组的受击事件、已排减伤事件和时间轴缩放。工程文档不保存 FFLogs API Key。
+
+工程导入和槽位切换由 `src/domain/project/projectDocument.ts` 与 `src/store/index.ts` 协作完成。导入时会规范化文档结构，并通过 `evaluateMitigationSetStrict` 校验减伤事件和重建 `cooldownEvents`。`cooldownEvents` 是由 `mitEvents` 派生的运行时状态，不写入工程导出文本。
 
 ## 加载流程
 

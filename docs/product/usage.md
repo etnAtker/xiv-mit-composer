@@ -4,9 +4,9 @@
 
 ## 页面结构
 
-应用首屏由顶部输入栏、战斗信息栏、技能侧栏、时间轴区域、加载弹窗、导出弹窗、顶部提示和删除投放区组成。
+应用首屏由顶部输入栏、战斗信息栏、技能侧栏、时间轴区域、加载弹窗、导出弹窗、工程管理弹窗、顶部提示和删除投放区组成。
 
-顶部输入栏包含 FFLogs API Key 输入框、FFLogs URL 输入框、加载战斗按钮、导出 Souma 时间轴按钮、亮色/暗色主题切换按钮和 GitHub 链接。API Key 和 FFLogs URL 通过 Zustand persist 存储到浏览器本地存储。
+顶部输入栏包含 FFLogs API Key 输入框、FFLogs URL 输入框、加载战斗按钮、导入/导出按钮、导出 Souma 时间轴按钮、亮色/暗色主题切换按钮和 GitHub 链接。API Key 和 FFLogs URL 通过 Zustand persist 存储到浏览器本地存储。
 
 战斗信息栏在战斗元数据加载后显示。信息栏展示战斗名称、战斗时长、当前队伍成员，以及全部展开、全部折叠和调整队伍操作。
 
@@ -51,3 +51,11 @@ FFLogs URL 由 `src/utils.ts` 中的 `parseFFLogsUrl` 解析。URL 中的 report
 导出弹窗展示 JSON 文本。JSON 包含 `name`、`condition`、`timeline`、`source` 和 `createdAt`。`condition.jobs` 使用所选玩家职业，另包含 FFLogs zoneID 和 FFLogs boss ID。玩家减伤事件的 `sourceId` 使用事件 owner 玩家 ID。用户勾选“生成TTS”后，玩家减伤事件导出为包含 tts 的时间轴行。
 
 导出逻辑位于 `src/App.tsx` 和 `src/lib/fflogs/exporter.ts`。
+
+## 工程导入导出与槽位
+
+导入/导出按钮打开工程管理弹窗。工程文档使用 `XMC1:` 前缀的压缩文本格式，内容包含槽位名称、当前 FFLogs URL、战斗元数据、队伍成员、Boss 咏唱事件、受击事件、按玩家分组的受击事件、已排减伤事件和时间轴缩放。工程导出文本不包含 FFLogs API Key。用户可以复制工程文本，也可以下载为本地 `.xmc` 文件。
+
+工程导入支持粘贴工程文本和选择本地 `.xmc` 文件。导入会创建一个新槽位并切换到该槽位。导入后应用直接恢复保存时的战斗、事件、队伍和已排减伤，并重新计算冷却限制层。
+
+浏览器本地保存多个工程槽位。当前槽位会自动保存，用户离开页面后再次打开时恢复最后使用的槽位。工程管理弹窗支持新建槽位、复制槽位、重命名槽位、删除槽位和切换槽位。
