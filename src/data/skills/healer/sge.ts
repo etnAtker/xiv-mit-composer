@@ -78,7 +78,7 @@ export const SGE_SKILLS: Skill[] = [
     name_jp: 'ゾーエ',
     name_fr: 'Zoe',
     name_de: 'Zoe',
-    cooldownSec: 120,
+    cooldownSec: 90,
     durationSec: 30,
     job: 'SGE',
     actionId: 24300,

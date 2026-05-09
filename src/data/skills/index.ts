@@ -128,7 +128,7 @@ export const SKILLS: Skill[] = [
 export const COOLDOWN_GROUP: CooldownGroup[] = [
   {
     id: 'pld-grp-sheltron',
-    cooldownSec: 25,
+    cooldownSec: 22.6,
     stack: 2,
   },
   {

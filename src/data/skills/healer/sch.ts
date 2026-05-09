@@ -56,7 +56,7 @@ export const SCH_SKILLS: Skill[] = [
     name_jp: '展開戦術',
     name_fr: 'Stratagème du déploiement',
     name_de: 'Dislokation',
-    cooldownSec: 120,
+    cooldownSec: 90,
     durationSec: 0,
     job: 'SCH',
     actionId: 3585,
