@@ -3,6 +3,7 @@ import type { CastEvent, GroupedDamageEvent, MitEvent } from '../../model/types'
 import { MS_PER_SEC } from '../../constants/time';
 import type { TooltipData } from './types';
 import { DamageLane, DamageLaneHitTargets } from './TimelineLanes';
+import { GRID_LINE_OPACITY } from '../../constants/timeline';
 
 const RULER_STEP_SEC = 5;
 const VISIBLE_RANGE_BUFFER_MS = 5000;
@@ -43,6 +44,24 @@ export function PinnedTimelineLanes({
       e.tMs >= visibleRange.start - VISIBLE_RANGE_BUFFER_MS &&
       e.tMs <= visibleRange.end + VISIBLE_RANGE_BUFFER_MS,
   );
+  const visibleRulerSeconds = Array.from({ length: Math.ceil(durationSec / RULER_STEP_SEC) })
+    .map((_, i) => i * RULER_STEP_SEC)
+    .filter((sec) => {
+      const ms = sec * MS_PER_SEC;
+      return (
+        ms >= visibleRange.start - VISIBLE_RANGE_BUFFER_MS &&
+        ms <= visibleRange.end + VISIBLE_RANGE_BUFFER_MS
+      );
+    });
+  const visibleGridSeconds = Array.from({ length: Math.ceil(durationSec) })
+    .map((_, i) => i)
+    .filter((sec) => {
+      const ms = sec * MS_PER_SEC;
+      return (
+        ms >= visibleRange.start - VISIBLE_RANGE_BUFFER_MS &&
+        ms <= visibleRange.end + VISIBLE_RANGE_BUFFER_MS
+      );
+    });
 
   return (
     <div
@@ -50,24 +69,39 @@ export function PinnedTimelineLanes({
       style={{ width: rulerWidth + castWidth + damageWidth, height: totalHeight }}
     >
       <div
-        className="border-r border-app bg-surface-2 pr-2 text-right pointer-events-none"
+        className="relative border-r border-app bg-surface-2 pr-2 text-right pointer-events-none"
         style={{ width: rulerWidth, height: timelineHeight }}
       >
+        <svg
+          width={rulerWidth}
+          height={timelineHeight}
+          className="absolute left-0 top-0 block pointer-events-none"
+        >
+          {visibleRulerSeconds.map((sec) => {
+            if (sec === 0) return null;
+            const y = sec * zoom;
+            return (
+              <line
+                key={`r-line-${sec}`}
+                x1={0}
+                y1={y}
+                x2={rulerWidth}
+                y2={y}
+                stroke="var(--color-border)"
+                strokeWidth={1}
+                opacity={GRID_LINE_OPACITY}
+              />
+            );
+          })}
+        </svg>
         <div className="relative h-full py-4">
-          {Array.from({ length: Math.ceil(durationSec / RULER_STEP_SEC) }).map((_, i) => {
-            const sec = i * RULER_STEP_SEC;
-            const ms = sec * MS_PER_SEC;
-            if (
-              ms < visibleRange.start - VISIBLE_RANGE_BUFFER_MS ||
-              ms > visibleRange.end + VISIBLE_RANGE_BUFFER_MS
-            )
-              return null;
+          {visibleRulerSeconds.map((sec) => {
             const y = sec * zoom;
             return (
               <div
                 key={`r-${sec}`}
-                className="absolute right-2 text-[10px] font-mono text-muted"
-                style={{ top: y }}
+                className="absolute left-4 text-[10px] font-mono text-muted"
+                style={{ top: y + 6 }}
               >
                 {format(new Date(0, 0, 0, 0, 0, sec), 'mm:ss')}
               </div>
@@ -76,14 +110,29 @@ export function PinnedTimelineLanes({
         </div>
       </div>
 
-      <div
-        className="relative h-full border-r border-app bg-surface"
-        style={{
-          width: castWidth,
-          backgroundSize: '100% 60px',
-          backgroundImage: 'linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)',
-        }}
-      >
+      <div className="relative h-full border-r border-app bg-surface" style={{ width: castWidth }}>
+        <svg
+          width={castWidth}
+          height={timelineHeight}
+          className="absolute left-0 top-0 block pointer-events-none"
+        >
+          {visibleGridSeconds.map((sec) => {
+            if (sec === 0) return null;
+            const y = sec * zoom;
+            return (
+              <line
+                key={`cast-grid-${sec}`}
+                x1={0}
+                y1={y}
+                x2={castWidth}
+                y2={y}
+                stroke="var(--color-border)"
+                strokeWidth={1}
+                opacity={GRID_LINE_OPACITY}
+              />
+            );
+          })}
+        </svg>
         {visibleCasts.map((ev) => {
           const top = (ev.tMs / MS_PER_SEC) * zoom;
           const duration = Math.max(0, ev.duration || 0);
@@ -130,12 +179,30 @@ export function PinnedTimelineLanes({
 
       <div
         className="relative h-full border-r border-app bg-surface-2"
-        style={{
-          width: damageWidth,
-          backgroundSize: '100% 60px',
-          backgroundImage: 'linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)',
-        }}
+        style={{ width: damageWidth }}
       >
+        <svg
+          width={damageWidth}
+          height={timelineHeight}
+          className="absolute left-0 top-0 block pointer-events-none"
+        >
+          {visibleGridSeconds.map((sec) => {
+            if (sec === 0) return null;
+            const y = sec * zoom;
+            return (
+              <line
+                key={`damage-grid-${sec}`}
+                x1={0}
+                y1={y}
+                x2={damageWidth}
+                y2={y}
+                stroke="var(--color-border)"
+                strokeWidth={1}
+                opacity={GRID_LINE_OPACITY}
+              />
+            );
+          })}
+        </svg>
         <svg
           width={damageLineWidth}
           height={timelineHeight}
