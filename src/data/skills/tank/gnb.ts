@@ -5,6 +5,7 @@ export const GNB_COOLDOWN_GROUPS: CooldownGroup[] = [
     id: 'gnb-grp-aurora',
     cooldownSec: 60,
     stack: 2,
+    resourceDisplay: { label: '极光' },
   },
 ];
 

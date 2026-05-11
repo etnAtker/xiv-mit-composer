@@ -5,6 +5,7 @@ export const DRK_COOLDOWN_GROUPS: CooldownGroup[] = [
     id: 'drk-grp-oblation',
     cooldownSec: 60,
     stack: 2,
+    resourceDisplay: { label: '献奉' },
   },
 ];
 
