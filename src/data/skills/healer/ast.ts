@@ -1,4 +1,12 @@
-import type { Skill } from '../../../model/types';
+import type { CooldownGroup, Skill } from '../../../model/types';
+
+export const AST_COOLDOWN_GROUPS: CooldownGroup[] = [
+  {
+    id: 'ast-grp-celestial-intersection',
+    cooldownSec: 30,
+    stack: 2,
+  },
+];
 
 export const AST_SKILLS: Skill[] = [
   {

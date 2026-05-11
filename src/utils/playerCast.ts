@@ -5,7 +5,7 @@ import {
   getSkillDefinition,
   normalizeSkillId,
 } from '../data/skills';
-import type { CooldownEvent, Job, MitEvent } from '../model/types';
+import type { CooldownEvent, Job, MitEvent, ResourceEvent } from '../model/types';
 import { BinaryHeap } from './BinaryHeap';
 
 const GROUP_PREFIX = 'grp:';
@@ -27,6 +27,7 @@ export interface CooldownBuildFailure {
 export interface CooldownBuildSuccess {
   ok: true;
   cooldownEvents: CooldownEvent[];
+  resourceEvents: ResourceEvent[];
 }
 
 export type CooldownBuildResult = CooldownBuildSuccess | CooldownBuildFailure;
@@ -37,6 +38,7 @@ export interface MitigationStateSuccess {
   ok: true;
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
+  resourceEvents: ResourceEvent[];
 }
 
 export type MitigationStateResult = MitigationStateSuccess | MitigationStateFailure;
@@ -51,6 +53,11 @@ class CooldownBuildError extends Error {
   }
 }
 
+export interface PlayerCastState {
+  cooldownEvents: CooldownEvent[];
+  resourceEvents: ResourceEvent[];
+}
+
 const buildOwnerKey = (ownerId?: number, ownerJob?: Job) => {
   if (typeof ownerId === 'number') return `id:${ownerId}`;
   if (ownerJob) return `job:${ownerJob}`;
@@ -63,7 +70,7 @@ function sortMitEvents(events: MitEvent[]) {
 
 export function buildCooldownsStrict(events: MitEvent[]): CooldownBuildResult {
   try {
-    return { ok: true, cooldownEvents: buildCooldownEventsInternal(events, 'strict') };
+    return { ok: true, ...buildPlayerCastStateInternal(events, 'strict') };
   } catch (error) {
     if (error instanceof CooldownBuildError) {
       return {
@@ -77,7 +84,11 @@ export function buildCooldownsStrict(events: MitEvent[]): CooldownBuildResult {
 }
 
 export function buildCooldownsTolerant(events: MitEvent[]): CooldownEvent[] {
-  return buildCooldownEventsInternal(events, 'tolerant');
+  return buildPlayerCastStateTolerant(events).cooldownEvents;
+}
+
+export function buildPlayerCastStateTolerant(events: MitEvent[]): PlayerCastState {
+  return buildPlayerCastStateInternal(events, 'tolerant');
 }
 
 export function evaluateMitigationSetStrict(events: MitEvent[]): MitigationStateResult {
@@ -91,6 +102,7 @@ export function evaluateMitigationSetStrict(events: MitEvent[]): MitigationState
     ok: true,
     mitEvents,
     cooldownEvents: cooldownResult.cooldownEvents,
+    resourceEvents: cooldownResult.resourceEvents,
   };
 }
 
@@ -162,14 +174,29 @@ interface CooldownEventBoundary {
   boundaryType: 'unusedStart' | 'unusedEnd' | 'cooldownStart' | 'cooldownEnd';
 }
 
+interface ResourceState {
+  resourceGroupId: string;
+  ownerKey?: string;
+  ownerJob?: Job;
+  value: number;
+  maxValue: number;
+  startMs: number;
+}
+
 const stackEventOrder: Record<StackEvent['type'], number> = { recover: 0, consume: 1 };
 
-function buildCooldownEventsInternal(events: MitEvent[], mode: BuildMode): CooldownEvent[] {
+function buildPlayerCastStateInternal(events: MitEvent[], mode: BuildMode): PlayerCastState {
   const stackEvents = buildStackEvents(events, mode);
-  const boundaries = buildBoundaries(stackEvents, mode);
+  const { boundaries, resourceEvents } = buildBoundaries(stackEvents, mode);
   const cooldownEvents = buildCooldownEvents(boundaries, mode);
   cooldownEvents.sort((a, b) => a.tStartMs - b.tStartMs);
-  return cooldownEvents;
+  resourceEvents.sort(
+    (a, b) =>
+      a.tStartMs - b.tStartMs ||
+      a.resourceGroupId.localeCompare(b.resourceGroupId) ||
+      (a.ownerKey ?? '').localeCompare(b.ownerKey ?? ''),
+  );
+  return { cooldownEvents, resourceEvents };
 }
 
 function buildStackEvents(mitEvents: MitEvent[], mode: BuildMode): BinaryHeap<StackEvent> {
@@ -230,15 +257,20 @@ function buildStackEvents(mitEvents: MitEvent[], mode: BuildMode): BinaryHeap<St
 function buildBoundaries(
   stackEvents: BinaryHeap<StackEvent>,
   mode: BuildMode,
-): Map<string, CooldownEventBoundary[]> {
+): { boundaries: Map<string, CooldownEventBoundary[]>; resourceEvents: ResourceEvent[] } {
   const stacksBuffer = new Map<string, number>();
   const boundaries = new Map<string, CooldownEventBoundary[]>();
+  const resourceStates = new Map<string, ResourceState>();
+  const resourceEvents: ResourceEvent[] = [];
   const getSkillKey = (skillId: string, ownerKey?: string) =>
     ownerKey ? `${skillId}:${ownerKey}` : skillId;
+  let lastStackEventMs = 0;
 
   for (let stackEvent = stackEvents.pop(); stackEvent; stackEvent = stackEvents.pop()) {
+    lastStackEventMs = Math.max(lastStackEventMs, stackEvent.tMs);
     const initialStack = getInitialStack(stackEvent);
     let stack = stacksBuffer.get(stackEvent.resourceKey) ?? initialStack;
+    const previousStack = stack;
 
     if (stackEvent.type === 'consume') {
       if (stack === initialStack) {
@@ -268,6 +300,15 @@ function buildBoundaries(
       );
       stack = 0;
     }
+
+    recordResourceStackChange(
+      stackEvent,
+      previousStack,
+      stack,
+      initialStack,
+      resourceStates,
+      resourceEvents,
+    );
 
     const buildBoundary = (skillId: string): CooldownEventBoundary[] => {
       if (stack === 0) {
@@ -335,7 +376,61 @@ function buildBoundaries(
     stacksBuffer.set(stackEvent.resourceKey, stack);
   }
 
-  return boundaries;
+  for (const state of resourceStates.values()) {
+    resourceEvents.push({
+      resourceGroupId: state.resourceGroupId,
+      ownerKey: state.ownerKey,
+      ownerJob: state.ownerJob,
+      value: state.value,
+      maxValue: state.maxValue,
+      tStartMs: state.startMs,
+      tEndMs: Math.max(state.startMs, lastStackEventMs),
+    });
+  }
+
+  return { boundaries, resourceEvents };
+}
+
+function recordResourceStackChange(
+  stackEvent: StackEvent,
+  previousStack: number,
+  nextStack: number,
+  initialStack: number,
+  resourceStates: Map<string, ResourceState>,
+  resourceEvents: ResourceEvent[],
+) {
+  if (!stackEvent.isGroup || previousStack === nextStack) return;
+
+  const resourceGroupId = stripGroupPrefix(stackEvent.resourceKey);
+  const cooldownGroupMeta = COOLDOWN_GROUP_MAP.get(resourceGroupId);
+  if (!cooldownGroupMeta?.resourceDisplay) return;
+
+  const currentState =
+    resourceStates.get(stackEvent.resourceKey) ??
+    ({
+      resourceGroupId,
+      ownerKey: stackEvent.ownerKey,
+      ownerJob: stackEvent.ownerJob,
+      value: initialStack,
+      maxValue: initialStack,
+      startMs: 0,
+    } satisfies ResourceState);
+
+  resourceEvents.push({
+    resourceGroupId: currentState.resourceGroupId,
+    ownerKey: currentState.ownerKey,
+    ownerJob: currentState.ownerJob,
+    value: currentState.value,
+    maxValue: currentState.maxValue,
+    tStartMs: currentState.startMs,
+    tEndMs: stackEvent.tMs,
+  });
+
+  resourceStates.set(stackEvent.resourceKey, {
+    ...currentState,
+    value: nextStack,
+    startMs: stackEvent.tMs,
+  });
 }
 
 function getInitialStack(stackEvent: StackEvent): number {

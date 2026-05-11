@@ -1,4 +1,13 @@
-import type { Skill } from '../../../model/types';
+import type { CooldownGroup, Skill } from '../../../model/types';
+
+export const PLD_COOLDOWN_GROUPS: CooldownGroup[] = [
+  {
+    id: 'pld-grp-sheltron',
+    cooldownSec: 22.6,
+    stack: 2,
+    resourceDisplay: { label: '忠义' },
+  },
+];
 
 export const PLD_SKILLS: Skill[] = [
   // 骑士 (PLD)

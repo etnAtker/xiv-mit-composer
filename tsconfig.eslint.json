@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.eslint.tsbuildinfo",
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src", "test/**/*.ts", "scripts/**/*.ts", "vite.config.ts"]
+}

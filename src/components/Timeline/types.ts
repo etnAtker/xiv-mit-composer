@@ -23,3 +23,13 @@ export interface TimelineSkillColumn {
   ownerId?: number;
   ownerName?: string;
 }
+
+export interface TimelineResourceColumn {
+  id: string;
+  columnId: string;
+  label: string;
+  ownerId: number;
+  ownerName: string;
+  job: Job;
+  maxValue: number;
+}

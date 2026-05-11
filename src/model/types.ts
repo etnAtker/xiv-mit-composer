@@ -121,6 +121,9 @@ export interface CooldownGroup {
   id: string;
   cooldownSec: number;
   stack: number;
+  resourceDisplay?: {
+    label: string;
+  };
 }
 
 export type PlayerEventType = 'mit' | 'cooldown';
@@ -146,6 +149,16 @@ export interface CooldownEvent {
   ownerKey?: string;
   tStartMs: number;
   durationMs: number;
+  tEndMs: number;
+}
+
+export interface ResourceEvent {
+  resourceGroupId: string;
+  ownerJob?: Job;
+  ownerKey?: string;
+  value: number;
+  maxValue: number;
+  tStartMs: number;
   tEndMs: number;
 }
 

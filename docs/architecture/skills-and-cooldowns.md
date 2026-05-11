@@ -14,7 +14,7 @@
 - `ranged-physical/`：远敏通用技能和 BRD、MCH、DNC 技能。
 - `ranged-magical/`：法系远敏通用技能和 BLM、SMN、RDM、PCT 技能。
 
-`src/data/skills/index.ts` 汇总全部技能为 `SKILLS`，并导出技能 Map、共享冷却组 Map、职业过滤函数和 role 技能 owner 作用域工具函数。
+各职业文件同时维护本职业技能和本职业共享冷却组。`src/data/skills/index.ts` 汇总全部技能为 `SKILLS`，汇总全部共享冷却组为 `COOLDOWN_GROUP`，并导出技能 Map、共享冷却组 Map、职业过滤函数和 role 技能 owner 作用域工具函数。
 
 ## 职业与职能技能
 
@@ -36,7 +36,9 @@
 
 ## 共享冷却组
 
-共享冷却组定义在 `COOLDOWN_GROUP`。冷却组包含组 ID、冷却秒数和可用层数。技能通过 `cooldownGroup` 关联共享冷却组。
+共享冷却组定义在各职业文件的 `*_COOLDOWN_GROUPS` 中，并由 `src/data/skills/index.ts` 聚合为 `COOLDOWN_GROUP`。冷却组包含组 ID、冷却秒数和可用层数。技能通过 `cooldownGroup` 关联共享冷却组。
+
+共享冷却组设置 `resourceDisplay` 时会作为资源档数显示到对应成员的时间轴组内。`resourceDisplay.label` 使用短标签，当前启用显示的资源为 `pld-grp-sheltron`，标签为 `忠义`。
 
 当前共享冷却组包含以下资源：
 
@@ -55,11 +57,13 @@
 
 冷却逻辑位于 `src/utils/playerCast.ts`。
 
-`buildCooldownsStrict` 使用 strict 模式构建冷却事件。strict 模式遇到未知技能、未知冷却组、负层数、重复打开的冷却区间或未闭合冷却区间时返回失败结果。
+`buildCooldownsStrict` 使用 strict 模式构建冷却事件和资源状态区间。strict 模式遇到未知技能、未知冷却组、负层数、重复打开的冷却区间或未闭合冷却区间时返回失败结果。
 
 `buildCooldownsTolerant` 使用 tolerant 模式构建冷却事件。tolerant 模式记录错误并继续返回可构建出的冷却事件。
 
-`evaluateMitigationSetStrict` 对减伤事件按开始时间排序，并使用 strict 模式重建冷却事件。store 中的减伤事件提交入口使用该函数保证状态合法。
+`buildPlayerCastStateTolerant` 使用 tolerant 模式构建冷却事件和资源状态区间。资源状态区间在共享冷却组的层数模拟过程中产生，不在 UI 层反推。
+
+`evaluateMitigationSetStrict` 对减伤事件按开始时间排序，并使用 strict 模式重建冷却事件和资源状态区间。store 中的减伤事件提交入口使用该函数保证状态合法。
 
 ## 插入与移动校验
 

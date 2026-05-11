@@ -19,6 +19,7 @@ export function useTimelineScroll({
 }: UseTimelineScrollOptions) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 10000 });
+  const [visibleStartMs, setVisibleStartMs] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const prevZoomRef = useRef(zoom);
 
@@ -31,6 +32,8 @@ export function useTimelineScroll({
 
     const startSec = scrollTop / zoom;
     const endSec = (scrollTop + visibleHeight) / zoom;
+
+    setVisibleStartMs(startSec * MS_PER_SEC);
 
     const newStart = Math.max(0, startSec * MS_PER_SEC - visibleRangeBufferMs);
     const newEnd = endSec * MS_PER_SEC + visibleRangeBufferMs;
@@ -81,5 +84,5 @@ export function useTimelineScroll({
     };
   }, [zoom, setZoom, zoomWheelStep]);
 
-  return { scrollRef, visibleRange, isScrolled, handleScroll };
+  return { scrollRef, visibleRange, visibleStartMs, isScrolled, handleScroll };
 }

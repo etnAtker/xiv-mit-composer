@@ -1,4 +1,12 @@
-import type { Skill } from '../../../model/types';
+import type { CooldownGroup, Skill } from '../../../model/types';
+
+export const GNB_COOLDOWN_GROUPS: CooldownGroup[] = [
+  {
+    id: 'gnb-grp-aurora',
+    cooldownSec: 60,
+    stack: 2,
+  },
+];
 
 export const GNB_SKILLS: Skill[] = [
   // 绝枪战士 (GNB)

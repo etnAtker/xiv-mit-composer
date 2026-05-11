@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import type { CastEvent, CooldownEvent, GroupedDamageEvent, MitEvent } from '../../model/types';
+import type {
+  CastEvent,
+  CooldownEvent,
+  GroupedDamageEvent,
+  MitEvent,
+  ResourceEvent,
+} from '../../model/types';
 import { useStore } from '../../store';
 import { useShallow } from 'zustand/shallow';
 import { CooldownConstraintLayer } from './CooldownConstraintLayer';
@@ -13,6 +19,7 @@ import { TimelineHeader } from './TimelineHeader';
 import { TimelineBackground } from './TimelineBackground';
 import { TimelineGridLines } from './TimelineGridLines';
 import { MitigationLayer } from './MitigationLayer';
+import { ResourceLaneLayer } from './ResourceLaneLayer';
 import { TimelineTooltip } from './TimelineTooltip';
 import { useTimelineScroll } from './useTimelineScroll';
 import { useBoxSelection } from './useBoxSelection';
@@ -48,6 +55,7 @@ interface Props {
   damageEvents: GroupedDamageEvent[];
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
+  resourceEvents: ResourceEvent[];
   activeDragId?: string | null;
   dragPreviewPx?: number;
 }
@@ -71,6 +79,7 @@ export function TimelineCanvas({
   damageEvents,
   mitEvents,
   cooldownEvents,
+  resourceEvents,
   activeDragId,
   dragPreviewPx = 0,
 }: Props) {
@@ -120,7 +129,7 @@ export function TimelineCanvas({
     data: mitLaneDropZone,
   });
 
-  const { scrollRef, visibleRange, isScrolled, handleScroll } = useTimelineScroll({
+  const { scrollRef, visibleRange, visibleStartMs, isScrolled, handleScroll } = useTimelineScroll({
     zoom,
     setZoom,
     headerHeight: HEADER_HEIGHT,
@@ -290,6 +299,14 @@ export function TimelineCanvas({
               className="absolute top-0"
               style={{ left: mitX, width: layout.mitAreaWidth, height: timelineHeight }}
             >
+              <ResourceLaneLayer
+                resourceEvents={resourceEvents}
+                layout={layout}
+                timelineHeight={timelineHeight}
+                zoom={zoom}
+                visibleStartMs={visibleStartMs}
+              />
+
               <CooldownConstraintLayer
                 cooldownEvents={cooldownEvents}
                 mitEvents={mitEvents}

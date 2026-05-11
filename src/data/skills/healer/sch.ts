@@ -1,4 +1,12 @@
-import type { Skill } from '../../../model/types';
+import type { CooldownGroup, Skill } from '../../../model/types';
+
+export const SCH_COOLDOWN_GROUPS: CooldownGroup[] = [
+  {
+    id: 'sch-grp-consolation',
+    cooldownSec: 30,
+    stack: 2,
+  },
+];
 
 export const SCH_SKILLS: Skill[] = [
   {

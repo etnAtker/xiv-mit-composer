@@ -4,6 +4,7 @@ import { normalizeSkillId } from '../../data/skills';
 
 export const TRUNCATE_LEN = 12;
 export const MIT_COLUMN_WIDTH = 40;
+export const RESOURCE_COLUMN_WIDTH = 20;
 export const MIT_COLUMN_PADDING = 0;
 export const MIT_MEMBER_GROUP_PADDING_X = MIT_COLUMN_WIDTH / 4;
 export const MIN_MEMBER_GROUP_WIDTH = MIT_COLUMN_WIDTH * 3;

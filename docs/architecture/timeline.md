@@ -14,6 +14,7 @@
 - `PinnedTimelineLanes`：固定时间标尺、Boss 咏唱列和全局 Damage 列。
 - `TimelineBackground`：列背景。
 - `TimelineGridLines`：时间网格线。
+- `ResourceLaneLayer`：成员组内共享资源档数列。
 - `CooldownConstraintLayer`：冷却和不可用区间。
 - `MitigationLayer`：减伤条、拖拽投放区域和编辑入口。
 - `TimelineTooltip`：事件悬浮提示。
@@ -23,6 +24,8 @@
 `src/components/Timeline/timelineLayout.ts` 定义 `buildTimelineLayout`。布局输入为当前队伍成员和技能表。
 
 时间轴横向布局为时间列、Boss 咏唱列、全局 Damage 列和队伍成员技能组。每名队伍成员拥有独立技能组，技能列 key 使用 `基础技能ID:playerId`。折叠玩家组时，布局保留一个窄头部并不生成该玩家技能列。
+
+启用 `resourceDisplay` 的共享冷却组会在对应成员技能组内生成资源窄列。资源列排在该成员技能列之前，列宽由 `RESOURCE_COLUMN_WIDTH` 定义，表头显示共享组的短标签。
 
 非 role 技能和 role 技能都按 `playerId` 分发到释放者列。重复职业玩家不会共享技能列。
 
@@ -61,3 +64,5 @@
 `CooldownConstraintLayer` 使用 `buildConstraintSegments` 生成可视冷却区段。区段生成时，冷却范围会扣除同列减伤效果范围，因此减伤条本体覆盖的区域不重复绘制冷却遮罩。
 
 共享冷却组会把冷却限制绘制到同组技能列。被释放技能自身列只显示不被效果条覆盖的冷却尾段。
+
+`ResourceLaneLayer` 使用 store 中的资源状态区间绘制连续档数色带。资源列顶部按当前可见起点显示当前档数，即使最近一次档数变化不在屏幕内，仍显示该时刻资源状态。同屏内的档数变化点会显示变化后的档数，靠近顶部当前值时隐藏变化点档数以避免重叠。满档固定使用红色，非满档按 0 到 5 的档位色板显示。

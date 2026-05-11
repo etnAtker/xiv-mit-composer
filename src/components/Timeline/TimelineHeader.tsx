@@ -1,7 +1,7 @@
 import type { TimelineMemberGroup } from './timelineLayout';
 import { XivIcon } from '../XivIcon';
 import { JOB_ICON_LOCAL_SRC, getSkillIconLocalSrc } from '../../data/icons';
-import { MIT_COLUMN_WIDTH } from './timelineUtils';
+import { MIT_COLUMN_WIDTH, RESOURCE_COLUMN_WIDTH } from './timelineUtils';
 
 interface Props {
   totalWidth: number;
@@ -106,6 +106,16 @@ export function TimelineHeader({
                 </div>
               ) : (
                 <div className="flex justify-center" style={{ width: group.width }}>
+                  {group.resourceColumns.map((resource) => (
+                    <div
+                      key={`resource-head-${resource.columnId}`}
+                      className="flex h-10 items-center justify-center border-l border-r border-app bg-surface-1/70 text-[10px] font-bold leading-none text-muted"
+                      style={{ width: RESOURCE_COLUMN_WIDTH }}
+                      title={`${resource.ownerName} ${resource.label}`}
+                    >
+                      <span className="[writing-mode:vertical-rl]">{resource.label}</span>
+                    </div>
+                  ))}
                   {group.skills.map((skill) => (
                     <div
                       key={`head-${skill.columnId}`}

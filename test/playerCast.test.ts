@@ -5,6 +5,7 @@ import type { Job, MitEvent } from '../src/model/types';
 import {
   buildCooldownsStrict,
   buildCooldownsTolerant,
+  buildPlayerCastStateTolerant,
   canInsertMitigation,
   evaluateMitigationSetStrict,
   tryBuildCooldowns,
@@ -144,6 +145,67 @@ test('充能技能会按可用层数顺序恢复', () => {
       tEndMs: 70_000,
     },
   ]);
+});
+
+test('显示资源组会保留共享层数变化区间', () => {
+  const events = [
+    createMitEvent('pld-h-sheltron', 10_000, 'PLD'),
+    createMitEvent('pld-intervention', 20_000, 'PLD'),
+  ];
+  const state = buildPlayerCastStateTolerant(events);
+
+  assert.deepEqual(
+    state.resourceEvents.map((event) => ({
+      resourceGroupId: event.resourceGroupId,
+      ownerKey: event.ownerKey,
+      value: event.value,
+      maxValue: event.maxValue,
+      tStartMs: event.tStartMs,
+      tEndMs: event.tEndMs,
+    })),
+    [
+      {
+        resourceGroupId: 'pld-grp-sheltron',
+        ownerKey: 'id:1',
+        value: 2,
+        maxValue: 2,
+        tStartMs: 0,
+        tEndMs: 10_000,
+      },
+      {
+        resourceGroupId: 'pld-grp-sheltron',
+        ownerKey: 'id:1',
+        value: 1,
+        maxValue: 2,
+        tStartMs: 10_000,
+        tEndMs: 20_000,
+      },
+      {
+        resourceGroupId: 'pld-grp-sheltron',
+        ownerKey: 'id:1',
+        value: 0,
+        maxValue: 2,
+        tStartMs: 20_000,
+        tEndMs: 32_600,
+      },
+      {
+        resourceGroupId: 'pld-grp-sheltron',
+        ownerKey: 'id:1',
+        value: 1,
+        maxValue: 2,
+        tStartMs: 32_600,
+        tEndMs: 55_200,
+      },
+      {
+        resourceGroupId: 'pld-grp-sheltron',
+        ownerKey: 'id:1',
+        value: 2,
+        maxValue: 2,
+        tStartMs: 55_200,
+        tEndMs: 55_200,
+      },
+    ],
+  );
 });
 
 test('同技能不同 owner 不会互相阻塞', () => {

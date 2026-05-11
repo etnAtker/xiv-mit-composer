@@ -1,5 +1,5 @@
 import type { TimelineSkillColumn } from './types';
-import { MIT_COLUMN_WIDTH } from './timelineUtils';
+import { MIT_COLUMN_WIDTH, RESOURCE_COLUMN_WIDTH } from './timelineUtils';
 import type { TimelineMemberGroup } from './timelineLayout';
 
 interface Props {
@@ -58,10 +58,21 @@ export function TimelineBackground({
                 style={{ width: group.width }}
               >
                 <div className="flex h-full justify-center">
+                  {group.resourceColumns.map((resource, index) => (
+                    <div
+                      key={`resource-lane-${resource.columnId}`}
+                      className={`h-full border-r border-app bg-surface-2/40 ${
+                        index === 0 ? 'border-l' : ''
+                      }`}
+                      style={{ width: RESOURCE_COLUMN_WIDTH }}
+                    />
+                  ))}
                   {group.skills.map((skill, index) => (
                     <div
                       key={`lane-${skill.columnId}`}
-                      className={`h-full border-r border-app ${index === 0 ? 'border-l' : ''}`}
+                      className={`h-full border-r border-app ${
+                        index === 0 && group.resourceColumns.length === 0 ? 'border-l' : ''
+                      }`}
                       style={{ width: MIT_COLUMN_WIDTH }}
                     />
                   ))}
