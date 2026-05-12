@@ -8,7 +8,7 @@ export const PCT_SKILLS: Skill[] = [
     name_jp: 'テンペラコート',
     name_fr: 'Enduit a tempera',
     name_de: 'Tempera-Schicht',
-    cooldownSec: 120,
+    cooldownSec: 60,
     durationSec: 10,
     mitigation: [{ kind: 'shield', durationSec: 10, maxHpPct: 20, targeting: { kind: 'self' } }],
     job: 'PCT',
