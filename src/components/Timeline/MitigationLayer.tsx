@@ -30,6 +30,7 @@ interface Props {
   updateMitEvent: (id: string, updates: Partial<MitEvent>) => void;
   removeMitEvent: (id: string) => void;
   setContextMenu: (position: { x: number; y: number } | null) => void;
+  onDurationEndContextMenu: (e: React.MouseEvent, mit: MitEvent) => void;
   activeDragId?: string | null;
   dragPreviewPx?: number;
   editPopoverPosition: { x: number; y: number } | null;
@@ -56,6 +57,7 @@ export function MitigationLayer({
   updateMitEvent,
   removeMitEvent,
   setContextMenu,
+  onDurationEndContextMenu,
   activeDragId,
   dragPreviewPx = 0,
   editPopoverPosition,
@@ -104,6 +106,7 @@ export function MitigationLayer({
               iconSrc={skillDef ? getSkillIconLocalSrc(skillDef.actionId) : undefined}
               iconAlt={skillDef?.name ?? 'skill icon'}
               effectHeight={effectHeight}
+              durationEndSkillId={mit.endedBy?.skillId}
             />
           </div>
         );
@@ -137,6 +140,7 @@ export function MitigationLayer({
               iconSrc={JOB_ICON_LOCAL_SRC[iconJob]}
               iconAlt={`${iconJob} icon`}
               effectHeight={effectHeight}
+              durationEndSkillId={mit.endedBy?.skillId}
             />
           </div>
         );
@@ -218,6 +222,7 @@ export function MitigationLayer({
                 }
                 setContextMenu({ x: e.clientX, y: e.clientY });
               }}
+              onDurationEndRightClick={onDurationEndContextMenu}
             />
           </div>
         );

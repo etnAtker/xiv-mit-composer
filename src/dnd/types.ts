@@ -4,7 +4,8 @@ import type { Job, MitEvent, Skill } from '../model/types';
 // 路由只看语义字段 (kind/timelineId/laneId)，不要解析字符串 id。
 export type DragItemData =
   | { type: 'new-skill'; skill: Skill; ownerId?: number; ownerJob?: Job }
-  | { type: 'existing-mit'; mit: MitEvent; sourceTimelineId: string };
+  | { type: 'existing-mit'; mit: MitEvent; sourceTimelineId: string }
+  | { type: 'duration-ender'; parentMit: MitEvent; skillId: string; sourceTimelineId: string };
 
 export type DropZoneData =
   // `msPerPx` 用于把指针 Y 映射成时间轴时间，避免查 DOM；支持多实例/不同缩放。

@@ -6,10 +6,16 @@ import { useStore } from '../store';
 import type { PushBanner } from './useTopBanner';
 import {
   buildMitEventFromSkill,
+  buildClearedDurationEndMitEvents,
+  buildDurationEndMitEvents,
   buildMovedMitEvents,
+  buildUpdatedDurationEndMitEvents,
+  canUpdateDurationEnd,
   canDropExistingMitigations,
   canDropNewMitigation,
+  isDurationEnderSkill,
   prepareExistingMitDrag,
+  resolveDropCenterMs,
   resolveDropStartMs,
   resolveMitRemovalIds,
 } from '../domain/drag/mitigationDrag';
@@ -93,7 +99,7 @@ export function useMitigationDragController({
       activeItemRef.current = currentItem ?? null;
       setActiveItem(currentItem ?? null);
 
-      if (currentItem?.type === 'new-skill') {
+      if (currentItem?.type === 'new-skill' || currentItem?.type === 'duration-ender') {
         setSelectedMitIds([]);
       }
 
@@ -153,6 +159,14 @@ export function useMitigationDragController({
           eventsToMove,
           mitEvents,
         });
+      } else if (currentItem?.type === 'duration-ender') {
+        const tEndMs = resolveDropCenterMs(
+          translated.top,
+          translated.height,
+          over.rect.top,
+          zone.msPerPx,
+        );
+        isValid = canUpdateDurationEnd(currentItem.parentMit.id, tEndMs, mitEvents);
       }
 
       if (dragInvalidRef.current === !isValid) return;
@@ -176,6 +190,14 @@ export function useMitigationDragController({
       if (!zone) return;
 
       if (zone.kind === 'trash') {
+        if (item.type === 'duration-ender') {
+          const clearedEvents = buildClearedDurationEndMitEvents(item.parentMit.id, mitEvents);
+          if (clearedEvents) {
+            setMitEvents(clearedEvents);
+          }
+          return;
+        }
+
         if (item.type !== 'existing-mit') return;
 
         const selectedMitIds = useStore.getState().selectedMitIds;
@@ -189,12 +211,50 @@ export function useMitigationDragController({
       if (zone.kind !== 'mit-lane') return;
       const tStartMs = resolveDropStartMs(translated.top, over.rect.top, zone.msPerPx);
 
+      if (item.type === 'duration-ender') {
+        const tEndMs = resolveDropCenterMs(
+          translated.top,
+          translated.height,
+          over.rect.top,
+          zone.msPerPx,
+        );
+        const updatedEvents = buildUpdatedDurationEndMitEvents(
+          item.parentMit.id,
+          item.skillId,
+          tEndMs,
+          mitEvents,
+        );
+        if (!updatedEvents) {
+          push('超出技能持续时间，已取消移动。', { tone: 'error' });
+          return;
+        }
+
+        setMitEvents(updatedEvents);
+        return;
+      }
+
       if (item.type === 'new-skill') {
         const ownerContext = resolveOwnerContext(item.ownerJob, item.ownerId);
+        const durationEndEvents = buildDurationEndMitEvents(
+          item.skill.id,
+          tStartMs,
+          mitEvents,
+          ownerContext,
+        );
+        if (durationEndEvents) {
+          setMitEvents(durationEndEvents);
+          return;
+        }
+
         if (
           !canDropNewMitigation(item.skill.id, tStartMs, mitEvents, cooldownEvents, ownerContext)
         ) {
-          push('冷却中，无法放置该技能。', { tone: 'error' });
+          push(
+            isDurationEnderSkill(item.skill.id)
+              ? '超出技能持续时间，无法放置。'
+              : '冷却中，无法放置该技能。',
+            { tone: 'error' },
+          );
           return;
         }
 

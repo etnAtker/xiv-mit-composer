@@ -30,6 +30,7 @@ import {
   buildCounterpartProjectionGhosts,
   buildCounterpartProjectionZIndexMap,
 } from './counterpartProjectionUtils';
+import { getSkillDefinition } from '../../data/skills';
 
 const VISIBLE_RANGE_BUFFER_MS = 5000;
 const ZOOM_WHEEL_STEP = 5;
@@ -100,6 +101,7 @@ export function TimelineCanvas({
   );
   const [editingMitId, setEditingMitId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [durationEndMenuMitId, setDurationEndMenuMitId] = useState<string | null>(null);
   const [lastContextMenuPosition, setLastContextMenuPosition] = useState<{
     x: number;
     y: number;
@@ -191,12 +193,22 @@ export function TimelineCanvas({
 
   const handleContextMenuChange = useCallback(
     (position: { x: number; y: number } | null) => {
+      setDurationEndMenuMitId(null);
       setContextMenu(position);
       if (position) {
         setLastContextMenuPosition(position);
       }
     },
     [setContextMenu, setLastContextMenuPosition],
+  );
+  const handleDurationEndContextMenu = useCallback(
+    (event: React.MouseEvent, mit: MitEvent) => {
+      setSelectedMitIds([mit.id]);
+      handleEditingChange(null);
+      setDurationEndMenuMitId(mit.id);
+      setContextMenu({ x: event.clientX, y: event.clientY });
+    },
+    [handleEditingChange, setSelectedMitIds],
   );
 
   const getEffectiveStartMs = useCallback((mit: MitEvent) => mit.tStartMs, []);
@@ -338,6 +350,7 @@ export function TimelineCanvas({
               updateMitEvent={updateMitEvent}
               removeMitEvent={removeMitEvent}
               setContextMenu={handleContextMenuChange}
+              onDurationEndContextMenu={handleDurationEndContextMenu}
               activeDragId={activeDragId}
               dragPreviewPx={dragPreviewPx}
               editPopoverPosition={editPopoverPosition}
@@ -348,33 +361,70 @@ export function TimelineCanvas({
 
       {contextMenu && selectedMitIds.length > 0 && (
         <ContextMenu
-          items={[
-            ...(selectedMitIds.length === 1
+          items={
+            durationEndMenuMitId
               ? [
                   {
                     label: '编辑事件',
                     onClick: () => {
-                      handleEditingChange(selectedMitIds[0]);
+                      handleEditingChange(durationEndMenuMitId);
                       setEditPopoverPosition(lastContextMenuPosition ?? contextMenu);
                       setContextMenu(null);
+                      setDurationEndMenuMitId(null);
                     },
                   },
+                  {
+                    label: '删除结束标记',
+                    onClick: () => {
+                      const mit = mitEvents.find((event) => event.id === durationEndMenuMitId);
+                      const skill = mit ? getSkillDefinition(mit.skillId) : undefined;
+                      if (mit && skill) {
+                        const durationMs = skill.durationSec * MS_PER_SEC;
+                        updateMitEvent(mit.id, {
+                          durationMs,
+                          tEndMs: mit.tStartMs + durationMs,
+                          endedBy: undefined,
+                        });
+                      }
+                      setContextMenu(null);
+                      setDurationEndMenuMitId(null);
+                      setSelectedMitIds([]);
+                    },
+                    danger: true,
+                  },
                 ]
-              : []),
-            {
-              label: selectedMitIds.length === 1 ? '删除' : `删除所选项 (${selectedMitIds.length})`,
-              onClick: () => {
-                selectedMitIds.forEach((id) => removeMitEvent(id));
-                setContextMenu(null);
-                setSelectedMitIds([]);
-              },
-              danger: true,
-            },
-          ]}
+              : [
+                  ...(selectedMitIds.length === 1
+                    ? [
+                        {
+                          label: '编辑事件',
+                          onClick: () => {
+                            handleEditingChange(selectedMitIds[0]);
+                            setEditPopoverPosition(lastContextMenuPosition ?? contextMenu);
+                            setContextMenu(null);
+                          },
+                        },
+                      ]
+                    : []),
+                  {
+                    label:
+                      selectedMitIds.length === 1
+                        ? '删除'
+                        : `删除所选项 (${selectedMitIds.length})`,
+                    onClick: () => {
+                      selectedMitIds.forEach((id) => removeMitEvent(id));
+                      setContextMenu(null);
+                      setSelectedMitIds([]);
+                    },
+                    danger: true,
+                  },
+                ]
+          }
           position={contextMenu}
           onPositionResolved={setLastContextMenuPosition}
           onClose={() => {
             setContextMenu(null);
+            setDurationEndMenuMitId(null);
             setSelectedMitIds([]);
           }}
         />

@@ -16,6 +16,8 @@
 
 各职业文件同时维护本职业技能和本职业共享冷却组。`src/data/skills/index.ts` 汇总全部技能为 `SKILLS`，汇总全部共享冷却组为 `COOLDOWN_GROUP`，并导出技能 Map、共享冷却组 Map、职业过滤函数和 role 技能 owner 作用域工具函数。
 
+部分技能可以声明持续结束关系。父技能通过 `durationEnd.triggerSkillIds` 声明可提前结束自身持续的子技能；子技能通过 `kind: 'durationEnder'` 和 `durationEnder.parentSkillId` 指向父技能。持续结束型子技能可以从侧边栏拖入，但只有落在同一玩家的父技能原始持续时间内才合法；落点会写入父 `MitEvent.endedBy`，并把父事件的 `durationMs` 和 `tEndMs` 缩短到结束时间。持续结束型子技能不会生成独立 `MitEvent`，也不会参与冷却计算。当前 AST「小宇宙」作为「大宇宙」的持续结束型子技能。
+
 ## 职业与职能技能
 
 `Job` 联合类型定义当前模型支持的职业缩写。`CombatRole` 将职业归类为 tank、healer、melee、ranged-physical 和 ranged-magical。

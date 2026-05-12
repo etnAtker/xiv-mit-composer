@@ -3,6 +3,9 @@ import { MitigationBar } from './Timeline/MitigationBar';
 import { SkillCard } from './Skill/SkillCard';
 import { MIT_COLUMN_PADDING, MIT_COLUMN_WIDTH } from './Timeline/timelineUtils';
 import type { DragItemData } from '../dnd/types';
+import { getSkillDefinition } from '../data/skills';
+import { getSkillIconLocalSrc } from '../data/icons';
+import { XivIcon } from './XivIcon';
 
 interface Props {
   activeItem: DragItemData | null;
@@ -11,6 +14,9 @@ interface Props {
 }
 
 export function DragOverlayLayer({ activeItem, zoom, isInvalid }: Props) {
+  const durationEnderSkill =
+    activeItem?.type === 'duration-ender' ? getSkillDefinition(activeItem.skillId) : undefined;
+
   return (
     <DragOverlay>
       {activeItem?.type === 'new-skill' && (
@@ -30,6 +36,19 @@ export function DragOverlayLayer({ activeItem, zoom, isInvalid }: Props) {
           isOverlay
           isInvalid={isInvalid}
         />
+      )}
+      {activeItem?.type === 'duration-ender' && durationEnderSkill && (
+        <div
+          className={`h-8 w-8 overflow-hidden rounded border border-white/70 bg-black/50 shadow-2xl ${
+            isInvalid ? 'ring-2 ring-red-500/80' : ''
+          }`}
+        >
+          <XivIcon
+            localSrc={getSkillIconLocalSrc(durationEnderSkill.actionId)}
+            alt={durationEnderSkill.name}
+            className="h-full w-full object-cover"
+          />
+        </div>
       )}
     </DragOverlay>
   );

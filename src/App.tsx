@@ -157,16 +157,30 @@ export default function App() {
       })),
       ...mitEvents
         .filter((m) => m.ownerId === playerId)
-        .map((m) => {
+        .flatMap((m) => {
           const skill = getSkillDefinition(m.skillId);
-          return {
-            time: Number((m.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
-            actionName: skill?.name || 'Unknown',
-            actionId: skill?.actionId || 0,
-            type: 'cast',
-            isFriendly: true,
-            sourceId: m.ownerId ?? playerId,
-          };
+          const events = [
+            {
+              time: Number((m.tStartMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
+              actionName: skill?.name || 'Unknown',
+              actionId: skill?.actionId || 0,
+              type: 'cast',
+              isFriendly: true,
+              sourceId: m.ownerId ?? playerId,
+            },
+          ];
+          if (m.endedBy) {
+            const endSkill = getSkillDefinition(m.endedBy.skillId);
+            events.push({
+              time: Number((m.endedBy.tMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)),
+              actionName: endSkill?.name || 'Unknown',
+              actionId: endSkill?.actionId || 0,
+              type: 'cast',
+              isFriendly: true,
+              sourceId: m.ownerId ?? playerId,
+            });
+          }
+          return events;
         }),
     ].sort((a, b) => a.time - b.time);
   };
@@ -435,7 +449,9 @@ export default function App() {
       </div>
 
       <DragOverlayLayer activeItem={activeItem} zoom={zoom} isInvalid={dragInvalid} />
-      <TrashDropZone isActive={activeItem?.type === 'existing-mit'} />
+      <TrashDropZone
+        isActive={activeItem?.type === 'existing-mit' || activeItem?.type === 'duration-ender'}
+      />
 
       <HelpModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} />
 

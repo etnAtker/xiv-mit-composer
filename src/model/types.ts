@@ -111,9 +111,17 @@ export interface Skill {
   durationSec: number;
   job: Job | 'ALL';
   actionId: number; // FFLogs 技能 ID
+  kind?: 'normal' | 'durationEnder';
   icon?: string;
   mitigation?: SkillMitigation[];
   counterpartProjection?: boolean; // 在其他成员的同技能列显示对位投影
+  durationEnd?: {
+    triggerSkillIds?: string[];
+    allowSelfRecast?: boolean;
+  };
+  durationEnder?: {
+    parentSkillId: string;
+  };
   cooldownGroup?: string | string[]; // 共享CD组 ID，数组表示按顺序消耗第一个可用资源组
   cooldownGroupRecoveries?: CooldownGroupRecovery[]; // 恢复指定共享资源组层数
 }
@@ -149,6 +157,10 @@ export interface MitEvent {
   tEndMs: number;
   ownerId?: number;
   ownerJob?: Job;
+  endedBy?: {
+    skillId: string;
+    tMs: number;
+  };
 }
 
 export interface CooldownEvent {

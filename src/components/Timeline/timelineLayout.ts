@@ -85,7 +85,9 @@ export function buildTimelineLayout({
       continue;
     }
 
-    const availableSkills = skills.filter((skill) => isSkillAvailableForJob(skill, member.job));
+    const availableSkills = skills.filter(
+      (skill) => skill.kind !== 'durationEnder' && isSkillAvailableForJob(skill, member.job),
+    );
     const memberSkills = availableSkills.map(
       (skill): TimelineSkillColumn => ({
         id: skill.id,
