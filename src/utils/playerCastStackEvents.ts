@@ -1,4 +1,3 @@
-import { MS_PER_SEC } from '../constants/time';
 import { COOLDOWN_GROUP_MAP, getSkillDefinition, normalizeSkillId } from '../data/skills';
 import type { Job, MitEvent } from '../model/types';
 import { BinaryHeap } from './BinaryHeap';
@@ -12,6 +11,7 @@ import {
   handleBuildFailure,
   normalizeCooldownGroupIds,
   sortMitEvents,
+  toEffectiveCooldownMs,
   toGroupResourceId,
 } from './playerCastShared';
 
@@ -79,7 +79,7 @@ export function buildStackEvents(mitEvents: MitEvent[], mode: BuildMode): Binary
     const cooldownGroupMeta = COOLDOWN_GROUP_MAP.get(groupId);
     const initialStack = getGroupInitialStack(cooldownGroupMeta);
     const maxStack = cooldownGroupMeta?.stack ?? 1;
-    const recoveryMs = (cooldownGroupMeta?.recovery?.cooldownSec ?? 0) * MS_PER_SEC;
+    const recoveryMs = toEffectiveCooldownMs(cooldownGroupMeta?.recovery?.cooldownSec);
     if (initialStack >= maxStack || recoveryMs <= 0) return;
 
     scheduleGroupEvent(
@@ -148,7 +148,9 @@ function pushSkillSelfCooldown(
 
   const ownerKey = buildOwnerKey(event.ownerId, event.ownerJob);
   const skillResourceKey = ownerKey ? `${baseSkillId}:${ownerKey}` : baseSkillId;
-  const skillCooldownMs = skillMeta.cooldownSec * MS_PER_SEC;
+  const skillCooldownMs = toEffectiveCooldownMs(skillMeta.cooldownSec);
+  if (skillCooldownMs <= 0) return;
+
   stackEvents.push({
     resourceKey: skillResourceKey,
     ownerKey,
@@ -160,19 +162,17 @@ function pushSkillSelfCooldown(
     cooldownMs: skillCooldownMs,
     tMs: event.tStartMs,
   });
-  if (skillCooldownMs > 0) {
-    stackEvents.push({
-      resourceKey: skillResourceKey,
-      ownerKey,
-      ownerJob: event.ownerJob,
-      skillId: baseSkillId,
-      isGroup: false,
-      type: 'autoRecover',
-      amount: 1,
-      cooldownMs: skillCooldownMs,
-      tMs: event.tStartMs + skillCooldownMs,
-    });
-  }
+  stackEvents.push({
+    resourceKey: skillResourceKey,
+    ownerKey,
+    ownerJob: event.ownerJob,
+    skillId: baseSkillId,
+    isGroup: false,
+    type: 'autoRecover',
+    amount: 1,
+    cooldownMs: skillCooldownMs,
+    tMs: event.tStartMs + skillCooldownMs,
+  });
 }
 
 function pushSkillRecoveries(
@@ -291,7 +291,7 @@ function pushSkillGroupConsume(
     return;
   }
 
-  const groupCooldownMs = (cooldownGroupMeta.recovery?.cooldownSec ?? 0) * MS_PER_SEC;
+  const groupCooldownMs = toEffectiveCooldownMs(cooldownGroupMeta.recovery?.cooldownSec);
   const groupResourceBase = toGroupResourceId(skillGroupId);
   const groupResourceKey = ownerKey ? `${groupResourceBase}:${ownerKey}` : groupResourceBase;
   scheduleGroupEvent(

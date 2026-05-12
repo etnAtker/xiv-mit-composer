@@ -70,11 +70,11 @@ owner 作用域通过 `ownerKey` 表示：
 
 ## 技能自身冷却
 
-每次技能释放都会生成技能自身资源的 `consume` 事件。若技能 `cooldownSec > 0`，还会生成对应的 `autoRecover` 事件。
+每次技能释放都会按声明 `cooldownSec - 0.3` 秒计算有效 CD，最小为 0 秒。有效 CD 大于 0 时会生成技能自身资源的 `consume` 事件和对应的 `autoRecover` 事件；有效 CD 等于 0 时不生成自身冷却事件。
 
 技能自身资源只有 1 层。自身资源耗尽时产生前向 `unusable` 区间和后向 `cooldown` 区间：
 
-- `unusable`：从 `tStartMs - cooldownSec` 到释放时刻。
+- `unusable`：从 `tStartMs - 有效 CD` 到释放时刻。
 - `cooldown`：从释放时刻到冷却结束。
 
 前向 `unusable` 用于阻止向已有释放事件前方插入会破坏该释放合法性的同技能事件。
@@ -93,7 +93,7 @@ owner 作用域通过 `ownerKey` 表示：
 
 共享资源有两种恢复来源：
 
-- 自动恢复：冷却组配置 `recovery.cooldownSec` 后，资源从非满层开始按间隔自动恢复。
+- 自动恢复：冷却组配置 `recovery.cooldownSec` 后，资源从非满层开始按有效 CD 间隔自动恢复。
 - 技能恢复：技能配置 `cooldownGroupRecoveries` 后，在技能释放时恢复指定资源组层数。
 
 自动恢复只在资源不满且配置了 `recovery` 时排入事件。未配置 `recovery` 的资源组耗尽后保持 0 层，直到后续技能恢复。
@@ -234,7 +234,7 @@ reservation 用于处理“未来事件已经占用了某资源最后一层”�
 
 - 层数上限用 `stack`。
 - 初始层数用 `initialStack`。
-- 自动恢复用 `recovery.cooldownSec`。
+- 自动恢复用 `recovery.cooldownSec`，并统一套用 0.3 秒冷却容差。
 - 技能恢复用 `cooldownGroupRecoveries`。
 - 临时资源过期用 `expires.kind = 'skillEnd'`。
 - 多资源选择用数组 `cooldownGroup` 的顺序。

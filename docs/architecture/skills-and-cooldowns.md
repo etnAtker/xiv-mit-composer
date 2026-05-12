@@ -40,7 +40,7 @@
 
 共享冷却组定义在各职业文件的 `*_COOLDOWN_GROUPS` 中，并由 `src/data/skills/index.ts` 聚合为 `COOLDOWN_GROUP`。冷却组包含组 ID、可用层数上限、可选初始层数和可选自动恢复配置。技能通过 `cooldownGroup` 消耗共享冷却组层数，也可以通过 `cooldownGroupRecoveries` 恢复指定共享冷却组层数。
 
-`stack` 表示资源组层数上限。`initialStack` 表示战斗开始时的初始层数，未配置时等于 `stack`。`recovery.cooldownSec` 表示自动恢复间隔，未配置 `recovery` 的资源组不会自动恢复，只能由技能恢复。技能恢复资源组时不会超过 `stack` 上限。`cooldownGroupRecoveries[].expires.kind = 'skillEnd'` 表示该技能恢复出的资源会在技能事件结束时过期，过期只会移除仍然存在的临时层数，不会把资源扣到初始层数以下。
+`stack` 表示资源组层数上限。`initialStack` 表示战斗开始时的初始层数，未配置时等于 `stack`。`recovery.cooldownSec` 表示自动恢复间隔，未配置 `recovery` 的资源组不会自动恢复，只能由技能恢复。冷却计算使用声明 CD 减 0.3 秒后的有效 CD，最小为 0 秒；技能自身 `cooldownSec` 和共享资源 `recovery.cooldownSec` 都使用该规则。技能恢复资源组时不会超过 `stack` 上限。`cooldownGroupRecoveries[].expires.kind = 'skillEnd'` 表示该技能恢复出的资源会在技能事件结束时过期，过期只会移除仍然存在的临时层数，不会把资源扣到初始层数以下。
 
 `cooldownGroup` 可以配置为字符串或字符串数组。字符串表示技能必须消耗该资源组；数组表示按顺序选择第一个当前有层数的资源组消耗，如果全部为 0 层则消耗第一个资源组并由 strict 校验拒绝非法状态。数组资源的 UI 冷却区间按边界扫描生成：每个边界后按同样顺序选择当前首个有层数的资源组，并使用该资源组的不可用状态作为技能不可用状态。
 

@@ -1,8 +1,10 @@
+import { MS_PER_SEC } from '../constants/time';
 import { COOLDOWN_GROUP_MAP } from '../data/skills';
 import type { CooldownEvent, Job, MitEvent, ResourceEvent } from '../model/types';
 
 export const GROUP_PREFIX = 'grp:';
 export const OPEN_ENDED_COOLDOWN_END_MS = Number.MAX_SAFE_INTEGER;
+export const COOLDOWN_TOLERANCE_SEC = 0.3;
 
 export type BuildMode = 'strict' | 'tolerant';
 
@@ -172,4 +174,8 @@ export function getGroupInitialStack(
 export function normalizeCooldownGroupIds(cooldownGroup: string | string[] | undefined): string[] {
   if (!cooldownGroup) return [];
   return Array.isArray(cooldownGroup) ? cooldownGroup : [cooldownGroup];
+}
+
+export function toEffectiveCooldownMs(cooldownSec: number | undefined): number {
+  return Math.max(0, Math.round(((cooldownSec ?? 0) - COOLDOWN_TOLERANCE_SEC) * MS_PER_SEC));
 }

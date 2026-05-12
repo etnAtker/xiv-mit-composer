@@ -125,7 +125,7 @@ test('单次释放会生成前向 unusable 区间，并保留 ownerJob', () => {
       skillId: 'role-rampart',
       ownerJob: 'PLD',
       ownerKey: 'id:1',
-      tStartMs: -80_000,
+      tStartMs: -79_700,
       tEndMs: 10_000,
     },
     {
@@ -134,9 +134,32 @@ test('单次释放会生成前向 unusable 区间，并保留 ownerJob', () => {
       ownerJob: 'PLD',
       ownerKey: 'id:1',
       tStartMs: 10_000,
-      tEndMs: 100_000,
+      tEndMs: 99_700,
     },
   ]);
+});
+
+test('0.3 秒及以下的技能自身 CD 会按 0 处理', () => {
+  const skill = createTestSkill({
+    id: 'test-zero-effective-cooldown',
+    cooldownSec: 0.3,
+  });
+
+  withTestCooldownGroups([], [skill], () => {
+    const result = evaluateMitigationSetStrict([
+      createMitEvent(skill.id, 10_000, 'PLD'),
+      createMitEvent(skill.id, 10_100, 'PLD'),
+    ]);
+
+    assert.equal(result.ok, true);
+    if (!result.ok) {
+      throw new Error('期望 0.3 秒技能 CD 按 0 处理');
+    }
+    assert.deepEqual(
+      result.cooldownEvents.filter((event) => event.skillId === skill.id),
+      [],
+    );
+  });
 });
 
 test('共享 CD 组会把限制传播到同组技能', () => {
@@ -163,13 +186,13 @@ test('共享 CD 组会把限制传播到同组技能', () => {
   assert.deepEqual(siblingCooldowns, [
     {
       cdType: 'unusable',
-      tStartMs: -15_000,
+      tStartMs: -14_700,
       tEndMs: 10_000,
     },
     {
       cdType: 'cooldown',
       tStartMs: 10_000,
-      tEndMs: 35_000,
+      tEndMs: 34_700,
     },
   ]);
 });
@@ -201,23 +224,23 @@ test('充能技能会按可用层数顺序恢复', () => {
   assert.deepEqual(selfCooldowns, [
     {
       cdType: 'unusable',
-      tStartMs: -40_000,
+      tStartMs: -39_700,
       tEndMs: 10_000,
     },
     {
       cdType: 'cooldown',
       tStartMs: 10_000,
-      tEndMs: 10_500,
+      tEndMs: 10_200,
     },
     {
       cdType: 'unusable',
-      tStartMs: 10_500,
+      tStartMs: 10_200,
       tEndMs: 20_000,
     },
     {
       cdType: 'cooldown',
       tStartMs: 20_000,
-      tEndMs: 70_000,
+      tEndMs: 69_700,
     },
   ]);
 });
@@ -261,23 +284,23 @@ test('显示资源组会保留共享层数变化区间', () => {
         value: 0,
         maxValue: 2,
         tStartMs: 20_000,
-        tEndMs: 32_600,
+        tEndMs: 32_300,
       },
       {
         resourceGroupId: 'pld-grp-sheltron',
         ownerKey: 'id:1',
         value: 1,
         maxValue: 2,
-        tStartMs: 32_600,
-        tEndMs: 55_200,
+        tStartMs: 32_300,
+        tEndMs: 54_600,
       },
       {
         resourceGroupId: 'pld-grp-sheltron',
         ownerKey: 'id:1',
         value: 2,
         maxValue: 2,
-        tStartMs: 55_200,
-        tEndMs: 55_200,
+        tStartMs: 54_600,
+        tEndMs: 54_600,
       },
     ],
   );
@@ -402,17 +425,17 @@ test('资源组可配置初始层数，并从战斗开始自动恢复', () => {
       {
         cdType: 'cooldown',
         tStartMs: 0,
-        tEndMs: 30_000,
+        tEndMs: 29_700,
       },
       {
         cdType: 'unusable',
-        tStartMs: 30_000,
+        tStartMs: 29_700,
         tEndMs: 40_000,
       },
       {
         cdType: 'cooldown',
         tStartMs: 40_000,
-        tEndMs: 70_000,
+        tEndMs: 69_700,
       },
     ]);
     assert.deepEqual(
@@ -423,10 +446,10 @@ test('资源组可配置初始层数，并从战斗开始自动恢复', () => {
         tEndMs: event.tEndMs,
       })),
       [
-        { value: 0, maxValue: 1, tStartMs: 0, tEndMs: 30_000 },
-        { value: 1, maxValue: 1, tStartMs: 30_000, tEndMs: 40_000 },
-        { value: 0, maxValue: 1, tStartMs: 40_000, tEndMs: 70_000 },
-        { value: 1, maxValue: 1, tStartMs: 70_000, tEndMs: 70_000 },
+        { value: 0, maxValue: 1, tStartMs: 0, tEndMs: 29_700 },
+        { value: 1, maxValue: 1, tStartMs: 29_700, tEndMs: 40_000 },
+        { value: 0, maxValue: 1, tStartMs: 40_000, tEndMs: 69_700 },
+        { value: 1, maxValue: 1, tStartMs: 69_700, tEndMs: 69_700 },
       ],
     );
   });
