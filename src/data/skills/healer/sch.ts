@@ -19,7 +19,7 @@ export const SCH_COOLDOWN_GROUPS: CooldownGroup[] = [
   {
     id: 'sch-grp-gcd',
     stack: 1,
-    recovery: { cooldownSec: 2 },
+    recovery: { cooldownSec: 0.5 },
   },
 ];
 
