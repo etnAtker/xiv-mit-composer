@@ -56,13 +56,15 @@ XIV_ICON_FETCH_CONCURRENCY=8 XIV_ICON_FETCH_RPS=16 bun run fetch:icons
 
 ```bash
 bun run fetch:skills -- SGE
-bun run fetch:skills -- WHM --missing-only
-bun run fetch:skills -- PLD --out tmp/pld-actions.ts
 ```
 
-脚本会输出 ActionCategory、等级、可用职业、目标类型、XIVAPI 冷却组、`Maximum Charges`、不可叠加提示、中文描述和英文描述。候选技能的 `name` 字段使用简体中文，`name_en`、`name_jp`、`name_fr` 和 `name_de` 使用对应语言字段。持续时间、层数和不可叠加提示仍根据英文描述解析，避免中文文案格式差异影响结构化字段。
+脚本只接受一个职业参数，默认输出到 `tmp/{job-lower}-skills.ts`。输出包含已存在和未收录候选，已存在技能按 action ID 从 `src/data/skills/index.ts` 标注；同名变体若会生成重复技能 ID，脚本会在建议 ID 后追加 action ID，便于手动复制。
 
-带有 `Maximum Charges` 的技能会在输出文件顶部生成包含 `recovery.cooldownSec` 的 `COOLDOWN_GROUP` 候选注释，并在技能候选中写入建议的 `cooldownGroup`。该建议用于辅助处理可叠层技能，正式迁移时仍需结合现有共享冷却组语义人工确认。
+脚本会输出 ActionCategory、等级、可用职业、是否为 `IsPlayerAction`、目标类型、XIVAPI 冷却组、`Maximum Charges`、不可叠加提示、中文描述和英文描述。候选技能的 `name` 字段使用简体中文，`name_en`、`name_jp`、`name_fr` 和 `name_de` 使用对应语言字段。持续时间、层数和不可叠加提示根据英文描述解析，避免中文文案格式差异影响结构化字段。
+
+不可直接放入技能栏但 `ClassJobCategory` 明确等于目标职业的 Action 也会输出，例如占星术士的变体版天宫图。`Trait` 仅对可匹配 Action 名称的明确复唱覆盖和层数提示生效，例如 `Reduces Recitation recast time to 60 seconds.` 会把秘策候选的 `cooldownSec` 覆盖为 60；条件触发型复唱缩短不会改写基础 `cooldownSec`。
+
+带有 `Maximum Charges` 的技能或 Trait 会在输出文件顶部生成包含 `recovery.cooldownSec` 的 `COOLDOWN_GROUP` 候选注释，并在技能候选中写入建议的 `cooldownGroup`。该建议用于辅助处理可叠层技能，正式迁移时仍需结合现有共享冷却组语义人工确认。
 
 boilmaster 实例不提供 `/api/asset`，图标资源仍由 `scripts/fetch-xiv-icons.ts` 通过官方 XIVAPI V2 asset 接口下载。
 
