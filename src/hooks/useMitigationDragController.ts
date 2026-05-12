@@ -32,6 +32,13 @@ interface UseMitigationDragControllerOptions {
   push: PushBanner;
 }
 
+interface PendingDragValidation {
+  translatedTop: number;
+  translatedHeight: number;
+  dropTop: number;
+  msPerPx: number;
+}
+
 export function useMitigationDragController({
   selectedJob,
   selectedPlayerId,
@@ -51,6 +58,8 @@ export function useMitigationDragController({
   const dragPreviewRafRef = useRef<number | null>(null);
   const dragInvalidRef = useRef(false);
   const dragMovingEventsRef = useRef<MitEvent[]>([]);
+  const pendingDragValidationRef = useRef<PendingDragValidation | null>(null);
+  const dragValidationRafRef = useRef<number | null>(null);
 
   const resolveOwnerContext = useCallback(
     (job?: Job, ownerId?: number) => {
@@ -82,6 +91,12 @@ export function useMitigationDragController({
     if (dragPreviewRafRef.current !== null) {
       cancelAnimationFrame(dragPreviewRafRef.current);
       dragPreviewRafRef.current = null;
+    }
+
+    pendingDragValidationRef.current = null;
+    if (dragValidationRafRef.current !== null) {
+      cancelAnimationFrame(dragValidationRafRef.current);
+      dragValidationRafRef.current = null;
     }
 
     setDragPreviewPx(0);
@@ -130,6 +145,11 @@ export function useMitigationDragController({
       const over = event.over;
       const zone = over?.data.current as DropZoneData | undefined;
       if (!translated || !over || !zone || zone.kind !== 'mit-lane') {
+        pendingDragValidationRef.current = null;
+        if (dragValidationRafRef.current !== null) {
+          cancelAnimationFrame(dragValidationRafRef.current);
+          dragValidationRafRef.current = null;
+        }
         if (dragInvalidRef.current) {
           dragInvalidRef.current = false;
           setDragInvalid(false);
@@ -137,41 +157,61 @@ export function useMitigationDragController({
         return;
       }
 
-      const tStartMs = resolveDropStartMs(translated.top, over.rect.top, zone.msPerPx);
-      const currentItem = activeItemRef.current;
+      pendingDragValidationRef.current = {
+        translatedTop: translated.top,
+        translatedHeight: translated.height,
+        dropTop: over.rect.top,
+        msPerPx: zone.msPerPx,
+      };
 
-      let isValid = true;
-      if (currentItem?.type === 'new-skill') {
-        isValid = canDropNewMitigation(
-          currentItem.skill.id,
-          tStartMs,
-          mitEvents,
-          cooldownEvents,
-          resolveOwnerContext(currentItem.ownerJob, currentItem.ownerId),
-        );
-      } else if (currentItem?.type === 'existing-mit') {
-        const eventsToMove = dragMovingEventsRef.current.length
-          ? dragMovingEventsRef.current
-          : [currentItem.mit];
-        isValid = canDropExistingMitigations({
-          sourceMit: currentItem.mit,
-          tStartMs,
-          eventsToMove,
-          mitEvents,
-        });
-      } else if (currentItem?.type === 'duration-ender') {
-        const tEndMs = resolveDropCenterMs(
-          translated.top,
-          translated.height,
-          over.rect.top,
-          zone.msPerPx,
-        );
-        isValid = canUpdateDurationEnd(currentItem.parentMit.id, tEndMs, mitEvents);
-      }
+      if (dragValidationRafRef.current !== null) return;
 
-      if (dragInvalidRef.current === !isValid) return;
-      dragInvalidRef.current = !isValid;
-      setDragInvalid(!isValid);
+      dragValidationRafRef.current = requestAnimationFrame(() => {
+        dragValidationRafRef.current = null;
+
+        const pending = pendingDragValidationRef.current;
+        if (!pending) return;
+
+        const tStartMs = resolveDropStartMs(
+          pending.translatedTop,
+          pending.dropTop,
+          pending.msPerPx,
+        );
+        const currentItem = activeItemRef.current;
+
+        let isValid = true;
+        if (currentItem?.type === 'new-skill') {
+          isValid = canDropNewMitigation(
+            currentItem.skill.id,
+            tStartMs,
+            mitEvents,
+            cooldownEvents,
+            resolveOwnerContext(currentItem.ownerJob, currentItem.ownerId),
+          );
+        } else if (currentItem?.type === 'existing-mit') {
+          const eventsToMove = dragMovingEventsRef.current.length
+            ? dragMovingEventsRef.current
+            : [currentItem.mit];
+          isValid = canDropExistingMitigations({
+            sourceMit: currentItem.mit,
+            tStartMs,
+            eventsToMove,
+            mitEvents,
+          });
+        } else if (currentItem?.type === 'duration-ender') {
+          const tEndMs = resolveDropCenterMs(
+            pending.translatedTop,
+            pending.translatedHeight,
+            pending.dropTop,
+            pending.msPerPx,
+          );
+          isValid = canUpdateDurationEnd(currentItem.parentMit.id, tEndMs, mitEvents);
+        }
+
+        if (dragInvalidRef.current === !isValid) return;
+        dragInvalidRef.current = !isValid;
+        setDragInvalid(!isValid);
+      });
     },
     [cooldownEvents, mitEvents, resolveOwnerContext],
   );
