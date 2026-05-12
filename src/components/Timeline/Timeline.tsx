@@ -29,6 +29,7 @@ export function Timeline({
     partyMembers,
     mitEvents,
     cooldownEvents,
+    resourceEvents,
     damageEventMembers,
     damageEventsByPlayerId,
     castEvents,
@@ -113,6 +114,7 @@ export function Timeline({
         damageEvents={groupedDamageEvents}
         mitEvents={mitEvents}
         cooldownEvents={cooldownEvents}
+        resourceEvents={resourceEvents}
         activeDragId={activeDragId}
         dragPreviewPx={dragPreviewPx}
       />

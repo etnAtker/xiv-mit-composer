@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { MitEvent } from '../../model/types';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from '../../constants/time';
+import { getSkillDefinition } from '../../data/skills';
 
 interface Props {
   mit: MitEvent;
@@ -24,6 +25,13 @@ export function MitigationEditPopover({
 }: Props) {
   const [isEditInvalid, setIsEditInvalid] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const endInputRef = useRef<HTMLInputElement>(null);
+  const skill = getSkillDefinition(mit.skillId);
+  const canEditDurationEnd = !!skill?.durationEnd;
+  const fullDurationMs = (skill?.durationSec ?? 0) * MS_PER_SEC;
+  const defaultEndValue = mit.endedBy
+    ? (mit.endedBy.tMs / MS_PER_SEC).toFixed(TIME_DECIMAL_PLACES)
+    : '';
 
   const handleEditSubmit = () => {
     const rawValue = editInputRef.current?.value ?? '';
@@ -31,7 +39,10 @@ export function MitigationEditPopover({
     if (isNaN(val)) return;
 
     const nextStartMs = val * MS_PER_SEC;
-    if (Math.abs(nextStartMs - mit.tStartMs) < 0.5) {
+    const endRawValue = endInputRef.current?.value.trim() ?? '';
+    const startChanged = Math.abs(nextStartMs - mit.tStartMs) >= 0.5;
+    const endChanged = canEditDurationEnd && endRawValue !== defaultEndValue;
+    if (!startChanged && !endChanged) {
       onClose();
       return;
     }
@@ -41,11 +52,45 @@ export function MitigationEditPopover({
       return;
     }
 
-    onClose();
-    onUpdate({
+    const updates: Partial<MitEvent> = {
       tStartMs: nextStartMs,
       tEndMs: nextStartMs + mit.durationMs,
-    });
+    };
+
+    if (mit.endedBy) {
+      const nextEndMs = nextStartMs + mit.durationMs;
+      updates.endedBy = { ...mit.endedBy, tMs: nextEndMs };
+    }
+
+    if (canEditDurationEnd) {
+      if (endRawValue) {
+        const endSec = parseFloat(endRawValue);
+        if (isNaN(endSec)) return;
+
+        const nextEndMs = endSec * MS_PER_SEC;
+        const maxEndMs = nextStartMs + fullDurationMs;
+        if (nextEndMs <= nextStartMs || nextEndMs > maxEndMs) {
+          onInvalidSubmit();
+          return;
+        }
+
+        updates.durationMs = nextEndMs - nextStartMs;
+        updates.tEndMs = nextEndMs;
+        updates.endedBy = {
+          skillId: mit.endedBy?.skillId ?? skill?.durationEnd?.triggerSkillIds?.[0] ?? mit.skillId,
+          tMs: nextEndMs,
+        };
+      } else if (mit.endedBy) {
+        updates.durationMs = fullDurationMs;
+        updates.tEndMs = nextStartMs + fullDurationMs;
+        updates.endedBy = undefined;
+      } else {
+        updates.durationMs = mit.durationMs;
+      }
+    }
+
+    onClose();
+    onUpdate(updates);
   };
 
   const handleEditBlur = () => {
@@ -96,6 +141,22 @@ export function MitigationEditPopover({
           )}
         </div>
       </div>
+
+      {canEditDurationEnd && (
+        <div className="flex items-center gap-2">
+          <label className="whitespace-nowrap text-[10px] text-muted font-mono">结束(s):</label>
+          <input
+            className="w-16 rounded-md border border-app bg-surface px-2 py-1 text-[11px] font-mono text-app focus:outline-none focus:ring-2 focus:ring-(--color-focus)"
+            ref={endInputRef}
+            defaultValue={defaultEndValue}
+            placeholder={((mit.tStartMs + fullDurationMs) / MS_PER_SEC).toFixed(
+              TIME_DECIMAL_PLACES,
+            )}
+            aria-label="结束时间（秒）"
+            onKeyDown={(e) => e.key === 'Enter' && handleEditSubmit()}
+          />
+        </div>
+      )}
 
       <div className="mt-1 flex items-center justify-between border-t border-app pt-2">
         <button

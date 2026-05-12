@@ -1,5 +1,5 @@
-import { withOwnerSkillId, getSkillDefinition } from '../../data/skills';
-import type { CooldownEvent, Job, MitEvent } from '../../model/types';
+import { withOwnerSkillId, getSkillDefinition, normalizeSkillId } from '../../data/skills';
+import type { CooldownEvent, Job, MitEvent, Skill } from '../../model/types';
 import { MS_PER_SEC } from '../../constants/time';
 import { canInsertMitigation, evaluateMitigationSetStrict } from '../../utils/playerCast';
 
@@ -53,6 +53,15 @@ export function resolveDropStartMs(
   return Math.max(0, translatedTop - dropTop) * msPerPx;
 }
 
+export function resolveDropCenterMs(
+  translatedTop: number,
+  translatedHeight: number,
+  dropTop: number,
+  msPerPx: number,
+): number {
+  return Math.max(0, translatedTop + translatedHeight / 2 - dropTop) * msPerPx;
+}
+
 export function resolveMitRemovalIds(currentMit: MitEvent, selectedMitIds: string[]): string[] {
   return selectedMitIds.includes(currentMit.id) ? selectedMitIds : [currentMit.id];
 }
@@ -87,6 +96,15 @@ export function canDropNewMitigation(
   cooldownEvents: CooldownEvent[],
   ownerContext: OwnerContext,
 ): boolean {
+  if (canApplyDurationEnd(skillId, tStartMs, mitEvents, ownerContext)) {
+    return true;
+  }
+
+  const skillDef = getSkillDefinition(skillId);
+  if (skillDef?.kind === 'durationEnder') {
+    return false;
+  }
+
   return canInsertMitigation(
     skillId,
     tStartMs,
@@ -95,6 +113,99 @@ export function canDropNewMitigation(
     ownerContext.ownerId,
     undefined,
     cooldownEvents,
+  );
+}
+
+export function isDurationEnderSkill(skillId: string): boolean {
+  const skillDef = getSkillDefinition(skillId);
+  return !!skillDef?.durationEnder;
+}
+
+export function canApplyDurationEnd(
+  skillId: string,
+  tMs: number,
+  mitEvents: MitEvent[],
+  ownerContext: OwnerContext,
+): boolean {
+  return !!findDurationEndParentEvent(skillId, tMs, mitEvents, ownerContext);
+}
+
+export function buildDurationEndMitEvents(
+  skillId: string,
+  tMs: number,
+  mitEvents: MitEvent[],
+  ownerContext: OwnerContext,
+): MitEvent[] | null {
+  const parent = findDurationEndParentEvent(skillId, tMs, mitEvents, ownerContext);
+  if (!parent) return null;
+
+  const triggerSkillId = normalizeSkillId(skillId);
+  return mitEvents.map((mit) => {
+    if (mit.id !== parent.id) return mit;
+    return {
+      ...mit,
+      durationMs: tMs - mit.tStartMs,
+      tEndMs: tMs,
+      endedBy: {
+        skillId: triggerSkillId,
+        tMs,
+      },
+    };
+  });
+}
+
+export function canUpdateDurationEnd(
+  parentMitId: string,
+  tMs: number,
+  mitEvents: MitEvent[],
+): boolean {
+  return !!buildDurationEndUpdate(parentMitId, tMs, mitEvents);
+}
+
+export function buildUpdatedDurationEndMitEvents(
+  parentMitId: string,
+  skillId: string,
+  tMs: number,
+  mitEvents: MitEvent[],
+): MitEvent[] | null {
+  const update = buildDurationEndUpdate(parentMitId, tMs, mitEvents);
+  if (!update) return null;
+
+  return mitEvents.map((mit) =>
+    mit.id === parentMitId
+      ? {
+          ...mit,
+          durationMs: tMs - mit.tStartMs,
+          tEndMs: tMs,
+          endedBy: {
+            skillId: normalizeSkillId(skillId),
+            tMs,
+          },
+        }
+      : mit,
+  );
+}
+
+export function buildClearedDurationEndMitEvents(
+  parentMitId: string,
+  mitEvents: MitEvent[],
+): MitEvent[] | null {
+  const parent = mitEvents.find((mit) => mit.id === parentMitId);
+  if (!parent?.endedBy) return null;
+
+  const parentSkill = getSkillDefinition(parent.skillId);
+  if (!parentSkill) return null;
+
+  const durationMs = parentSkill.durationSec * MS_PER_SEC;
+  return mitEvents.map((mit) =>
+    mit.id === parentMitId
+      ? {
+          ...mit,
+          durationMs,
+          tEndMs: mit.tStartMs + durationMs,
+          endedBy: undefined,
+        }
+      : mit,
   );
 }
 
@@ -141,8 +252,89 @@ function buildMovedCandidateEvents(
       ...mit,
       tStartMs: newStart,
       tEndMs: newStart + mit.durationMs,
+      endedBy: mit.endedBy
+        ? {
+            ...mit.endedBy,
+            tMs: mit.endedBy.tMs + deltaMs,
+          }
+        : undefined,
     });
   }
 
   return movedEvents;
+}
+
+function buildDurationEndUpdate(
+  parentMitId: string,
+  tMs: number,
+  mitEvents: MitEvent[],
+): { parent: MitEvent; fullEndMs: number } | null {
+  const parent = mitEvents.find((mit) => mit.id === parentMitId);
+  if (!parent?.endedBy) return null;
+
+  const parentSkill = getSkillDefinition(parent.skillId);
+  if (!parentSkill) return null;
+
+  const fullEndMs = parent.tStartMs + parentSkill.durationSec * MS_PER_SEC;
+  if (tMs <= parent.tStartMs || tMs > fullEndMs) return null;
+
+  return { parent, fullEndMs };
+}
+
+function findDurationEndParentEvent(
+  skillId: string,
+  tMs: number,
+  mitEvents: MitEvent[],
+  ownerContext: OwnerContext,
+): MitEvent | null {
+  const triggerSkillId = normalizeSkillId(skillId);
+  const triggerSkill = getSkillDefinition(triggerSkillId);
+  if (!triggerSkill) return null;
+
+  const parentSkillIds = new Set<string>();
+  if (triggerSkill.durationEnder?.parentSkillId) {
+    parentSkillIds.add(triggerSkill.durationEnder.parentSkillId);
+  }
+  if (triggerSkill.durationEnd?.allowSelfRecast) {
+    parentSkillIds.add(triggerSkill.id);
+  }
+
+  if (!parentSkillIds.size) return null;
+
+  let parent: MitEvent | null = null;
+  for (const mit of mitEvents) {
+    if (!matchesOwner(mit, ownerContext)) continue;
+
+    const parentSkillId = normalizeSkillId(mit.skillId);
+    if (!parentSkillIds.has(parentSkillId)) continue;
+
+    const parentSkill = getSkillDefinition(parentSkillId);
+    if (!parentSkill) continue;
+    if (!canSkillBeEndedBy(parentSkill, triggerSkillId)) continue;
+
+    const fullEndMs = mit.tStartMs + parentSkill.durationSec * MS_PER_SEC;
+    if (tMs <= mit.tStartMs || tMs > fullEndMs) continue;
+    if (!parent || mit.tStartMs > parent.tStartMs) {
+      parent = mit;
+    }
+  }
+
+  return parent;
+}
+
+function canSkillBeEndedBy(parentSkill: Skill, triggerSkillId: string) {
+  if (parentSkill.id === triggerSkillId) {
+    return !!parentSkill.durationEnd?.allowSelfRecast;
+  }
+  return !!parentSkill.durationEnd?.triggerSkillIds?.includes(triggerSkillId);
+}
+
+function matchesOwner(mit: MitEvent, ownerContext: OwnerContext) {
+  if (typeof ownerContext.ownerId === 'number' || typeof mit.ownerId === 'number') {
+    return mit.ownerId === ownerContext.ownerId;
+  }
+  if (ownerContext.ownerJob || mit.ownerJob) {
+    return mit.ownerJob === ownerContext.ownerJob;
+  }
+  return true;
 }

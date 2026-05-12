@@ -8,7 +8,7 @@ XIV Mitigation Composer 是一个基于 React、TypeScript、Vite、Tailwind CSS
 
 应用入口位于 `src/App.tsx`。入口组件组合顶部输入栏、战斗信息栏、技能侧栏、时间轴、加载弹窗、导出弹窗、拖拽层、删除投放区和顶部提示。全局状态位于 `src/store/index.ts`，负责保存 FFLogs 输入、战斗元数据、玩家选择、减伤事件、冷却事件、伤害事件、咏唱事件、加载状态和提示信息。
 
-领域逻辑分布在 `src/domain/`、`src/lib/fflogs/`、`src/utils/` 和 `src/data/skills/`。`src/lib/fflogs/` 负责 FFLogs API 请求、事件转换和 Souma 时间轴导出；`src/domain/fflogs/` 负责把 FFLogs 事件转换为应用模型；`src/domain/drag/` 负责减伤拖拽的业务校验；`src/utils/playerCast.ts` 负责冷却状态构建和合法性判断；`src/data/skills/` 负责技能、职业和共享冷却组数据。
+领域逻辑分布在 `src/domain/`、`src/lib/fflogs/`、`src/utils/` 和 `src/data/skills/`。`src/lib/fflogs/` 负责 FFLogs API 请求、事件转换和 Souma 时间轴导出；`src/domain/fflogs/` 负责把 FFLogs 事件转换为应用模型；`src/domain/drag/` 负责减伤拖拽的业务校验；`src/utils/playerCast.ts` 作为冷却状态构建和合法性判断入口，具体构建逻辑拆分在同目录的 `playerCast*` 模块；`src/data/skills/` 负责技能、职业和共享冷却组数据。
 
 ## 文档结构
 
@@ -17,6 +17,7 @@ XIV Mitigation Composer 是一个基于 React、TypeScript、Vite、Tailwind CSS
 - [FFLogs 数据流](architecture/fflogs.md)：描述报告加载、事件获取、事件转换和 Souma 时间轴导出。
 - [时间轴架构](architecture/timeline.md)：描述时间轴布局、滚动缩放、事件层、选择和编辑。
 - [技能与冷却](architecture/skills-and-cooldowns.md)：描述技能数据、职业过滤、owner 作用域、共享冷却组和冷却校验。
+- [Player Cast 冷却构建](architecture/player-cast.md)：描述冷却构建管线、资源时间线、多资源选择、预占和错误模式。
 - [测试与资产](development/testing-and-assets.md)：描述开发命令、测试覆盖和 XIV 图标资源脚本。
 - `todos/`：存放待实现功能、重构或调研事项的设计文档和实施计划。
 

@@ -34,7 +34,7 @@
 
 `src/domain/fflogs/buildCastEvents.ts` 把敌方咏唱事件转换为 `CastEvent[]`。事件时间以战斗开始时间为基准转换为 `tMs`。
 
-`src/domain/fflogs/buildMitEvents.ts` 把友方技能事件转换为 `MitEvent[]`。转换过程根据 action ID 查找技能定义，并按技能持续时间计算 `tStartMs`、`durationMs` 和 `tEndMs`。
+`src/domain/fflogs/buildMitEvents.ts` 把友方技能事件转换为 `MitEvent[]`。转换过程根据 action ID 查找技能定义，并按技能持续时间计算 `tStartMs`、`durationMs` 和 `tEndMs`。持续结束型友方事件会合并到同一玩家最近的父技能事件中，写入父事件的 `endedBy` 并缩短 `durationMs` 与 `tEndMs`；没有可匹配父技能的持续结束型事件不会生成独立 `MitEvent`。允许自结束的技能首次释放生成普通 `MitEvent`，持续窗口内再次释放会结束前一个同技能事件。
 
 `src/domain/fflogs/mergeDamageEvents.ts` 合并 FFLogs 的 `calculateddamage` 和普通伤害事件。具有相同 `packetID` 的计算伤害和普通伤害合并为 `damage-combined`。无法配对的计算伤害名称加 `?` 前缀，无法配对的普通伤害名称加 `*` 前缀。
 
@@ -46,7 +46,7 @@
 
 导出入口位于 `src/App.tsx`。应用把 `castEvents` 和当前导出玩家的 `mitEvents` 合并成导出事件，并按秒级时间排序。导出弹窗通过单选下拉框切换导出玩家，切换后重新生成 JSON 内容。
 
-`src/lib/fflogs/exporter.ts` 的 `FFLogsExporter.generateTimeline` 生成 Souma 时间轴文本。玩家减伤事件导出为普通提示行。启用 TTS 时，玩家减伤事件额外包含 tts 文本。
+`src/lib/fflogs/exporter.ts` 的 `FFLogsExporter.generateTimeline` 生成 Souma 时间轴文本。玩家减伤事件导出为普通提示行。带有 `endedBy` 的减伤事件会在结束时间额外导出结束技能的友方提示行。启用 TTS 时，玩家减伤事件额外包含 tts 文本。
 
 Boss 事件通过 `src/lib/fflogs/compat/timelineSpecialRules.ts` 查找同步规则。有规则的 Boss 事件导出为带 `StartsUsing` 或 `Ability` 正则条件的同步行。没有规则的通用攻击和未匹配事件导出为注释行。
 

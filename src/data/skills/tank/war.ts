@@ -1,4 +1,12 @@
-import type { Skill } from '../../../model/types';
+import type { CooldownGroup, Skill } from '../../../model/types';
+
+export const WAR_COOLDOWN_GROUPS: CooldownGroup[] = [
+  {
+    id: 'war-grp-bloodwhetting',
+    stack: 1,
+    recovery: { cooldownSec: 25 },
+  },
+];
 
 export const WAR_SKILLS: Skill[] = [
   // 战士 (WAR)

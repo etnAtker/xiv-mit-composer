@@ -19,7 +19,7 @@ export class FFLogsProcessor {
       if (!event.ability) continue;
 
       // 仅保留施法事件
-      if (event.type !== 'cast' && event.type !== 'begincast') continue;
+      if (event.type !== 'cast') continue;
 
       const actionId = event.ability.guid;
 

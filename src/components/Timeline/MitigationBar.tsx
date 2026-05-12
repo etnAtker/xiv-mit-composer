@@ -13,6 +13,7 @@ interface MitigationBarContentProps {
   iconSrc?: string;
   iconAlt?: string;
   iconClassName?: string;
+  durationEndSkillId?: string;
 }
 
 export function MitigationBarContent({
@@ -22,7 +23,10 @@ export function MitigationBarContent({
   iconSrc,
   iconAlt = 'skill icon',
   iconClassName = 'h-full w-full object-cover',
+  durationEndSkillId,
 }: MitigationBarContentProps) {
+  const durationEndSkill = durationEndSkillId ? getSkillDefinition(durationEndSkillId) : undefined;
+
   return (
     <div className="relative w-full" style={{ height: effectHeight }}>
       <div
@@ -39,6 +43,15 @@ export function MitigationBarContent({
           <XivIcon localSrc={iconSrc} alt={iconAlt} className={iconClassName} />
         ) : null}
       </div>
+      {durationEndSkill ? (
+        <div className="absolute bottom-1 right-1 z-20 h-5 w-5 overflow-hidden rounded border border-white/70 bg-black/50 shadow-lg">
+          <XivIcon
+            localSrc={getSkillIconLocalSrc(durationEndSkill.actionId)}
+            alt={durationEndSkill.name}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -96,6 +109,7 @@ export function MitigationBar({
         iconSrc={skill ? getSkillIconLocalSrc(skill.actionId) : undefined}
         iconAlt={skill?.name ?? 'skill icon'}
         effectHeight={effectHeight}
+        durationEndSkillId={mit.endedBy?.skillId}
       />
     </div>
   );

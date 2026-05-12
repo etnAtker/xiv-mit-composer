@@ -40,13 +40,13 @@ test('共享资源的兄弟技能列会绘制完整 cooldown 区间，本技能�
     segments
       .filter((segment) => segment.skillId === 'war-bloodwhetting' && segment.cdType === 'cooldown')
       .map((segment) => ({ startMs: segment.startMs, endMs: segment.endMs })),
-    [{ startMs: 18_000, endMs: 35_000 }],
+    [{ startMs: 18_000, endMs: 34_700 }],
   );
   assert.deepEqual(
     segments
       .filter((segment) => segment.skillId === 'war-nascent-flash' && segment.cdType === 'cooldown')
       .map((segment) => ({ startMs: segment.startMs, endMs: segment.endMs })),
-    [{ startMs: 10_000, endMs: 35_000 }],
+    [{ startMs: 10_000, endMs: 34_700 }],
   );
 });
 

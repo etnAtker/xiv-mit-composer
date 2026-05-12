@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import type { CastEvent, CooldownEvent, GroupedDamageEvent, MitEvent } from '../../model/types';
+import type {
+  CastEvent,
+  CooldownEvent,
+  GroupedDamageEvent,
+  MitEvent,
+  ResourceEvent,
+} from '../../model/types';
 import { useStore } from '../../store';
 import { useShallow } from 'zustand/shallow';
 import { CooldownConstraintLayer } from './CooldownConstraintLayer';
@@ -13,6 +19,7 @@ import { TimelineHeader } from './TimelineHeader';
 import { TimelineBackground } from './TimelineBackground';
 import { TimelineGridLines } from './TimelineGridLines';
 import { MitigationLayer } from './MitigationLayer';
+import { ResourceLaneLayer } from './ResourceLaneLayer';
 import { TimelineTooltip } from './TimelineTooltip';
 import { useTimelineScroll } from './useTimelineScroll';
 import { useBoxSelection } from './useBoxSelection';
@@ -23,6 +30,7 @@ import {
   buildCounterpartProjectionGhosts,
   buildCounterpartProjectionZIndexMap,
 } from './counterpartProjectionUtils';
+import { getSkillDefinition } from '../../data/skills';
 
 const VISIBLE_RANGE_BUFFER_MS = 5000;
 const ZOOM_WHEEL_STEP = 5;
@@ -48,6 +56,7 @@ interface Props {
   damageEvents: GroupedDamageEvent[];
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
+  resourceEvents: ResourceEvent[];
   activeDragId?: string | null;
   dragPreviewPx?: number;
 }
@@ -71,6 +80,7 @@ export function TimelineCanvas({
   damageEvents,
   mitEvents,
   cooldownEvents,
+  resourceEvents,
   activeDragId,
   dragPreviewPx = 0,
 }: Props) {
@@ -91,6 +101,7 @@ export function TimelineCanvas({
   );
   const [editingMitId, setEditingMitId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [durationEndMenuMitId, setDurationEndMenuMitId] = useState<string | null>(null);
   const [lastContextMenuPosition, setLastContextMenuPosition] = useState<{
     x: number;
     y: number;
@@ -120,7 +131,7 @@ export function TimelineCanvas({
     data: mitLaneDropZone,
   });
 
-  const { scrollRef, visibleRange, isScrolled, handleScroll } = useTimelineScroll({
+  const { scrollRef, visibleRange, visibleStartMs, isScrolled, handleScroll } = useTimelineScroll({
     zoom,
     setZoom,
     headerHeight: HEADER_HEIGHT,
@@ -182,12 +193,22 @@ export function TimelineCanvas({
 
   const handleContextMenuChange = useCallback(
     (position: { x: number; y: number } | null) => {
+      setDurationEndMenuMitId(null);
       setContextMenu(position);
       if (position) {
         setLastContextMenuPosition(position);
       }
     },
     [setContextMenu, setLastContextMenuPosition],
+  );
+  const handleDurationEndContextMenu = useCallback(
+    (event: React.MouseEvent, mit: MitEvent) => {
+      setSelectedMitIds([mit.id]);
+      handleEditingChange(null);
+      setDurationEndMenuMitId(mit.id);
+      setContextMenu({ x: event.clientX, y: event.clientY });
+    },
+    [handleEditingChange, setSelectedMitIds],
   );
 
   const getEffectiveStartMs = useCallback((mit: MitEvent) => mit.tStartMs, []);
@@ -255,7 +276,7 @@ export function TimelineCanvas({
           />
 
           <div
-            className="absolute left-0 top-0 overflow-hidden"
+            className="absolute left-0 top-0 overflow-hidden border-r border-app"
             style={{ width: totalWidth, height: timelineHeight }}
           >
             <TimelineBackground
@@ -290,6 +311,14 @@ export function TimelineCanvas({
               className="absolute top-0"
               style={{ left: mitX, width: layout.mitAreaWidth, height: timelineHeight }}
             >
+              <ResourceLaneLayer
+                resourceEvents={resourceEvents}
+                layout={layout}
+                timelineHeight={timelineHeight}
+                zoom={zoom}
+                visibleStartMs={visibleStartMs}
+              />
+
               <CooldownConstraintLayer
                 cooldownEvents={cooldownEvents}
                 mitEvents={mitEvents}
@@ -321,6 +350,7 @@ export function TimelineCanvas({
               updateMitEvent={updateMitEvent}
               removeMitEvent={removeMitEvent}
               setContextMenu={handleContextMenuChange}
+              onDurationEndContextMenu={handleDurationEndContextMenu}
               activeDragId={activeDragId}
               dragPreviewPx={dragPreviewPx}
               editPopoverPosition={editPopoverPosition}
@@ -331,33 +361,70 @@ export function TimelineCanvas({
 
       {contextMenu && selectedMitIds.length > 0 && (
         <ContextMenu
-          items={[
-            ...(selectedMitIds.length === 1
+          items={
+            durationEndMenuMitId
               ? [
                   {
                     label: '编辑事件',
                     onClick: () => {
-                      handleEditingChange(selectedMitIds[0]);
+                      handleEditingChange(durationEndMenuMitId);
                       setEditPopoverPosition(lastContextMenuPosition ?? contextMenu);
                       setContextMenu(null);
+                      setDurationEndMenuMitId(null);
                     },
                   },
+                  {
+                    label: '删除结束标记',
+                    onClick: () => {
+                      const mit = mitEvents.find((event) => event.id === durationEndMenuMitId);
+                      const skill = mit ? getSkillDefinition(mit.skillId) : undefined;
+                      if (mit && skill) {
+                        const durationMs = skill.durationSec * MS_PER_SEC;
+                        updateMitEvent(mit.id, {
+                          durationMs,
+                          tEndMs: mit.tStartMs + durationMs,
+                          endedBy: undefined,
+                        });
+                      }
+                      setContextMenu(null);
+                      setDurationEndMenuMitId(null);
+                      setSelectedMitIds([]);
+                    },
+                    danger: true,
+                  },
                 ]
-              : []),
-            {
-              label: selectedMitIds.length === 1 ? '删除' : `删除所选项 (${selectedMitIds.length})`,
-              onClick: () => {
-                selectedMitIds.forEach((id) => removeMitEvent(id));
-                setContextMenu(null);
-                setSelectedMitIds([]);
-              },
-              danger: true,
-            },
-          ]}
+              : [
+                  ...(selectedMitIds.length === 1
+                    ? [
+                        {
+                          label: '编辑事件',
+                          onClick: () => {
+                            handleEditingChange(selectedMitIds[0]);
+                            setEditPopoverPosition(lastContextMenuPosition ?? contextMenu);
+                            setContextMenu(null);
+                          },
+                        },
+                      ]
+                    : []),
+                  {
+                    label:
+                      selectedMitIds.length === 1
+                        ? '删除'
+                        : `删除所选项 (${selectedMitIds.length})`,
+                    onClick: () => {
+                      selectedMitIds.forEach((id) => removeMitEvent(id));
+                      setContextMenu(null);
+                      setSelectedMitIds([]);
+                    },
+                    danger: true,
+                  },
+                ]
+          }
           position={contextMenu}
           onPositionResolved={setLastContextMenuPosition}
           onClose={() => {
             setContextMenu(null);
+            setDurationEndMenuMitId(null);
             setSelectedMitIds([]);
           }}
         />

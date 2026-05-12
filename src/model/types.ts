@@ -111,16 +111,39 @@ export interface Skill {
   durationSec: number;
   job: Job | 'ALL';
   actionId: number; // FFLogs 技能 ID
+  kind?: 'normal' | 'durationEnder';
   icon?: string;
   mitigation?: SkillMitigation[];
   counterpartProjection?: boolean; // 在其他成员的同技能列显示对位投影
-  cooldownGroup?: string; // 共享CD组 ID，在自己进入cd的同时会消耗冷却组的一层cd
+  durationEnd?: {
+    triggerSkillIds?: string[];
+    allowSelfRecast?: boolean;
+  };
+  durationEnder?: {
+    parentSkillId: string;
+  };
+  cooldownGroup?: string | string[]; // 共享CD组 ID，数组表示按顺序消耗第一个可用资源组
+  cooldownGroupRecoveries?: CooldownGroupRecovery[]; // 恢复指定共享资源组层数
+}
+
+export interface CooldownGroupRecovery {
+  groupId: string;
+  amount?: number;
+  expires?: {
+    kind: 'skillEnd';
+  };
 }
 
 export interface CooldownGroup {
   id: string;
-  cooldownSec: number;
   stack: number;
+  initialStack?: number;
+  recovery?: {
+    cooldownSec: number;
+  };
+  resourceDisplay?: {
+    label: string;
+  };
 }
 
 export type PlayerEventType = 'mit' | 'cooldown';
@@ -134,6 +157,10 @@ export interface MitEvent {
   tEndMs: number;
   ownerId?: number;
   ownerJob?: Job;
+  endedBy?: {
+    skillId: string;
+    tMs: number;
+  };
 }
 
 export interface CooldownEvent {
@@ -146,6 +173,16 @@ export interface CooldownEvent {
   ownerKey?: string;
   tStartMs: number;
   durationMs: number;
+  tEndMs: number;
+}
+
+export interface ResourceEvent {
+  resourceGroupId: string;
+  ownerJob?: Job;
+  ownerKey?: string;
+  value: number;
+  maxValue: number;
+  tStartMs: number;
   tEndMs: number;
 }
 

@@ -12,11 +12,18 @@ interface Props {
 
 export function SkillCard({ skill, className, job }: Props) {
   const displayJob = job ?? (skill.job !== 'ALL' ? skill.job : undefined);
-  const cooldownGroup = skill.cooldownGroup ? COOLDOWN_GROUP_MAP.get(skill.cooldownGroup) : null;
+  const primaryCooldownGroupId = Array.isArray(skill.cooldownGroup)
+    ? skill.cooldownGroup[0]
+    : skill.cooldownGroup;
+  const cooldownGroup = primaryCooldownGroupId
+    ? COOLDOWN_GROUP_MAP.get(primaryCooldownGroupId)
+    : null;
   const isStackedCooldown = cooldownGroup ? cooldownGroup.stack > 1 : false;
-  const cooldownText = isStackedCooldown
-    ? `充能: ${cooldownGroup?.cooldownSec ?? skill.cooldownSec}s`
-    : `CD: ${skill.cooldownSec}s`;
+  const groupRecoverySec = cooldownGroup?.recovery?.cooldownSec;
+  let cooldownText = `CD: ${skill.cooldownSec}s`;
+  if (isStackedCooldown && cooldownGroup) {
+    cooldownText = groupRecoverySec ? `充能: ${groupRecoverySec}s` : `层数: ${cooldownGroup.stack}`;
+  }
   const stackHint = isStackedCooldown ? `上限：${cooldownGroup?.stack ?? 1}` : '';
 
   return (

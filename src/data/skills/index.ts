@@ -1,10 +1,10 @@
 import type { CooldownGroup, Skill } from '../../model/types';
 
-import { AST_SKILLS } from './healer/ast';
+import { AST_COOLDOWN_GROUPS, AST_SKILLS } from './healer/ast';
 import { HEALER_COMMON_SKILLS } from './healer/common';
-import { SCH_SKILLS } from './healer/sch';
-import { SGE_SKILLS } from './healer/sge';
-import { WHM_SKILLS } from './healer/whm';
+import { SCH_COOLDOWN_GROUPS, SCH_SKILLS } from './healer/sch';
+import { SGE_COOLDOWN_GROUPS, SGE_SKILLS } from './healer/sge';
+import { WHM_COOLDOWN_GROUPS, WHM_SKILLS } from './healer/whm';
 import { MELEE_COMMON_SKILLS } from './melee/common';
 import { DRG_SKILLS } from './melee/drg';
 import { MNK_SKILLS } from './melee/mnk';
@@ -20,12 +20,12 @@ import { BLM_SKILLS } from './ranged-magical/blm';
 import { RANGED_MAGICAL_COMMON_SKILLS } from './ranged-magical/common';
 import { PCT_SKILLS } from './ranged-magical/pct';
 import { RDM_SKILLS } from './ranged-magical/rdm';
-import { SMN_SKILLS } from './ranged-magical/smn';
-import { DRK_SKILLS } from './tank/drk';
-import { GNB_SKILLS } from './tank/gnb';
-import { PLD_SKILLS } from './tank/pld';
+import { SMN_COOLDOWN_GROUPS, SMN_SKILLS } from './ranged-magical/smn';
+import { DRK_COOLDOWN_GROUPS, DRK_SKILLS } from './tank/drk';
+import { GNB_COOLDOWN_GROUPS, GNB_SKILLS } from './tank/gnb';
+import { PLD_COOLDOWN_GROUPS, PLD_SKILLS } from './tank/pld';
 import { TANK_COMMON_SKILLS } from './tank/common';
-import { WAR_SKILLS } from './tank/war';
+import { WAR_COOLDOWN_GROUPS, WAR_SKILLS } from './tank/war';
 
 export const ROLE_SKILL_IDS = new Set([
   'role-rampart',
@@ -126,46 +126,17 @@ export const SKILLS: Skill[] = [
 ];
 
 export const COOLDOWN_GROUP: CooldownGroup[] = [
-  {
-    id: 'pld-grp-sheltron',
-    cooldownSec: 22.6,
-    stack: 2,
-  },
-  {
-    id: 'drk-grp-oblation',
-    cooldownSec: 60,
-    stack: 2,
-  },
-  {
-    id: 'gnb-grp-aurora',
-    cooldownSec: 60,
-    stack: 2,
-  },
-  {
-    id: 'war-grp-bloodwhetting',
-    cooldownSec: 25,
-    stack: 1,
-  },
-  {
-    id: 'whm-grp-divine-benison',
-    cooldownSec: 30,
-    stack: 2,
-  },
-  {
-    id: 'sch-grp-consolation',
-    cooldownSec: 30,
-    stack: 2,
-  },
-  {
-    id: 'ast-grp-celestial-intersection',
-    cooldownSec: 30,
-    stack: 2,
-  },
-  {
-    id: 'smn-grp-radiant-aegis',
-    cooldownSec: 60,
-    stack: 2,
-  },
+  ...PLD_COOLDOWN_GROUPS,
+  ...WAR_COOLDOWN_GROUPS,
+  ...DRK_COOLDOWN_GROUPS,
+  ...GNB_COOLDOWN_GROUPS,
+
+  ...WHM_COOLDOWN_GROUPS,
+  ...SCH_COOLDOWN_GROUPS,
+  ...SGE_COOLDOWN_GROUPS,
+  ...AST_COOLDOWN_GROUPS,
+
+  ...SMN_COOLDOWN_GROUPS,
 ];
 
 export const SKILL_MAP = new Map(SKILLS.map((skill) => [skill.id, skill]));
@@ -174,12 +145,19 @@ export const COOLDOWN_GROUP_MAP = new Map(COOLDOWN_GROUP.map((group) => [group.i
 
 export const COOLDOWN_GROUP_SKILLS_MAP = new Map<string, Skill[]>();
 for (const skill of SKILLS) {
-  const group = skill.cooldownGroup;
-  if (!group || !COOLDOWN_GROUP_MAP.has(group)) continue;
+  const groups = Array.isArray(skill.cooldownGroup)
+    ? skill.cooldownGroup
+    : skill.cooldownGroup
+      ? [skill.cooldownGroup]
+      : [];
 
-  const groupSkills = COOLDOWN_GROUP_SKILLS_MAP.get(group) || [];
-  groupSkills.push(skill);
-  COOLDOWN_GROUP_SKILLS_MAP.set(group, groupSkills);
+  for (const group of groups) {
+    if (!COOLDOWN_GROUP_MAP.has(group)) continue;
+
+    const groupSkills = COOLDOWN_GROUP_SKILLS_MAP.get(group) || [];
+    groupSkills.push(skill);
+    COOLDOWN_GROUP_SKILLS_MAP.set(group, groupSkills);
+  }
 }
 
 export const normalizeSkillId = (skillId: string) => {

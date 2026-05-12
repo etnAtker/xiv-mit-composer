@@ -1,4 +1,12 @@
-import type { Skill } from '../../../model/types';
+import type { CooldownGroup, Skill } from '../../../model/types';
+
+export const WHM_COOLDOWN_GROUPS: CooldownGroup[] = [
+  {
+    id: 'whm-grp-divine-benison',
+    stack: 2,
+    recovery: { cooldownSec: 30 },
+  },
+];
 
 export const WHM_SKILLS: Skill[] = [
   {

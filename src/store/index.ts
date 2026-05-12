@@ -10,6 +10,7 @@ import {
   type Job,
   type MitEvent,
   type PartyMember,
+  type ResourceEvent,
 } from '../model/types';
 import type { BannerItem, BannerOptions } from '../model/banner';
 import { FFLogsClient } from '../lib/fflogs/client';
@@ -19,7 +20,7 @@ import { buildCastEvents } from '../domain/fflogs/buildCastEvents';
 import { buildMitEvents } from '../domain/fflogs/buildMitEvents';
 import { buildDamageEventsByPlayerId } from '../domain/fflogs/buildDamageEventsByPlayerId';
 import { resolveActorJob } from '../model/jobs';
-import { buildCooldownsTolerant, evaluateMitigationSetStrict } from '../utils/playerCast';
+import { buildPlayerCastStateTolerant, evaluateMitigationSetStrict } from '../utils/playerCast';
 import { parseFFLogsUrl } from '../utils';
 import type { ProjectSlot, XmcProjectDocument } from '../model/project';
 import {
@@ -48,6 +49,7 @@ export interface AppState {
   castEvents: CastEvent[];
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
+  resourceEvents: ResourceEvent[];
   banners: BannerItem[];
   projectSlots: ProjectSlot[];
   activeProjectSlotId: string | null;
@@ -97,6 +99,7 @@ interface LoadEventsCoreResult {
   castEvents: CastEvent[];
   mitEvents: MitEvent[];
   cooldownEvents: CooldownEvent[];
+  resourceEvents: ResourceEvent[];
 }
 
 const loadEventsCore = async ({
@@ -174,7 +177,7 @@ const loadEventsCore = async ({
     withOwnerSkillId,
   );
 
-  const cooldownEvents = buildCooldownsTolerant(mitEvents);
+  const playerCastState = buildPlayerCastStateTolerant(mitEvents);
   const damageEventsByPlayerId = buildDamageEventsByPlayerId(
     damagesByPlayer.map((entry) => ({ playerId: entry.playerId, events: entry.events })),
     fight.start,
@@ -184,7 +187,8 @@ const loadEventsCore = async ({
     damageEventsByPlayerId,
     castEvents,
     mitEvents,
-    cooldownEvents,
+    cooldownEvents: playerCastState.cooldownEvents,
+    resourceEvents: playerCastState.resourceEvents,
   };
 };
 
@@ -277,6 +281,7 @@ export const migratePersistedState = (persistedState: unknown): AppState => {
           ]
         : [];
   const now = new Date().toISOString();
+  const playerCastState = buildPlayerCastStateTolerant(mitEvents);
   const migratedState = {
     ...state,
     mitEvents,
@@ -286,7 +291,8 @@ export const migratePersistedState = (persistedState: unknown): AppState => {
     damageEventMembers: state.damageEventMembers ?? [],
     damageEventsByPlayerId: state.damageEventsByPlayerId ?? {},
     castEvents: state.castEvents ?? [],
-    cooldownEvents: buildCooldownsTolerant(mitEvents),
+    cooldownEvents: playerCastState.cooldownEvents,
+    resourceEvents: playerCastState.resourceEvents,
     fflogsUrl: state.fflogsUrl ?? '',
     fight: state.fight ?? null,
     selectedJob: state.selectedJob ?? null,
@@ -334,7 +340,11 @@ export const useStore = create<AppState>()(
           return result;
         }
 
-        set({ mitEvents: result.mitEvents, cooldownEvents: result.cooldownEvents });
+        set({
+          mitEvents: result.mitEvents,
+          cooldownEvents: result.cooldownEvents,
+          resourceEvents: result.resourceEvents,
+        });
         return result;
       };
 
@@ -361,6 +371,7 @@ export const useStore = create<AppState>()(
             castEvents: normalized.state.castEvents,
             mitEvents: result.mitEvents,
             cooldownEvents: result.cooldownEvents,
+            resourceEvents: result.resourceEvents,
             isLoading: false,
             isRendering: false,
             error: null,
@@ -383,6 +394,7 @@ export const useStore = create<AppState>()(
         castEvents: [],
         mitEvents: [],
         cooldownEvents: [],
+        resourceEvents: [],
         banners: [],
         projectSlots: [initialProjectSlot],
         activeProjectSlotId: initialProjectSlot.id,
@@ -560,6 +572,7 @@ export const useStore = create<AppState>()(
               castEvents: [],
               mitEvents: [],
               cooldownEvents: [],
+              resourceEvents: [],
               isLoading: false,
             });
           } catch (err: unknown) {
@@ -584,24 +597,29 @@ export const useStore = create<AppState>()(
           const castPlayers = players.filter(isPlayerPartyMember);
 
           try {
-            const { damageEventsByPlayerId, castEvents, mitEvents, cooldownEvents } =
-              await loadEventsCore({
-                client,
-                reportCode,
-                fight,
-                bossIds,
-                castPlayers: castPlayers.map((player) => ({
-                  id: player.playerId,
-                  job: player.job,
-                  name: player.name,
-                })),
-                damagePlayers: damageEventMembers.map((player) => ({
-                  id: player.playerId,
-                  job: player.job,
-                  name: player.name,
-                })),
-                signal,
-              });
+            const {
+              damageEventsByPlayerId,
+              castEvents,
+              mitEvents,
+              cooldownEvents,
+              resourceEvents,
+            } = await loadEventsCore({
+              client,
+              reportCode,
+              fight,
+              bossIds,
+              castPlayers: castPlayers.map((player) => ({
+                id: player.playerId,
+                job: player.job,
+                name: player.name,
+              })),
+              damagePlayers: damageEventMembers.map((player) => ({
+                id: player.playerId,
+                job: player.job,
+                name: player.name,
+              })),
+              signal,
+            });
             if (requestId !== eventsRequestSeq || signal.aborted) return;
 
             set({
@@ -610,6 +628,7 @@ export const useStore = create<AppState>()(
               castEvents,
               mitEvents,
               cooldownEvents,
+              resourceEvents,
               isLoading: false,
             });
           } catch (err: unknown) {

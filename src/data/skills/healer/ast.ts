@@ -1,4 +1,12 @@
-import type { Skill } from '../../../model/types';
+import type { CooldownGroup, Skill } from '../../../model/types';
+
+export const AST_COOLDOWN_GROUPS: CooldownGroup[] = [
+  {
+    id: 'ast-grp-celestial-intersection',
+    stack: 2,
+    recovery: { cooldownSec: 30 },
+  },
+];
 
 export const AST_SKILLS: Skill[] = [
   {
@@ -47,6 +55,9 @@ export const AST_SKILLS: Skill[] = [
     durationSec: 10,
     job: 'AST',
     actionId: 7439,
+    durationEnd: {
+      allowSelfRecast: true,
+    },
   },
   {
     id: 'ast-horoscope',
@@ -59,6 +70,25 @@ export const AST_SKILLS: Skill[] = [
     durationSec: 10,
     job: 'AST',
     actionId: 16557,
+    durationEnd: {
+      allowSelfRecast: true,
+    },
+  },
+  {
+    id: 'ast-horoscope-sun',
+    name: '太阳天宫图',
+    name_en: 'Horoscope',
+    name_jp: 'ホロスコープ',
+    name_fr: 'Horoscope',
+    name_de: 'Horoskop',
+    cooldownSec: 60,
+    durationSec: 10,
+    job: 'AST',
+    actionId: 16558,
+    kind: 'durationEnder',
+    durationEnder: {
+      parentSkillId: 'ast-horoscope',
+    },
   },
   {
     id: 'ast-neutral-sect',
@@ -83,6 +113,25 @@ export const AST_SKILLS: Skill[] = [
     durationSec: 15,
     job: 'AST',
     actionId: 25874,
+    durationEnd: {
+      triggerSkillIds: ['ast-microcosmos'],
+    },
+  },
+  {
+    id: 'ast-microcosmos',
+    name: '小宇宙',
+    name_en: 'Microcosmos',
+    name_jp: 'ミクロコスモス',
+    name_fr: 'Microcosme',
+    name_de: 'Mikrokosmos',
+    cooldownSec: 0,
+    durationSec: 0,
+    job: 'AST',
+    actionId: 25875,
+    kind: 'durationEnder',
+    durationEnder: {
+      parentSkillId: 'ast-macrocosmos',
+    },
   },
   {
     id: 'ast-sun-sign',

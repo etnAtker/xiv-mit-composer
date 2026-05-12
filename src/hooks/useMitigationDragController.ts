@@ -6,10 +6,16 @@ import { useStore } from '../store';
 import type { PushBanner } from './useTopBanner';
 import {
   buildMitEventFromSkill,
+  buildClearedDurationEndMitEvents,
+  buildDurationEndMitEvents,
   buildMovedMitEvents,
+  buildUpdatedDurationEndMitEvents,
+  canUpdateDurationEnd,
   canDropExistingMitigations,
   canDropNewMitigation,
+  isDurationEnderSkill,
   prepareExistingMitDrag,
+  resolveDropCenterMs,
   resolveDropStartMs,
   resolveMitRemovalIds,
 } from '../domain/drag/mitigationDrag';
@@ -24,6 +30,13 @@ interface UseMitigationDragControllerOptions {
   setMitEvents: (events: MitEvent[]) => void;
   setSelectedMitIds: (ids: string[]) => void;
   push: PushBanner;
+}
+
+interface PendingDragValidation {
+  translatedTop: number;
+  translatedHeight: number;
+  dropTop: number;
+  msPerPx: number;
 }
 
 export function useMitigationDragController({
@@ -45,6 +58,8 @@ export function useMitigationDragController({
   const dragPreviewRafRef = useRef<number | null>(null);
   const dragInvalidRef = useRef(false);
   const dragMovingEventsRef = useRef<MitEvent[]>([]);
+  const pendingDragValidationRef = useRef<PendingDragValidation | null>(null);
+  const dragValidationRafRef = useRef<number | null>(null);
 
   const resolveOwnerContext = useCallback(
     (job?: Job, ownerId?: number) => {
@@ -78,6 +93,12 @@ export function useMitigationDragController({
       dragPreviewRafRef.current = null;
     }
 
+    pendingDragValidationRef.current = null;
+    if (dragValidationRafRef.current !== null) {
+      cancelAnimationFrame(dragValidationRafRef.current);
+      dragValidationRafRef.current = null;
+    }
+
     setDragPreviewPx(0);
   }, []);
 
@@ -93,7 +114,7 @@ export function useMitigationDragController({
       activeItemRef.current = currentItem ?? null;
       setActiveItem(currentItem ?? null);
 
-      if (currentItem?.type === 'new-skill') {
+      if (currentItem?.type === 'new-skill' || currentItem?.type === 'duration-ender') {
         setSelectedMitIds([]);
       }
 
@@ -124,6 +145,11 @@ export function useMitigationDragController({
       const over = event.over;
       const zone = over?.data.current as DropZoneData | undefined;
       if (!translated || !over || !zone || zone.kind !== 'mit-lane') {
+        pendingDragValidationRef.current = null;
+        if (dragValidationRafRef.current !== null) {
+          cancelAnimationFrame(dragValidationRafRef.current);
+          dragValidationRafRef.current = null;
+        }
         if (dragInvalidRef.current) {
           dragInvalidRef.current = false;
           setDragInvalid(false);
@@ -131,33 +157,61 @@ export function useMitigationDragController({
         return;
       }
 
-      const tStartMs = resolveDropStartMs(translated.top, over.rect.top, zone.msPerPx);
-      const currentItem = activeItemRef.current;
+      pendingDragValidationRef.current = {
+        translatedTop: translated.top,
+        translatedHeight: translated.height,
+        dropTop: over.rect.top,
+        msPerPx: zone.msPerPx,
+      };
 
-      let isValid = true;
-      if (currentItem?.type === 'new-skill') {
-        isValid = canDropNewMitigation(
-          currentItem.skill.id,
-          tStartMs,
-          mitEvents,
-          cooldownEvents,
-          resolveOwnerContext(currentItem.ownerJob, currentItem.ownerId),
+      if (dragValidationRafRef.current !== null) return;
+
+      dragValidationRafRef.current = requestAnimationFrame(() => {
+        dragValidationRafRef.current = null;
+
+        const pending = pendingDragValidationRef.current;
+        if (!pending) return;
+
+        const tStartMs = resolveDropStartMs(
+          pending.translatedTop,
+          pending.dropTop,
+          pending.msPerPx,
         );
-      } else if (currentItem?.type === 'existing-mit') {
-        const eventsToMove = dragMovingEventsRef.current.length
-          ? dragMovingEventsRef.current
-          : [currentItem.mit];
-        isValid = canDropExistingMitigations({
-          sourceMit: currentItem.mit,
-          tStartMs,
-          eventsToMove,
-          mitEvents,
-        });
-      }
+        const currentItem = activeItemRef.current;
 
-      if (dragInvalidRef.current === !isValid) return;
-      dragInvalidRef.current = !isValid;
-      setDragInvalid(!isValid);
+        let isValid = true;
+        if (currentItem?.type === 'new-skill') {
+          isValid = canDropNewMitigation(
+            currentItem.skill.id,
+            tStartMs,
+            mitEvents,
+            cooldownEvents,
+            resolveOwnerContext(currentItem.ownerJob, currentItem.ownerId),
+          );
+        } else if (currentItem?.type === 'existing-mit') {
+          const eventsToMove = dragMovingEventsRef.current.length
+            ? dragMovingEventsRef.current
+            : [currentItem.mit];
+          isValid = canDropExistingMitigations({
+            sourceMit: currentItem.mit,
+            tStartMs,
+            eventsToMove,
+            mitEvents,
+          });
+        } else if (currentItem?.type === 'duration-ender') {
+          const tEndMs = resolveDropCenterMs(
+            pending.translatedTop,
+            pending.translatedHeight,
+            pending.dropTop,
+            pending.msPerPx,
+          );
+          isValid = canUpdateDurationEnd(currentItem.parentMit.id, tEndMs, mitEvents);
+        }
+
+        if (dragInvalidRef.current === !isValid) return;
+        dragInvalidRef.current = !isValid;
+        setDragInvalid(!isValid);
+      });
     },
     [cooldownEvents, mitEvents, resolveOwnerContext],
   );
@@ -176,6 +230,14 @@ export function useMitigationDragController({
       if (!zone) return;
 
       if (zone.kind === 'trash') {
+        if (item.type === 'duration-ender') {
+          const clearedEvents = buildClearedDurationEndMitEvents(item.parentMit.id, mitEvents);
+          if (clearedEvents) {
+            setMitEvents(clearedEvents);
+          }
+          return;
+        }
+
         if (item.type !== 'existing-mit') return;
 
         const selectedMitIds = useStore.getState().selectedMitIds;
@@ -189,12 +251,50 @@ export function useMitigationDragController({
       if (zone.kind !== 'mit-lane') return;
       const tStartMs = resolveDropStartMs(translated.top, over.rect.top, zone.msPerPx);
 
+      if (item.type === 'duration-ender') {
+        const tEndMs = resolveDropCenterMs(
+          translated.top,
+          translated.height,
+          over.rect.top,
+          zone.msPerPx,
+        );
+        const updatedEvents = buildUpdatedDurationEndMitEvents(
+          item.parentMit.id,
+          item.skillId,
+          tEndMs,
+          mitEvents,
+        );
+        if (!updatedEvents) {
+          push('超出技能持续时间，已取消移动。', { tone: 'error' });
+          return;
+        }
+
+        setMitEvents(updatedEvents);
+        return;
+      }
+
       if (item.type === 'new-skill') {
         const ownerContext = resolveOwnerContext(item.ownerJob, item.ownerId);
+        const durationEndEvents = buildDurationEndMitEvents(
+          item.skill.id,
+          tStartMs,
+          mitEvents,
+          ownerContext,
+        );
+        if (durationEndEvents) {
+          setMitEvents(durationEndEvents);
+          return;
+        }
+
         if (
           !canDropNewMitigation(item.skill.id, tStartMs, mitEvents, cooldownEvents, ownerContext)
         ) {
-          push('冷却中，无法放置该技能。', { tone: 'error' });
+          push(
+            isDurationEnderSkill(item.skill.id)
+              ? '超出技能持续时间，无法放置。'
+              : '冷却中，无法放置该技能。',
+            { tone: 'error' },
+          );
           return;
         }
 

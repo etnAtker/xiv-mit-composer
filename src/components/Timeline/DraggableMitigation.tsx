@@ -5,6 +5,7 @@ import { getSkillIconLocalSrc } from '../../data/icons';
 import { MitigationBarContent } from './MitigationBar';
 import { useTopBanner } from '../../hooks/useTopBanner';
 import { MitigationEditPopover } from './MitigationEditPopover';
+import { XivIcon } from '../XivIcon';
 
 interface Props {
   mit: MitEvent;
@@ -21,6 +22,7 @@ interface Props {
   isSelected?: boolean;
   onSelect?: (mit: MitEvent, e: React.MouseEvent) => void;
   onRightClick?: (e: React.MouseEvent, mit: MitEvent) => void;
+  onDurationEndRightClick?: (e: React.MouseEvent, mit: MitEvent) => void;
 }
 
 export function DraggableMitigation({
@@ -38,6 +40,7 @@ export function DraggableMitigation({
   isSelected,
   onSelect,
   onRightClick,
+  onDurationEndRightClick,
 }: Props) {
   const { push } = useTopBanner();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -45,8 +48,27 @@ export function DraggableMitigation({
     // 为以后跨时间轴（移动/复制）准备；当前单时间轴行为不变。
     data: { type: 'existing-mit', mit, sourceTimelineId: timelineId },
   });
+  const enderDragId = mit.endedBy ? `duration-ender-${mit.id}` : undefined;
+  const {
+    attributes: enderAttributes,
+    listeners: enderListeners,
+    setNodeRef: setEnderNodeRef,
+    isDragging: isEnderDragging,
+  } = useDraggable({
+    id: enderDragId ?? `duration-ender-disabled-${mit.id}`,
+    disabled: !mit.endedBy,
+    data: mit.endedBy
+      ? {
+          type: 'duration-ender',
+          parentMit: mit,
+          skillId: mit.endedBy.skillId,
+          sourceTimelineId: timelineId,
+        }
+      : undefined,
+  });
 
   const skill = getSkillDefinition(mit.skillId);
+  const enderSkill = mit.endedBy ? getSkillDefinition(mit.endedBy.skillId) : undefined;
 
   const style = {
     left: left,
@@ -84,6 +106,31 @@ export function DraggableMitigation({
           effectHeight={effectHeight}
         />
       </div>
+
+      {mit.endedBy && enderSkill ? (
+        <div
+          ref={setEnderNodeRef}
+          {...enderAttributes}
+          {...enderListeners}
+          className={`absolute bottom-1 right-1 z-40 h-5 w-5 cursor-grab overflow-hidden rounded border border-white/70 bg-black/50 shadow-lg active:cursor-grabbing ${
+            isDragging || isEnderDragging ? 'opacity-0' : ''
+          }`}
+          title={enderSkill.name}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (onDurationEndRightClick) {
+              onDurationEndRightClick(e, mit);
+            }
+          }}
+        >
+          <XivIcon
+            localSrc={getSkillIconLocalSrc(enderSkill.actionId)}
+            alt={enderSkill.name}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      ) : null}
 
       {/* 编辑态表单 */}
       {!isDragging && isEditing && (

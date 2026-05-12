@@ -4,9 +4,14 @@ import assert from 'node:assert/strict';
 import type { Job, MitEvent } from '../src/model/types';
 import {
   buildMitEventFromSkill,
+  buildClearedDurationEndMitEvents,
+  buildDurationEndMitEvents,
   buildMovedMitEvents,
+  buildUpdatedDurationEndMitEvents,
   canDropExistingMitigations,
   canDropNewMitigation,
+  canUpdateDurationEnd,
+  resolveDropCenterMs,
   prepareExistingMitDrag,
   resolveDropStartMs,
   resolveEventsToMove,
@@ -50,6 +55,10 @@ test('prepareExistingMitDrag 会基于选中项生成移动上下文', () => {
 
 test('resolveDropStartMs 会把拖拽落点转换为时间', () => {
   assert.equal(resolveDropStartMs(180, 80, 100), 10_000);
+});
+
+test('resolveDropCenterMs 会用拖拽矩形中心转换为时间', () => {
+  assert.equal(resolveDropCenterMs(180, 20, 80, 100), 11_000);
 });
 
 test('resolveMitRemovalIds 会按当前是否被选中决定删除范围', () => {
@@ -100,6 +109,100 @@ test('canDropNewMitigation 会复用合法性校验结果', () => {
       ownerId: 1,
     }),
     true,
+  );
+});
+
+test('小宇宙拖入大宇宙持续窗口时会更新父事件', () => {
+  const events = [createMitEvent('ast-macrocosmos', 10_000, 'AST', 100, 15_000)];
+
+  assert.equal(
+    canDropNewMitigation('ast-microcosmos', 18_000, events, [], {
+      ownerJob: 'AST',
+      ownerId: 100,
+    }),
+    true,
+  );
+  assert.equal(
+    canDropNewMitigation('ast-microcosmos', 30_000, events, [], {
+      ownerJob: 'AST',
+      ownerId: 100,
+    }),
+    false,
+  );
+
+  const updated = buildDurationEndMitEvents('ast-microcosmos', 18_000, events, {
+    ownerJob: 'AST',
+    ownerId: 100,
+  });
+
+  assert.deepEqual(
+    updated?.map((event) => ({
+      skillId: event.skillId,
+      tEndMs: event.tEndMs,
+      durationMs: event.durationMs,
+      endedBy: event.endedBy,
+    })),
+    [
+      {
+        skillId: 'ast-macrocosmos',
+        tEndMs: 18_000,
+        durationMs: 8_000,
+        endedBy: {
+          skillId: 'ast-microcosmos',
+          tMs: 18_000,
+        },
+      },
+    ],
+  );
+});
+
+test('已存在的持续结束标记可以移动并清除', () => {
+  const events = [
+    {
+      ...createMitEvent('ast-macrocosmos', 10_000, 'AST', 100, 8_000),
+      endedBy: {
+        skillId: 'ast-microcosmos',
+        tMs: 18_000,
+      },
+    },
+  ];
+
+  assert.equal(canUpdateDurationEnd(events[0].id, 20_000, events), true);
+  assert.equal(canUpdateDurationEnd(events[0].id, 26_000, events), false);
+
+  const moved = buildUpdatedDurationEndMitEvents(events[0].id, 'ast-microcosmos', 20_000, events);
+  assert.deepEqual(
+    moved?.map((event) => ({
+      tEndMs: event.tEndMs,
+      durationMs: event.durationMs,
+      endedBy: event.endedBy,
+    })),
+    [
+      {
+        tEndMs: 20_000,
+        durationMs: 10_000,
+        endedBy: {
+          skillId: 'ast-microcosmos',
+          tMs: 20_000,
+        },
+      },
+    ],
+  );
+
+  const cleared = buildClearedDurationEndMitEvents(events[0].id, events);
+  assert.deepEqual(
+    cleared?.map((event) => ({
+      tEndMs: event.tEndMs,
+      durationMs: event.durationMs,
+      endedBy: event.endedBy,
+    })),
+    [
+      {
+        tEndMs: 25_000,
+        durationMs: 15_000,
+        endedBy: undefined,
+      },
+    ],
   );
 });
 

@@ -28,7 +28,7 @@
 - 输入状态：`apiKey`、`fflogsUrl`。
 - 战斗状态：`fight`、`actors`、`bossIds`。
 - 选择状态：`partyMembers`、`selectedJob`、`selectedPlayerId`、`selectedMitIds`。
-- 事件状态：`damageEventMembers`、`damageEventsByPlayerId`、`castEvents`、`mitEvents`、`cooldownEvents`。
+- 事件状态：`damageEventMembers`、`damageEventsByPlayerId`、`castEvents`、`mitEvents`、`cooldownEvents`、`resourceEvents`。
 - 工程状态：`projectSlots`、`activeProjectSlotId`。
 - UI 状态：`banners`、`isLoading`、`isRendering`、`error`。
 
@@ -42,7 +42,7 @@
 
 工程文档保存完整工作区快照，包括槽位名称、FFLogs URL、战斗元数据、队伍成员、Boss 咏唱事件、按玩家 ID 分组的受击事件、已排减伤事件和时间轴缩放。工程文档不保存 FFLogs API Key。
 
-工程导入和槽位切换由 `src/domain/project/projectDocument.ts` 与 `src/store/index.ts` 协作完成。导入时会规范化文档结构，并通过 `evaluateMitigationSetStrict` 校验减伤事件和重建 `cooldownEvents`。`cooldownEvents` 是由 `mitEvents` 派生的运行时状态，不写入工程导出文本。
+工程导入和槽位切换由 `src/domain/project/projectDocument.ts` 与 `src/store/index.ts` 协作完成。导入时会规范化文档结构，并通过 `evaluateMitigationSetStrict` 校验减伤事件和重建 `cooldownEvents` 与 `resourceEvents`。`cooldownEvents` 和 `resourceEvents` 是由 `mitEvents` 派生的运行时状态，不写入工程导出文本。
 
 ## 加载流程
 
@@ -54,7 +54,7 @@
 
 ## 减伤事件提交
 
-`addMitEvent`、`updateMitEvent`、`removeMitEvent` 和 `setMitEvents` 通过 `commitMitigationSet` 写入状态。`commitMitigationSet` 使用 `evaluateMitigationSetStrict` 校验并重建冷却事件。校验失败时，状态保持原值。
+`addMitEvent`、`updateMitEvent`、`removeMitEvent` 和 `setMitEvents` 通过 `commitMitigationSet` 写入状态。`commitMitigationSet` 使用 `evaluateMitigationSetStrict` 校验并重建冷却事件和资源状态区间。校验失败时，状态保持原值。
 
 ## 主题与提示
 
