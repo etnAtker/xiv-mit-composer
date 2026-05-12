@@ -114,13 +114,25 @@ export interface Skill {
   icon?: string;
   mitigation?: SkillMitigation[];
   counterpartProjection?: boolean; // 在其他成员的同技能列显示对位投影
-  cooldownGroup?: string; // 共享CD组 ID，在自己进入cd的同时会消耗冷却组的一层cd
+  cooldownGroup?: string | string[]; // 共享CD组 ID，数组表示按顺序消耗第一个可用资源组
+  cooldownGroupRecoveries?: CooldownGroupRecovery[]; // 恢复指定共享资源组层数
+}
+
+export interface CooldownGroupRecovery {
+  groupId: string;
+  amount?: number;
+  expires?: {
+    kind: 'skillEnd';
+  };
 }
 
 export interface CooldownGroup {
   id: string;
-  cooldownSec: number;
   stack: number;
+  initialStack?: number;
+  recovery?: {
+    cooldownSec: number;
+  };
   resourceDisplay?: {
     label: string;
   };

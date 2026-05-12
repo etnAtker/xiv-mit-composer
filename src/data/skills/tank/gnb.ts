@@ -3,8 +3,8 @@ import type { CooldownGroup, Skill } from '../../../model/types';
 export const GNB_COOLDOWN_GROUPS: CooldownGroup[] = [
   {
     id: 'gnb-grp-aurora',
-    cooldownSec: 60,
     stack: 2,
+    recovery: { cooldownSec: 60 },
     resourceDisplay: { label: '极光' },
   },
 ];

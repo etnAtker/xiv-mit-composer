@@ -36,9 +36,13 @@
 
 ## 共享冷却组
 
-共享冷却组定义在各职业文件的 `*_COOLDOWN_GROUPS` 中，并由 `src/data/skills/index.ts` 聚合为 `COOLDOWN_GROUP`。冷却组包含组 ID、冷却秒数和可用层数。技能通过 `cooldownGroup` 关联共享冷却组。
+共享冷却组定义在各职业文件的 `*_COOLDOWN_GROUPS` 中，并由 `src/data/skills/index.ts` 聚合为 `COOLDOWN_GROUP`。冷却组包含组 ID、可用层数上限、可选初始层数和可选自动恢复配置。技能通过 `cooldownGroup` 消耗共享冷却组层数，也可以通过 `cooldownGroupRecoveries` 恢复指定共享冷却组层数。
 
-共享冷却组设置 `resourceDisplay` 时会作为资源档数显示到对应成员的时间轴组内。`resourceDisplay.label` 使用短标签，当前启用显示的资源为 `pld-grp-sheltron`，标签为 `忠义`。
+`stack` 表示资源组层数上限。`initialStack` 表示战斗开始时的初始层数，未配置时等于 `stack`。`recovery.cooldownSec` 表示自动恢复间隔，未配置 `recovery` 的资源组不会自动恢复，只能由技能恢复。技能恢复资源组时不会超过 `stack` 上限。`cooldownGroupRecoveries[].expires.kind = 'skillEnd'` 表示该技能恢复出的资源会在技能事件结束时过期，过期只会移除仍然存在的临时层数，不会把资源扣到初始层数以下。
+
+`cooldownGroup` 可以配置为字符串或字符串数组。字符串表示技能必须消耗该资源组；数组表示按顺序选择第一个当前有层数的资源组消耗，如果全部为 0 层则消耗第一个资源组并由 strict 校验拒绝非法状态。数组资源的 UI 冷却区间按边界扫描生成：每个边界后按同样顺序选择当前首个有层数的资源组，并使用该资源组的不可用状态作为技能不可用状态。
+
+共享冷却组设置 `resourceDisplay` 时会作为资源档数显示到对应成员的时间轴组内。`resourceDisplay.label` 使用短标签。
 
 当前共享冷却组包含以下资源：
 
@@ -48,20 +52,23 @@
 - `war-grp-bloodwhetting`
 - `whm-grp-divine-benison`
 - `sch-grp-consolation`
+- `sch-grp-aetherflow`
+- `sch-grp-recitation`
+- `sch-grp-gcd`
 - `ast-grp-celestial-intersection`
 - `smn-grp-radiant-aegis`
 
-`COOLDOWN_GROUP_SKILLS_MAP` 按组 ID 收集同组技能。某个技能消耗共享冷却组时，同组技能同时获得不可用和冷却限制。
+`COOLDOWN_GROUP_SKILLS_MAP` 按组 ID 收集同组技能。某个技能消耗共享冷却组时，同组技能同时获得不可用和冷却限制。未配置自动恢复的资源组耗尽后会保持不可用，直到后续技能通过 `cooldownGroupRecoveries` 恢复层数；如果现有排布会在未来耗尽该资源组，最后一层存在期间会生成资源预占。预占只会让实际消耗该资源且会破坏未来技能资源选择的候选技能显示不可用，不会阻塞仍有替代资源的候选技能。
 
 ## 冷却构建
 
-冷却逻辑位于 `src/utils/playerCast.ts`。
+冷却逻辑入口位于 `src/utils/playerCast.ts`。具体构建逻辑按职责拆分到 `src/utils/playerCastStackEvents.ts`、`src/utils/playerCastBoundaries.ts`、`src/utils/playerCastCooldownEvents.ts` 和 `src/utils/playerCastShared.ts`。完整实现设计见 [Player Cast 冷却构建](player-cast.md)。
 
 `buildCooldownsStrict` 使用 strict 模式构建冷却事件和资源状态区间。strict 模式遇到未知技能、未知冷却组、负层数、重复打开的冷却区间或未闭合冷却区间时返回失败结果。
 
 `buildCooldownsTolerant` 使用 tolerant 模式构建冷却事件。tolerant 模式记录错误并继续返回可构建出的冷却事件。
 
-`buildPlayerCastStateTolerant` 使用 tolerant 模式构建冷却事件和资源状态区间。资源状态区间在共享冷却组的层数模拟过程中产生，不在 UI 层反推。
+`buildPlayerCastStateTolerant` 使用 tolerant 模式构建冷却事件和资源状态区间。资源状态区间在共享冷却组的层数模拟过程中产生，不在 UI 层反推。初始层数低于上限且配置自动恢复的资源组会从战斗开始排入自动恢复事件。
 
 `evaluateMitigationSetStrict` 对减伤事件按开始时间排序，并使用 strict 模式重建冷却事件和资源状态区间。store 中的减伤事件提交入口使用该函数保证状态合法。
 

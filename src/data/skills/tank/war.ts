@@ -3,8 +3,8 @@ import type { CooldownGroup, Skill } from '../../../model/types';
 export const WAR_COOLDOWN_GROUPS: CooldownGroup[] = [
   {
     id: 'war-grp-bloodwhetting',
-    cooldownSec: 25,
     stack: 1,
+    recovery: { cooldownSec: 25 },
   },
 ];
 

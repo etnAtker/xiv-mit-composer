@@ -3,8 +3,8 @@ import type { CooldownGroup, Skill } from '../../../model/types';
 export const WHM_COOLDOWN_GROUPS: CooldownGroup[] = [
   {
     id: 'whm-grp-divine-benison',
-    cooldownSec: 30,
     stack: 2,
+    recovery: { cooldownSec: 30 },
   },
 ];
 

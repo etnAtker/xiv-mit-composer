@@ -31,5 +31,6 @@ export interface TimelineResourceColumn {
   ownerId: number;
   ownerName: string;
   job: Job;
+  initialValue: number;
   maxValue: number;
 }

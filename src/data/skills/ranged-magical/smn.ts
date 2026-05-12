@@ -3,8 +3,8 @@ import type { CooldownGroup, Skill } from '../../../model/types';
 export const SMN_COOLDOWN_GROUPS: CooldownGroup[] = [
   {
     id: 'smn-grp-radiant-aegis',
-    cooldownSec: 60,
     stack: 2,
+    recovery: { cooldownSec: 60 },
   },
 ];
 

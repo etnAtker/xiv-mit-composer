@@ -264,7 +264,7 @@ export function TimelineCanvas({
           />
 
           <div
-            className="absolute left-0 top-0 overflow-hidden"
+            className="absolute left-0 top-0 overflow-hidden border-r border-app"
             style={{ width: totalWidth, height: timelineHeight }}
           >
             <TimelineBackground

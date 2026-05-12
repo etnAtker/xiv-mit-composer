@@ -40,13 +40,18 @@ export function buildResourceLaneSegments(
 
   if (!sorted.length) {
     return [
-      { value: column.maxValue, maxValue: column.maxValue, tStartMs: 0, tEndMs: timelineEndMs },
+      {
+        value: column.initialValue,
+        maxValue: column.maxValue,
+        tStartMs: 0,
+        tEndMs: timelineEndMs,
+      },
     ];
   }
 
   const segments: ResourceLaneSegment[] = [];
   let cursor = 0;
-  let currentValue = column.maxValue;
+  let currentValue = column.initialValue;
   let currentMaxValue = column.maxValue;
 
   for (const event of sorted) {

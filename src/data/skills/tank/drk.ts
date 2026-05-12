@@ -3,8 +3,8 @@ import type { CooldownGroup, Skill } from '../../../model/types';
 export const DRK_COOLDOWN_GROUPS: CooldownGroup[] = [
   {
     id: 'drk-grp-oblation',
-    cooldownSec: 60,
     stack: 2,
+    recovery: { cooldownSec: 60 },
     resourceDisplay: { label: '献奉' },
   },
 ];

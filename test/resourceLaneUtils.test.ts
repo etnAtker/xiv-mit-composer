@@ -17,6 +17,7 @@ const column: TimelineResourceColumn = {
   ownerId: 1,
   ownerName: 'Paladin',
   job: 'PLD',
+  initialValue: 2,
   maxValue: 2,
 };
 
@@ -58,6 +59,12 @@ test('资源列会把最后一个状态延伸到时间轴末尾', () => {
     { value: 1, maxValue: 2, tStartMs: 10_000, tEndMs: 35_000 },
     { value: 2, maxValue: 2, tStartMs: 35_000, tEndMs: 60_000 },
   ]);
+});
+
+test('资源列无事件时使用列定义的初始档数', () => {
+  const segments = buildResourceLaneSegments([], { ...column, initialValue: 1 }, 60_000);
+
+  assert.deepEqual(segments, [{ value: 1, maxValue: 2, tStartMs: 0, tEndMs: 60_000 }]);
 });
 
 test('资源列能读取屏幕顶部时刻的当前档数', () => {

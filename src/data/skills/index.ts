@@ -3,7 +3,7 @@ import type { CooldownGroup, Skill } from '../../model/types';
 import { AST_COOLDOWN_GROUPS, AST_SKILLS } from './healer/ast';
 import { HEALER_COMMON_SKILLS } from './healer/common';
 import { SCH_COOLDOWN_GROUPS, SCH_SKILLS } from './healer/sch';
-import { SGE_SKILLS } from './healer/sge';
+import { SGE_COOLDOWN_GROUPS, SGE_SKILLS } from './healer/sge';
 import { WHM_COOLDOWN_GROUPS, WHM_SKILLS } from './healer/whm';
 import { MELEE_COMMON_SKILLS } from './melee/common';
 import { DRG_SKILLS } from './melee/drg';
@@ -133,6 +133,7 @@ export const COOLDOWN_GROUP: CooldownGroup[] = [
 
   ...WHM_COOLDOWN_GROUPS,
   ...SCH_COOLDOWN_GROUPS,
+  ...SGE_COOLDOWN_GROUPS,
   ...AST_COOLDOWN_GROUPS,
 
   ...SMN_COOLDOWN_GROUPS,
@@ -144,12 +145,19 @@ export const COOLDOWN_GROUP_MAP = new Map(COOLDOWN_GROUP.map((group) => [group.i
 
 export const COOLDOWN_GROUP_SKILLS_MAP = new Map<string, Skill[]>();
 for (const skill of SKILLS) {
-  const group = skill.cooldownGroup;
-  if (!group || !COOLDOWN_GROUP_MAP.has(group)) continue;
+  const groups = Array.isArray(skill.cooldownGroup)
+    ? skill.cooldownGroup
+    : skill.cooldownGroup
+      ? [skill.cooldownGroup]
+      : [];
 
-  const groupSkills = COOLDOWN_GROUP_SKILLS_MAP.get(group) || [];
-  groupSkills.push(skill);
-  COOLDOWN_GROUP_SKILLS_MAP.set(group, groupSkills);
+  for (const group of groups) {
+    if (!COOLDOWN_GROUP_MAP.has(group)) continue;
+
+    const groupSkills = COOLDOWN_GROUP_SKILLS_MAP.get(group) || [];
+    groupSkills.push(skill);
+    COOLDOWN_GROUP_SKILLS_MAP.set(group, groupSkills);
+  }
 }
 
 export const normalizeSkillId = (skillId: string) => {

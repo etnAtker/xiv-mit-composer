@@ -373,8 +373,13 @@ const buildCandidates = (rows: ActionRow[], config: ScriptConfig): SkillCandidat
       return a.action.row_id - b.action.row_id;
     });
 
+const getExistingPrimaryCooldownGroup = (skill: Skill | undefined) => {
+  if (!skill?.cooldownGroup) return undefined;
+  return Array.isArray(skill.cooldownGroup) ? skill.cooldownGroup[0] : skill.cooldownGroup;
+};
+
 const getGroupId = (candidate: SkillCandidate) =>
-  candidate.existingSkill?.cooldownGroup ??
+  getExistingPrimaryCooldownGroup(candidate.existingSkill) ??
   `${String(candidate.job).toLowerCase()}-grp-${candidate.slug}`;
 
 const renderSuggestedGroups = (candidates: SkillCandidate[]) => {
@@ -393,7 +398,9 @@ const renderSuggestedGroups = (candidates: SkillCandidate[]) => {
     '// 建议补充或核对 COOLDOWN_GROUP：',
     ...Array.from(groups.entries()).map(
       ([id, group]) =>
-        `// { id: ${quote(id)}, cooldownSec: ${formatNumber(group.cooldownSec)}, stack: ${group.stack} },`,
+        `// { id: ${quote(id)}, stack: ${group.stack}, recovery: { cooldownSec: ${formatNumber(
+          group.cooldownSec,
+        )} } },`,
     ),
   ];
 };
@@ -473,7 +480,13 @@ const renderCandidate = (candidate: SkillCandidate) => {
   lines.push(`    job: ${quote(candidate.job)},`);
   lines.push(`    actionId: ${candidate.action.row_id},`);
   if (cooldownGroup) {
-    lines.push(`    cooldownGroup: ${quote(cooldownGroup)},`);
+    lines.push(
+      `    cooldownGroup: ${
+        Array.isArray(cooldownGroup)
+          ? `[${cooldownGroup.map((group) => quote(group)).join(', ')}]`
+          : quote(cooldownGroup)
+      },`,
+    );
   }
   lines.push('  },');
   return lines.join('\n');

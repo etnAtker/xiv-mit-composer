@@ -62,7 +62,7 @@ bun run fetch:skills -- PLD --out tmp/pld-actions.ts
 
 脚本会输出 ActionCategory、等级、可用职业、目标类型、XIVAPI 冷却组、`Maximum Charges`、不可叠加提示、中文描述和英文描述。候选技能的 `name` 字段使用简体中文，`name_en`、`name_jp`、`name_fr` 和 `name_de` 使用对应语言字段。持续时间、层数和不可叠加提示仍根据英文描述解析，避免中文文案格式差异影响结构化字段。
 
-带有 `Maximum Charges` 的技能会在输出文件顶部生成 `COOLDOWN_GROUP` 候选注释，并在技能候选中写入建议的 `cooldownGroup`。该建议用于辅助处理可叠层技能，正式迁移时仍需结合现有共享冷却组语义人工确认。
+带有 `Maximum Charges` 的技能会在输出文件顶部生成包含 `recovery.cooldownSec` 的 `COOLDOWN_GROUP` 候选注释，并在技能候选中写入建议的 `cooldownGroup`。该建议用于辅助处理可叠层技能，正式迁移时仍需结合现有共享冷却组语义人工确认。
 
 boilmaster 实例不提供 `/api/asset`，图标资源仍由 `scripts/fetch-xiv-icons.ts` 通过官方 XIVAPI V2 asset 接口下载。
 

@@ -162,21 +162,29 @@ function buildMemberResourceColumns(
   const groups = new Map<string, TimelineResourceColumn>();
 
   for (const skill of memberSkills) {
-    const cooldownGroupId = skill.cooldownGroup;
-    if (!cooldownGroupId || groups.has(cooldownGroupId)) continue;
+    const cooldownGroupIds = Array.isArray(skill.cooldownGroup)
+      ? skill.cooldownGroup
+      : skill.cooldownGroup
+        ? [skill.cooldownGroup]
+        : [];
 
-    const group = COOLDOWN_GROUP_MAP.get(cooldownGroupId);
-    if (!group?.resourceDisplay) continue;
+    for (const cooldownGroupId of cooldownGroupIds) {
+      if (groups.has(cooldownGroupId)) continue;
 
-    groups.set(cooldownGroupId, {
-      id: cooldownGroupId,
-      columnId: `${cooldownGroupId}:${member.playerId}`,
-      label: group.resourceDisplay.label,
-      ownerId: member.playerId,
-      ownerName: member.name,
-      job: member.job,
-      maxValue: group.stack,
-    });
+      const group = COOLDOWN_GROUP_MAP.get(cooldownGroupId);
+      if (!group?.resourceDisplay) continue;
+
+      groups.set(cooldownGroupId, {
+        id: cooldownGroupId,
+        columnId: `${cooldownGroupId}:${member.playerId}`,
+        label: group.resourceDisplay.label,
+        ownerId: member.playerId,
+        ownerName: member.name,
+        job: member.job,
+        initialValue: Math.min(Math.max(group.initialStack ?? group.stack, 0), group.stack),
+        maxValue: group.stack,
+      });
+    }
   }
 
   return [...groups.values()];
