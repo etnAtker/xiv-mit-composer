@@ -57,7 +57,7 @@
 
 全局拖拽上下文位于 `src/App.tsx`。`useMitigationDragController` 处理新技能拖入、已有减伤移动、批量移动、删除投放区和拖拽预览。
 
-拖拽投放区由 dnd-kit `useDroppable` 创建。投放区数据包含 `msPerPx`，用于把拖拽位置转换为 `tStartMs`。
+拖拽投放区由 dnd-kit `useDroppable` 创建。投放区数据包含 `msPerPx`，用于把拖拽位置转换为 `tStartMs`。全局拖拽上下文使用 `src/dnd/collision.ts` 的碰撞检测：默认沿用 dnd-kit `rectIntersection`，当默认结果为空时，对时间轴投放区按真实矩形重叠面积兜底，避免巨大时间轴投放区和极短减伤条之间的比例取整导致漏判。
 
 新技能拖入时，控制器调用 `canDropNewMitigation` 判断冷却合法性，再调用 `buildMitEventFromSkill` 创建事件。持续结束型技能拖入同一 owner 的父技能原始持续窗口时，控制器调用 `buildDurationEndMitEvents` 更新父事件，不创建独立减伤事件。已有减伤移动时，控制器调用 `buildMovedMitEvents` 生成候选事件，并使用 strict 冷却校验保证移动结果合法；移动带有结束标记的减伤事件时，`endedBy.tMs` 按相同时间偏移移动。
 

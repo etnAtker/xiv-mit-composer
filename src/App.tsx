@@ -3,6 +3,7 @@ import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useShallow } from 'zustand/shallow';
 import { useStore } from './store';
 import { selectAppActions, selectAppState } from './store/selectors';
+import { mitigationCollisionDetection } from './dnd/collision';
 import { getSkillDefinition } from './data/skills';
 import { FFLogsExporter } from './lib/fflogs/exporter';
 import { AppHeader } from './components/AppHeader';
@@ -387,6 +388,7 @@ export default function App() {
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={mitigationCollisionDetection}
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
