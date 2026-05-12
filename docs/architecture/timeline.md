@@ -27,7 +27,7 @@
 
 启用 `resourceDisplay` 的共享冷却组会在对应成员技能组内生成资源窄列。资源列排在该成员技能列之前，列宽由 `RESOURCE_COLUMN_WIDTH` 定义，表头显示共享组的短标签。
 
-非 role 技能和 role 技能都按 `playerId` 分发到释放者列。重复职业玩家不会共享技能列。
+非 role 技能和 role 技能都按 `playerId` 分发到释放者列。重复职业玩家不会共享技能列。`kind: 'durationEnder'` 的持续结束型子技能不会生成独立技能列。
 
 技能定义启用 `counterpartProjection` 时，`MitigationLayer` 会在其他未折叠成员的同技能列绘制半透明对位投影。投影目标按基础技能 ID 和目标成员技能列判断；目标成员没有该技能列时不绘制投影。
 
@@ -49,7 +49,9 @@
 
 选中减伤后，用户按 `Delete` 或 `Backspace` 删除选中项。右键菜单在存在选中项时显示，单选时提供编辑事件，多选时提供批量删除。
 
-减伤条编辑通过 `MitigationEditPopover` 调用 store 的 `updateMitEvent`。更新后的事件集合通过 strict 冷却校验。
+减伤条编辑通过 `MitigationEditPopover` 调用 store 的 `updateMitEvent`。支持持续结束的父技能会显示结束时间输入框，提交后更新 `endedBy`、`durationMs` 和 `tEndMs`；清空结束时间会移除 `endedBy` 并恢复完整持续时间。更新后的事件集合通过 strict 冷却校验。
+
+带有 `endedBy` 的减伤条会在右下角显示结束技能图标。结束技能图标右键菜单提供编辑事件和删除结束标记；删除结束标记会恢复父技能完整持续时间。
 
 ## 拖拽
 
@@ -57,7 +59,9 @@
 
 拖拽投放区由 dnd-kit `useDroppable` 创建。投放区数据包含 `msPerPx`，用于把拖拽位置转换为 `tStartMs`。
 
-新技能拖入时，控制器调用 `canDropNewMitigation` 判断冷却合法性，再调用 `buildMitEventFromSkill` 创建事件。已有减伤移动时，控制器调用 `buildMovedMitEvents` 生成候选事件，并使用 strict 冷却校验保证移动结果合法。
+新技能拖入时，控制器调用 `canDropNewMitigation` 判断冷却合法性，再调用 `buildMitEventFromSkill` 创建事件。持续结束型技能拖入同一 owner 的父技能原始持续窗口时，控制器调用 `buildDurationEndMitEvents` 更新父事件，不创建独立减伤事件。已有减伤移动时，控制器调用 `buildMovedMitEvents` 生成候选事件，并使用 strict 冷却校验保证移动结果合法；移动带有结束标记的减伤事件时，`endedBy.tMs` 按相同时间偏移移动。
+
+拖拽中的预览位移和落点合法性校验使用 `requestAnimationFrame` 节流。拖拽结束时仍执行最终 strict 校验并只提交合法结果。
 
 ## 冷却限制层
 

@@ -24,11 +24,14 @@ bun run fetch:skills -- SGE
 
 测试文件位于 `test/`。
 
-- `test/playerCast.test.ts` 覆盖冷却构建、共享冷却组、充能恢复、owner 隔离、strict/tolerant 模式和插入校验。
-- `test/mitigationDrag.test.ts` 覆盖拖拽时间换算、移动范围、删除范围、新事件构建、新技能投放和已有减伤移动。
+- `test/playerCast.test.ts` 覆盖冷却构建、共享冷却组、充能恢复、资源档数状态、多资源选择、预占、owner 隔离、strict/tolerant 模式和插入校验。
+- `test/buildMitEvents.test.ts` 覆盖友方技能事件转换，以及持续结束型技能对父减伤事件的合并。
+- `test/mitigationDrag.test.ts` 覆盖拖拽时间换算、移动范围、删除范围、新事件构建、新技能投放、已有减伤移动和持续结束标记更新。
 - `test/mitigationBarUtils.test.ts` 覆盖减伤条高度计算。
 - `test/mitigationColumnUtils.test.ts` 覆盖 role 技能在双职业布局下的列 key 分发。
 - `test/cooldownConstraintUtils.test.ts` 覆盖冷却限制层可视区段和共享资源兄弟技能列绘制。
+- `test/resourceLaneUtils.test.ts` 覆盖资源档数列可视区段、顶部当前档数和空资源事件回退显示。
+- `test/timelineLayout.test.ts` 覆盖玩家组宽度、技能列居中和持续结束型子技能不生成独立技能列。
 
 ## 图标资源
 
