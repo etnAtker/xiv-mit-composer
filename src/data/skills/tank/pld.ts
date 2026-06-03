@@ -44,7 +44,7 @@ export const PLD_SKILLS: Skill[] = [
       { kind: 'shield', durationSec: 15, potency: 1000, targeting: { kind: 'self' } },
     ],
     job: 'PLD',
-    actionId: 17,
+    actionId: 36920,
   },
   {
     id: 'pld-h-sheltron',
