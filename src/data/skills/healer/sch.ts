@@ -212,17 +212,7 @@ export const SCH_SKILLS: Skill[] = [
     name_fr: 'Thèse fluidique',
     name_de: 'Sturm und Drang',
     cooldownSec: 120,
-    durationSec: 10,
-    mitigation: [
-      {
-        kind: 'damage-down',
-        target: 'player',
-        pct: 10,
-        durationSec: 10,
-        damageType: 'all',
-        targeting: { kind: 'party' },
-      },
-    ],
+    durationSec: 20,
     job: 'SCH',
     actionId: 25868,
   },
