@@ -45,6 +45,7 @@ export const PLD_SKILLS: Skill[] = [
     ],
     job: 'PLD',
     actionId: 36920,
+    tts: '大减',
   },
   {
     id: 'pld-h-sheltron',
@@ -77,6 +78,7 @@ export const PLD_SKILLS: Skill[] = [
     job: 'PLD',
     actionId: 25746,
     cooldownGroup: 'pld-grp-sheltron',
+    tts: '小减',
   },
   {
     id: 'pld-intervention',
@@ -132,6 +134,7 @@ export const PLD_SKILLS: Skill[] = [
     ],
     job: 'PLD',
     actionId: 30,
+    tts: '无敌',
   },
   {
     id: 'pld-passage',
@@ -154,6 +157,7 @@ export const PLD_SKILLS: Skill[] = [
     ],
     job: 'PLD',
     actionId: 7385,
+    tts: '翅膀',
   },
   {
     id: 'pld-divine-veil',
@@ -167,5 +171,6 @@ export const PLD_SKILLS: Skill[] = [
     mitigation: [{ kind: 'shield', durationSec: 30, maxHpPct: 10, targeting: { kind: 'party' } }],
     job: 'PLD',
     actionId: 3540,
+    tts: '幕帘',
   },
 ];

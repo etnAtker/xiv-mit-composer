@@ -4,7 +4,7 @@
 
 ## 技能数据
 
-技能类型定义位于 `src/model/types.ts`。`Skill` 包含技能 ID、显示名称、多语言名称、冷却时间、持续时间、所属职业、FFLogs action ID、图标、减伤效果、对位投影标记和共享冷却组。
+技能类型定义位于 `src/model/types.ts`。`Skill` 包含技能 ID、显示名称、多语言名称、冷却时间、持续时间、所属职业、FFLogs action ID、图标、Souma 导出 TTS 文本、减伤效果、对位投影标记和共享冷却组。
 
 技能数据位于 `src/data/skills/`，按战斗定位和职业拆分：
 

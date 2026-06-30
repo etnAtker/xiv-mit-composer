@@ -113,6 +113,7 @@ export interface Skill {
   actionId: number; // FFLogs 技能 ID
   kind?: 'normal' | 'durationEnder';
   icon?: string;
+  tts?: string; // Souma 时间轴导出 TTS 文本
   mitigation?: SkillMitigation[];
   counterpartProjection?: boolean; // 在其他成员的同技能列显示对位投影
   durationEnd?: {
