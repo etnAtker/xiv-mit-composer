@@ -17,6 +17,7 @@ import {
   resolveEventsToMove,
   resolveMitRemovalIds,
 } from '../src/domain/drag/mitigationDrag';
+import { buildCooldownsTolerant } from '../src/utils/playerCast';
 
 function createMitEvent(
   skillId: string,
@@ -90,21 +91,17 @@ test('buildMitEventFromSkill 会生成带 owner 的减伤事件', () => {
 
 test('canDropNewMitigation 会复用合法性校验结果', () => {
   const events = [createMitEvent('role-rampart', 10_000, 'PLD', 1)];
-  const context = prepareExistingMitDrag(
-    createMitEvent('role-reprisal@PLD', 50_000, 'PLD', 1),
-    [],
-    events,
-  );
+  const cooldownEvents = buildCooldownsTolerant(events);
 
   assert.equal(
-    canDropNewMitigation('role-rampart', 20_000, events, context.cooldownEvents, {
+    canDropNewMitigation('role-rampart', 20_000, events, cooldownEvents, {
       ownerJob: 'PLD',
       ownerId: 1,
     }),
     false,
   );
   assert.equal(
-    canDropNewMitigation('role-rampart', 120_000, events, context.cooldownEvents, {
+    canDropNewMitigation('role-rampart', 120_000, events, cooldownEvents, {
       ownerJob: 'PLD',
       ownerId: 1,
     }),

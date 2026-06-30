@@ -33,7 +33,6 @@ function createMitEvent(
 
 function createTestSkill(skill: Partial<Skill> & Pick<Skill, 'id'>): Skill {
   return {
-    id: skill.id,
     name: skill.id,
     name_jp: skill.id,
     name_en: skill.id,
@@ -44,6 +43,7 @@ function createTestSkill(skill: Partial<Skill> & Pick<Skill, 'id'>): Skill {
     job: 'PLD',
     actionId: 1,
     ...skill,
+    id: skill.id,
   };
 }
 

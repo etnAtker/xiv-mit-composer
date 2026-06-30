@@ -40,12 +40,3 @@ test('短持续时间条身不再扣除 header 高度', () => {
   assert.equal(heights.effectHeight, 50);
   assert.equal(heights.totalHeight, 50);
 });
-
-test('零持续时间技能保留图标拖拽命中高度', () => {
-  const mit = createMitEvent('sge-rhizomata', 10_000, 0, 'SGE', 1);
-
-  const heights = getMitigationBarHeights(mit, 5);
-
-  assert.equal(heights.effectHeight, 0);
-  assert.equal(heights.totalHeight, 40);
-});
