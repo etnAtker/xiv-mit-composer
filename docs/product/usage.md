@@ -70,7 +70,7 @@ FFLogs URL 由 `src/utils.ts` 中的 `parseFFLogsUrl` 解析。URL 中的 report
 
 “WebDAV 同步”按钮位于“导入/导出”右侧。同步弹窗允许填写 WebDAV 目录地址、用户名和密码，并可测试连通性与认证信息。输入框失焦时保存设置；设置保存在当前浏览器中，FFLogs API Key、WebDAV 地址和认证信息不会上传。
 
-同步地址下使用固定的 `xiv-mit-composer` 子目录，其中包含全部槽位存档 `xiv-mit-composer.sync.json` 和校验信息 `xiv-mit-composer.sync-meta.json`。首次上传时会自动创建该子目录。校验信息包含 SHA-256 与远程上传时间，上传时间不参与 Hash。
+同步地址下使用固定的 `xiv-mit-composer` 子目录，其中包含 gzip 压缩的全部槽位存档 `xiv-mit-composer.sync.json.gz` 和校验信息 `xiv-mit-composer.sync-meta.json`。首次上传时会自动创建该子目录。校验信息包含 SHA-256、归档编码与远程上传时间，上传时间不参与 Hash。同步仅支持当前 gzip 格式，不读取旧版未压缩同步文件。
 
 “上传全部槽位”会先比较本地和远程 Hash。内容一致时无需上传；内容不同时，弹窗显示远程上传时间并要求确认覆盖。首次上传时远程上传时间显示为尚无同步记录。
 

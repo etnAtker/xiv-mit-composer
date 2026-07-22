@@ -1,4 +1,5 @@
 import { XMC_PROJECT_PREFIX, type XmcProjectDocument } from '../../model/project';
+import { gzipText, gunzipText } from '../../utils/compression';
 
 export class ProjectCodecError extends Error {
   constructor(message: string) {
@@ -27,26 +28,6 @@ export async function decodeProjectDocument(text: string): Promise<XmcProjectDoc
     if (error instanceof ProjectCodecError) throw error;
     throw new ProjectCodecError('工程文本解析失败');
   }
-}
-
-async function gzipText(text: string): Promise<Uint8Array> {
-  if (typeof CompressionStream === 'undefined') {
-    throw new ProjectCodecError('当前运行环境不支持工程压缩');
-  }
-
-  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-async function gunzipText(bytes: Uint8Array): Promise<string> {
-  if (typeof DecompressionStream === 'undefined') {
-    throw new ProjectCodecError('当前运行环境不支持工程解压');
-  }
-
-  const buffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(buffer).set(bytes);
-  const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return await new Response(stream).text();
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {

@@ -59,6 +59,21 @@ export async function readWebDavText(
   return await response.text();
 }
 
+export async function readWebDavBytes(
+  settings: WebDavSettings,
+  fileName: string,
+): Promise<Uint8Array | null> {
+  const response = await request(settings, resolveFileUrl(settings.url, fileName), {
+    method: 'GET',
+    cache: 'no-store',
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throwResponseError(response, `读取远程文件 ${fileName} 失败`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 export async function writeWebDavText(
   settings: WebDavSettings,
   fileName: string,
@@ -68,6 +83,23 @@ export async function writeWebDavText(
     method: 'PUT',
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: content,
+  });
+  if (!response.ok) {
+    throwResponseError(response, `写入远程文件 ${fileName} 失败`);
+  }
+}
+
+export async function writeWebDavBytes(
+  settings: WebDavSettings,
+  fileName: string,
+  content: Uint8Array,
+): Promise<void> {
+  const body = new ArrayBuffer(content.byteLength);
+  new Uint8Array(body).set(content);
+  const response = await request(settings, resolveFileUrl(settings.url, fileName), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/gzip' },
+    body,
   });
   if (!response.ok) {
     throwResponseError(response, `写入远程文件 ${fileName} 失败`);

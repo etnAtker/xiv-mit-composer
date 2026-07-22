@@ -2,7 +2,7 @@ import type { ProjectSlot } from './project';
 
 export const XMC_SYNC_APP = 'xiv-mit-composer-sync';
 export const XMC_SYNC_VERSION = 1;
-export const XMC_SYNC_METADATA_VERSION = 1;
+export const XMC_SYNC_METADATA_VERSION = 2;
 
 export interface WebDavSettings {
   url: string;
@@ -22,4 +22,5 @@ export interface XmcSyncMetadata {
   algorithm: 'SHA-256';
   hash: string;
   uploadedAt: string;
+  archiveEncoding: 'gzip';
 }

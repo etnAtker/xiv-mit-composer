@@ -2,12 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  compressSyncArchive,
   createSyncArchive,
   createSyncContentSignature,
   createSyncMetadata,
+  decompressSyncArchive,
   hashSyncArchive,
   normalizeSyncArchive,
   parseSyncArchive,
+  parseSyncMetadata,
   serializeSyncArchive,
   SYNC_ARCHIVE_FILE_NAME,
   SYNC_METADATA_FILE_NAME,
@@ -18,7 +21,7 @@ import {
 } from '../src/domain/project/projectDocument';
 
 test('同步文件位于固定的 xiv-mit-composer 子目录', () => {
-  assert.equal(SYNC_ARCHIVE_FILE_NAME, 'xiv-mit-composer/xiv-mit-composer.sync.json');
+  assert.equal(SYNC_ARCHIVE_FILE_NAME, 'xiv-mit-composer/xiv-mit-composer.sync.json.gz');
   assert.equal(SYNC_METADATA_FILE_NAME, 'xiv-mit-composer/xiv-mit-composer.sync-meta.json');
 });
 
@@ -69,7 +72,33 @@ test('上传时间位于独立元数据中且不会改变同步存档 Hash', asy
 
   assert.equal(firstMetadata.hash, secondMetadata.hash);
   assert.notEqual(firstMetadata.uploadedAt, secondMetadata.uploadedAt);
+  assert.equal(firstMetadata.archiveEncoding, 'gzip');
   assert.equal(await hashSyncArchive(archive), hash);
+});
+
+test('同步存档使用 gzip 压缩并能完整恢复', async () => {
+  const slot = createDefaultProjectSlot('2026-01-01T00:00:00.000Z');
+  const archive = createSyncArchive([slot], slot.id);
+  const compressed = await compressSyncArchive(archive);
+  const restored = await decompressSyncArchive(compressed);
+
+  assert.deepEqual(Array.from(compressed.subarray(0, 2)), [0x1f, 0x8b]);
+  assert.deepEqual(restored, archive);
+});
+
+test('同步校验文件拒绝旧版未压缩格式', () => {
+  assert.throws(
+    () =>
+      parseSyncMetadata(
+        JSON.stringify({
+          version: 1,
+          algorithm: 'SHA-256',
+          hash: '0'.repeat(64),
+          uploadedAt: '2026-01-01T00:00:00.000Z',
+        }),
+      ),
+    /格式无效/,
+  );
 });
 
 test('同步存档序列化会保留全部槽位和当前槽位', () => {

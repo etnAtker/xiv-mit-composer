@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   ensureWebDavDirectory,
+  readWebDavBytes,
   readWebDavText,
   testWebDavConnection,
+  writeWebDavBytes,
   writeWebDavText,
 } from '../src/lib/webdav/client';
 
@@ -42,6 +44,29 @@ test('WebDAV 客户端会在指定目录使用认证执行连接测试、读取�
     }
     assert.equal(new Headers(requests[0]?.init?.headers).get('Depth'), '0');
     assert.equal(requests[2]?.init?.body, '{"ok":true}');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('WebDAV 客户端会以二进制方式读写 gzip 存档', async () => {
+  const originalFetch = globalThis.fetch;
+  const uploadedBodies: ArrayBuffer[] = [];
+  globalThis.fetch = async (_input, init) => {
+    if (init?.method === 'GET') {
+      return new Response(new Uint8Array([0x1f, 0x8b, 0x01]), { status: 200 });
+    }
+    uploadedBodies.push(init?.body as ArrayBuffer);
+    return new Response(null, { status: 201 });
+  };
+
+  try {
+    const settings = { url: 'https://example.com/dav/', username: '', password: '' };
+    const downloaded = await readWebDavBytes(settings, 'archive.gz');
+    await writeWebDavBytes(settings, 'archive.gz', new Uint8Array([0x1f, 0x8b, 0x02]));
+
+    assert.deepEqual(Array.from(downloaded ?? []), [0x1f, 0x8b, 0x01]);
+    assert.deepEqual(Array.from(new Uint8Array(uploadedBodies[0]!)), [0x1f, 0x8b, 0x02]);
   } finally {
     globalThis.fetch = originalFetch;
   }

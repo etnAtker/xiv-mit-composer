@@ -1,24 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/shallow';
 import {
+  compressSyncArchive,
   createLiveSyncArchive,
   createSyncArchive,
   createSyncContentSignature,
   createSyncMetadata,
+  decompressSyncArchive,
   hashSyncArchive,
-  parseSyncArchive,
   parseSyncMetadata,
-  serializeSyncArchive,
-  SYNC_DIRECTORY_NAME,
   SYNC_ARCHIVE_FILE_NAME,
+  SYNC_DIRECTORY_NAME,
   SYNC_METADATA_FILE_NAME,
 } from '../domain/sync/syncArchive';
 import {
   WebDavError,
   ensureWebDavDirectory,
   isWebDavConfigured,
+  readWebDavBytes,
   readWebDavText,
   testWebDavConnection,
+  writeWebDavBytes,
   writeWebDavText,
 } from '../lib/webdav/client';
 import type { WebDavSettings, XmcSyncArchive } from '../model/sync';
@@ -41,6 +43,12 @@ interface UseWebDavSyncOptions {
   isProjectRestored: boolean;
   setZoom: (zoom: number) => void;
   push: PushBanner;
+}
+
+async function readCompressedRemoteArchive(settings: WebDavSettings): Promise<XmcSyncArchive> {
+  const bytes = await readWebDavBytes(settings, SYNC_ARCHIVE_FILE_NAME);
+  if (bytes === null) throw new Error('远程压缩同步存档文件不存在');
+  return await decompressSyncArchive(bytes);
 }
 
 export function useWebDavSync({ zoom, isProjectRestored, setZoom, push }: UseWebDavSyncOptions) {
@@ -133,9 +141,7 @@ export function useWebDavSync({ zoom, isProjectRestored, setZoom, push }: UseWeb
       const metadata = await readRemoteMetadata(settings);
       if (!metadata) throw new Error('远程目录中没有同步存档');
 
-      const archiveText = await readWebDavText(settings, SYNC_ARCHIVE_FILE_NAME);
-      if (archiveText === null) throw new Error('远程同步存档文件不存在');
-      const archive = parseSyncArchive(archiveText);
+      const archive = await readCompressedRemoteArchive(settings);
       const actualHash = await hashSyncArchive(archive);
       if (actualHash !== metadata.hash) {
         throw new Error('远程同步存档与校验文件不一致，已停止下载');
@@ -239,8 +245,9 @@ export function useWebDavSync({ zoom, isProjectRestored, setZoom, push }: UseWeb
       }
 
       const metadata = createSyncMetadata(localHash);
+      const compressedArchive = await compressSyncArchive(localArchive);
       await ensureWebDavDirectory(settings, SYNC_DIRECTORY_NAME);
-      await writeWebDavText(settings, SYNC_ARCHIVE_FILE_NAME, serializeSyncArchive(localArchive));
+      await writeWebDavBytes(settings, SYNC_ARCHIVE_FILE_NAME, compressedArchive);
       await writeWebDavText(settings, SYNC_METADATA_FILE_NAME, JSON.stringify(metadata));
       setConnectionState('valid');
       markSynchronized(localArchive);

@@ -5,6 +5,7 @@ import {
 } from '../project/projectDocument';
 import type { ProjectSlot } from '../../model/project';
 import type { AppState } from '../../store';
+import { gzipText, gunzipText } from '../../utils/compression';
 import {
   XMC_SYNC_APP,
   XMC_SYNC_METADATA_VERSION,
@@ -14,7 +15,7 @@ import {
 } from '../../model/sync';
 
 export const SYNC_DIRECTORY_NAME = 'xiv-mit-composer';
-export const SYNC_ARCHIVE_FILE_NAME = `${SYNC_DIRECTORY_NAME}/xiv-mit-composer.sync.json`;
+export const SYNC_ARCHIVE_FILE_NAME = `${SYNC_DIRECTORY_NAME}/xiv-mit-composer.sync.json.gz`;
 export const SYNC_METADATA_FILE_NAME = `${SYNC_DIRECTORY_NAME}/xiv-mit-composer.sync-meta.json`;
 
 export class SyncArchiveError extends Error {
@@ -131,6 +132,19 @@ export function serializeSyncArchive(archive: XmcSyncArchive): string {
   return JSON.stringify(normalizeSyncArchive(archive));
 }
 
+export async function compressSyncArchive(archive: XmcSyncArchive): Promise<Uint8Array> {
+  return await gzipText(serializeSyncArchive(archive));
+}
+
+export async function decompressSyncArchive(bytes: Uint8Array): Promise<XmcSyncArchive> {
+  try {
+    return parseSyncArchive(await gunzipText(bytes));
+  } catch (error) {
+    if (error instanceof SyncArchiveError) throw error;
+    throw new SyncArchiveError('远程压缩同步存档解析失败');
+  }
+}
+
 export function parseSyncArchive(text: string): XmcSyncArchive {
   try {
     return normalizeSyncArchive(JSON.parse(text));
@@ -167,6 +181,7 @@ export function createSyncMetadata(
     algorithm: 'SHA-256',
     hash,
     uploadedAt,
+    archiveEncoding: 'gzip',
   };
 }
 
@@ -180,11 +195,18 @@ export function parseSyncMetadata(text: string): XmcSyncMetadata {
       typeof input.hash !== 'string' ||
       !/^[a-f0-9]{64}$/.test(input.hash) ||
       typeof input.uploadedAt !== 'string' ||
-      Number.isNaN(Date.parse(input.uploadedAt))
+      Number.isNaN(Date.parse(input.uploadedAt)) ||
+      input.archiveEncoding !== 'gzip'
     ) {
       throw new SyncArchiveError('远程同步校验文件格式无效');
     }
-    return input as unknown as XmcSyncMetadata;
+    return {
+      version: XMC_SYNC_METADATA_VERSION,
+      algorithm: 'SHA-256',
+      hash: input.hash,
+      uploadedAt: input.uploadedAt,
+      archiveEncoding: 'gzip',
+    };
   } catch (error) {
     if (error instanceof SyncArchiveError) throw error;
     throw new SyncArchiveError('远程同步校验文件解析失败');

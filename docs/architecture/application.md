@@ -53,10 +53,10 @@ WebDAV 同步流程位于 `src/hooks/useWebDavSync.ts`，远程访问封装位�
 
 用户指定的 WebDAV 目录下使用固定的 `xiv-mit-composer` 子目录，并在该子目录保存两个文件：
 
-- `xiv-mit-composer/xiv-mit-composer.sync.json`：全部工程槽位和当前槽位 ID。
+- `xiv-mit-composer/xiv-mit-composer.sync.json.gz`：gzip 压缩后的全部工程槽位和当前槽位 ID。
 - `xiv-mit-composer/xiv-mit-composer.sync-meta.json`：同步版本、SHA-256 和上传时间。
 
-SHA-256 根据规范化后的同步存档计算。上传时间位于独立校验文件中，不参与 Hash。首次上传前通过 `MKCOL` 创建应用子目录，上传先写同步存档，再写校验文件；下载会重新计算远程存档 Hash，并在校验通过后整体替换本地槽位。
+SHA-256 根据规范化后的未压缩同步存档计算。上传时间位于独立校验文件中，不参与 Hash。工程导出与 WebDAV 同步复用 `src/utils/compression.ts` 的 gzip 实现。首次上传前通过 `MKCOL` 创建应用子目录，上传先写压缩同步存档，再写校验文件；下载会解压并重新计算远程存档 Hash，在校验通过后整体替换本地槽位。同步仅支持当前 gzip 格式，不读取旧版未压缩存档。
 
 页面恢复完成后会读取远程 Hash。Hash 不同时打开下载覆盖确认，相同时不修改本地状态。`Ctrl+S` 执行上传检查。本次页面会话发生同步范围内的编辑、连接有效且尚未上传时，`beforeunload` 触发浏览器原生离开确认；成功上传或下载会清除该状态。
 
