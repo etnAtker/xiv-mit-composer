@@ -11,6 +11,7 @@ interface Props {
   onLoadFight: () => void;
   onExportTimeline: () => void;
   onOpenProjectManager: () => void;
+  onOpenWebDavSync: () => void;
   onOpenHelp: () => void;
   onToggleTheme: () => void;
 }
@@ -26,6 +27,7 @@ export function AppHeader({
   onLoadFight,
   onExportTimeline,
   onOpenProjectManager,
+  onOpenWebDavSync,
   onOpenHelp,
   onToggleTheme,
 }: Props) {
@@ -125,6 +127,13 @@ export function AppHeader({
           className="bg-accent-strong px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-app text-white shadow-sm"
         >
           导入/导出
+        </button>
+        <button
+          type="button"
+          onClick={onOpenWebDavSync}
+          className="bg-accent-strong px-4 py-2 rounded-lg text-xs font-semibold transition-colors border border-app text-white shadow-sm"
+        >
+          WebDAV 同步
         </button>
         <button
           type="button"

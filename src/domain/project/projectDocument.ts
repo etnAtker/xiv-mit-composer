@@ -18,6 +18,28 @@ export class ProjectDocumentError extends Error {
   }
 }
 
+export function createProjectDocumentContentSnapshot(document: XmcProjectDocument) {
+  return {
+    version: document.version,
+    app: document.app,
+    name: document.name,
+    createdAt: document.createdAt,
+    source: document.source,
+    state: document.state,
+    ui: document.ui,
+  };
+}
+
+export function areProjectDocumentsContentEqual(
+  left: XmcProjectDocument,
+  right: XmcProjectDocument,
+): boolean {
+  return (
+    JSON.stringify(createProjectDocumentContentSnapshot(left)) ===
+    JSON.stringify(createProjectDocumentContentSnapshot(right))
+  );
+}
+
 export function createProjectDocumentFromState(
   state: Pick<
     AppState,

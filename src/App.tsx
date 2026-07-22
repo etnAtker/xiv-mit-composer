@@ -15,6 +15,7 @@ import { HelpModal } from './components/HelpModal';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { PartyMemberSelectModal } from './components/PartyMemberSelectModal';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
+import { WebDavSyncModal } from './components/WebDavSyncModal';
 import { SkillSidebar } from './components/SkillSidebar';
 import { Timeline } from './components/Timeline/Timeline';
 import { TimelineToolbar } from './components/Timeline/TimelineToolbar';
@@ -22,6 +23,7 @@ import { TopBannerStack } from './components/TopBanner';
 import { TrashDropZone } from './components/TrashDropZone';
 import { useTopBanner } from './hooks/useTopBanner';
 import { useMitigationDragController } from './hooks/useMitigationDragController';
+import { useWebDavSync } from './hooks/useWebDavSync';
 import { MS_PER_SEC, TIME_DECIMAL_PLACES } from './constants/time';
 import { DEFAULT_ZOOM } from './constants/timeline';
 import { decodeProjectDocument, encodeProjectDocument } from './domain/project/projectCodec';
@@ -79,6 +81,7 @@ export default function App() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectExportContent, setProjectExportContent] = useState('');
   const [isProjectBusy, setIsProjectBusy] = useState(false);
+  const [isProjectRestored, setIsProjectRestored] = useState(false);
   const hasRestoredActiveSlot = useRef(false);
   const { push } = useTopBanner();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -99,7 +102,11 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (hasRestoredActiveSlot.current || !activeProjectSlotId) return;
+    if (hasRestoredActiveSlot.current) return;
+    if (!activeProjectSlotId) {
+      setIsProjectRestored(true);
+      return;
+    }
     hasRestoredActiveSlot.current = true;
     try {
       const document = switchProjectSlot(activeProjectSlotId);
@@ -109,8 +116,17 @@ export default function App() {
     } catch (error) {
       console.error(error);
       push('当前槽位存在冷却冲突，已保留历史状态', { tone: 'error' });
+    } finally {
+      setIsProjectRestored(true);
     }
   }, [activeProjectSlotId, push, switchProjectSlot]);
+
+  const webDavSync = useWebDavSync({
+    zoom,
+    isProjectRestored,
+    setZoom,
+    push,
+  });
 
   useEffect(() => {
     if (!activeProjectSlotId) return;
@@ -408,6 +424,7 @@ export default function App() {
           onLoadFight={handleLoadFight}
           onExportTimeline={handleExportTimeline}
           onOpenProjectManager={() => setIsProjectModalOpen(true)}
+          onOpenWebDavSync={webDavSync.open}
           onOpenHelp={() => setIsHelpModalOpen(true)}
           onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         />
@@ -485,6 +502,24 @@ export default function App() {
         onRenameSlot={renameProjectSlot}
         onDeleteSlot={handleDeleteProjectSlot}
       />
+
+      {webDavSync.isOpen && (
+        <WebDavSyncModal
+          isOpen
+          isBusy={webDavSync.isBusy}
+          settings={webDavSync.settings}
+          status={webDavSync.status}
+          confirmation={webDavSync.confirmation}
+          onClose={webDavSync.close}
+          onSettingsChange={webDavSync.handleSettingsChange}
+          onTestConnection={webDavSync.handleTestConnection}
+          onUpload={webDavSync.requestUpload}
+          onDownload={webDavSync.requestDownload}
+          onConfirmUpload={webDavSync.confirmUpload}
+          onConfirmDownload={webDavSync.confirmDownload}
+          onCancelConfirmation={webDavSync.cancelConfirmation}
+        />
+      )}
 
       {isPartyModalOpen && (
         <PartyMemberSelectModal

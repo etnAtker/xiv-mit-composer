@@ -24,11 +24,13 @@ import { buildPlayerCastStateTolerant, evaluateMitigationSetStrict } from '../ut
 import { parseFFLogsUrl } from '../utils';
 import type { ProjectSlot, XmcProjectDocument } from '../model/project';
 import {
+  areProjectDocumentsContentEqual,
   createDefaultProjectSlot,
   createProjectDocumentFromState,
   createProjectSlotId,
   normalizeProjectDocument,
 } from '../domain/project/projectDocument';
+import type { WebDavSettings } from '../model/sync';
 
 export interface AppState {
   // 输入状态
@@ -53,6 +55,7 @@ export interface AppState {
   banners: BannerItem[];
   projectSlots: ProjectSlot[];
   activeProjectSlotId: string | null;
+  webDavSettings: WebDavSettings;
 
   // UI 状态
   isLoading: boolean;
@@ -83,6 +86,8 @@ export interface AppState {
   deleteProjectSlot: (id: string) => XmcProjectDocument | null;
   switchProjectSlot: (id: string) => XmcProjectDocument | null;
   importProjectDocument: (document: XmcProjectDocument, name?: string) => ProjectSlot;
+  replaceProjectSlots: (slots: ProjectSlot[], activeSlotId: string) => XmcProjectDocument;
+  setWebDavSettings: (settings: WebDavSettings) => void;
 }
 
 const SKILL_BY_ACTION_ID = new Map(SKILLS.map((skill) => [skill.actionId, skill]));
@@ -328,6 +333,11 @@ export const migratePersistedState = (persistedState: unknown): AppState => {
     ...migratedState,
     projectSlots,
     activeProjectSlotId: state.activeProjectSlotId ?? projectSlots[0]?.id ?? null,
+    webDavSettings: {
+      url: state.webDavSettings?.url ?? '',
+      username: state.webDavSettings?.username ?? '',
+      password: state.webDavSettings?.password ?? '',
+    },
   } as AppState;
 };
 
@@ -398,12 +408,14 @@ export const useStore = create<AppState>()(
         banners: [],
         projectSlots: [initialProjectSlot],
         activeProjectSlotId: initialProjectSlot.id,
+        webDavSettings: { url: '', username: '', password: '' },
         isLoading: false,
         isRendering: false,
         error: null,
 
         setApiKey: (key) => set({ apiKey: key }),
         setFflogsUrl: (url) => set({ fflogsUrl: url }),
+        setWebDavSettings: (settings) => set({ webDavSettings: settings }),
         setPartyMembers: (members) => {
           set({
             partyMembers: members,
@@ -672,6 +684,9 @@ export const useStore = create<AppState>()(
               activeSlot.document,
               activeSlot.name,
             );
+            if (areProjectDocumentsContentEqual(document, activeSlot.document)) {
+              return state;
+            }
             const nextSlot: ProjectSlot = {
               ...activeSlot,
               updatedAt: document.updatedAt,
@@ -746,22 +761,27 @@ export const useStore = create<AppState>()(
           const trimmed = name.trim();
           if (!trimmed) return;
 
-          set((state) => ({
-            projectSlots: state.projectSlots.map((slot) =>
-              slot.id === id
-                ? {
-                    ...slot,
-                    name: trimmed,
-                    updatedAt: new Date().toISOString(),
-                    document: {
-                      ...slot.document,
+          set((state) => {
+            const current = state.projectSlots.find((slot) => slot.id === id);
+            if (!current || current.name === trimmed) return state;
+            const now = new Date().toISOString();
+            return {
+              projectSlots: state.projectSlots.map((slot) =>
+                slot.id === id
+                  ? {
+                      ...slot,
                       name: trimmed,
-                      updatedAt: new Date().toISOString(),
-                    },
-                  }
-                : slot,
-            ),
-          }));
+                      updatedAt: now,
+                      document: {
+                        ...slot.document,
+                        name: trimmed,
+                        updatedAt: now,
+                      },
+                    }
+                  : slot,
+              ),
+            };
+          });
         },
 
         deleteProjectSlot: (id) => {
@@ -819,11 +839,44 @@ export const useStore = create<AppState>()(
 
           return slot;
         },
+
+        replaceProjectSlots: (slots, activeSlotId) => {
+          if (!slots.length) {
+            throw new Error('远程同步存档没有工程槽位');
+          }
+
+          const normalizedSlots = slots.map((slot) => {
+            const normalized = normalizeProjectDocument(slot.document);
+            const result = evaluateMitigationSetStrict(normalized.state.mitEvents);
+            if (!result.ok) {
+              throw new Error(`槽位「${slot.name}」中的减伤事件存在冷却冲突，无法下载`);
+            }
+            return {
+              ...slot,
+              name: slot.name || normalized.name,
+              updatedAt: slot.updatedAt || normalized.updatedAt,
+              document: normalized,
+            };
+          });
+          const activeSlot =
+            normalizedSlots.find((slot) => slot.id === activeSlotId) ?? normalizedSlots[0];
+          if (!activeSlot) {
+            throw new Error('远程同步存档的当前槽位无效');
+          }
+
+          const { document, patch } = buildProjectStatePatch(activeSlot.document);
+          set({
+            ...patch,
+            projectSlots: normalizedSlots,
+            activeProjectSlotId: activeSlot.id,
+          });
+          return document;
+        },
       };
     },
     {
       name: 'xiv-mit-composer-storage',
-      version: 4,
+      version: 5,
       migrate: migratePersistedState,
       partialize: (state) => ({
         apiKey: state.apiKey,
@@ -840,6 +893,7 @@ export const useStore = create<AppState>()(
         mitEvents: state.mitEvents,
         projectSlots: state.projectSlots,
         activeProjectSlotId: state.activeProjectSlotId,
+        webDavSettings: state.webDavSettings,
       }),
     },
   ),

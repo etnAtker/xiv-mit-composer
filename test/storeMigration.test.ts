@@ -39,4 +39,17 @@ test('旧持久化状态迁移会为冷却冲突数据保留容错 cooldownEvent
   assert.equal(migrated.mitEvents[0]?.ownerId, 1);
   assert.equal(migrated.mitEvents[0]?.ownerJob, selectedJob);
   assert.ok(migrated.cooldownEvents.length > 0);
+  assert.deepEqual(migrated.webDavSettings, { url: '', username: '', password: '' });
+});
+
+test('持久化状态迁移会保留 WebDAV 设置', () => {
+  const webDavSettings = {
+    url: 'https://example.com/dav/',
+    username: 'user',
+    password: 'secret',
+  };
+
+  const migrated = migratePersistedState({ webDavSettings });
+
+  assert.deepEqual(migrated.webDavSettings, webDavSettings);
 });
